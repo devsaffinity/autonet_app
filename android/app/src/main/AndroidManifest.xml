@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required in the main manifest: debug/ and profile/ declare INTERNET but release does
+         not, so a release build has no network access at all — every cached_network_image
+         (and every future API call) fails silently. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="autonect"
         android:name="${applicationName}"
