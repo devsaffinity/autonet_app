@@ -2,17 +2,52 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
+import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
 class RequestStatusTrackingPage extends StatelessWidget {
   const RequestStatusTrackingPage({super.key});
+
+  // ── The buyer's open requests. Typed rows rather than five identical
+  // defaults, so the tapped item can actually travel to ComparisonPage.
+  // Only one vehicle render exists in assets/images/ (car_1), so every row
+  // carries it. Per-vehicle imagery is a design/API deliverable — do not invent
+  // Assets keys with no file behind them.
+  static const List<Map<String, dynamic>> _requests = [
+    {
+      'brand': 'TOYOTA',
+      'model': '21 i8 Gran Coupe',
+      'offers': 4,
+      'days': '1 Day',
+      'date': '12/08/2025',
+      'partType': 'Engine',
+      'image': Assets.imagesCar1,
+    },
+    {
+      'brand': 'MERCEDES BENZ',
+      'model': 'C 300 AMG Line',
+      'offers': 2,
+      'days': '3 Days',
+      'date': '09/08/2025',
+      'partType': 'Transmission',
+      'image': Assets.imagesCar1,
+    },
+    {
+      'brand': 'FORD',
+      'model': 'Mustang GT',
+      'offers': 6,
+      'days': '5 Days',
+      'date': '04/08/2025',
+      'partType': 'Brakes',
+      'image': Assets.imagesCar1,
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +55,23 @@ class RequestStatusTrackingPage extends StatelessWidget {
       appBar: GeneralAppBar(
         hasBackButton: false,
         title: "Request Status Tracking",
+        action: [
+          // AddPartRequestPage had zero inbound navigation in lib/ before this.
+          MyRippleEffect(
+            radius: 100,
+            onTap: () => Get.to(() => const AddPartRequestPage()),
+            splashColor: kSecondaryColor.withValues(alpha: 0.2),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: CommonImageView(
+                width: 22,
+                svgPath: Assets.imagesMsAdd,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          SizedBox(width: 20),
+        ],
       ),
       body: SingleChildScrollView(
         padding: AppSizes.DEFAULT,
@@ -29,11 +81,24 @@ class RequestStatusTrackingPage extends StatelessWidget {
             // Search bar
             MySearchBar(),
             //Cards List
-            ...List.generate(
-              5,
-              (index) => _Card(
+            ..._requests.map(
+              (r) => _Card(
+                brand: r['brand'],
+                model: r['model'],
+                offersCount: r['offers'],
+                days: r['days'],
+                date: r['date'],
+                partType: r['partType'],
+                image: r['image'],
                 onViewOffers: () {
-                  Get.to(() => ComparisonPage());
+                  Get.to(
+                    () => ComparisonPage(
+                      title: r['model'],
+                      partType: r['partType'],
+                      offersCount: r['offers'],
+                      image: r['image'],
+                    ),
+                  );
                 },
               ),
             ),

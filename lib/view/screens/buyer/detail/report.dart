@@ -11,7 +11,16 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
 
 class ComparisonReportPage extends StatelessWidget {
-  const ComparisonReportPage({super.key});
+  /// The request being reported on. Defaults preserve the existing look for
+  /// callers that do not know it yet.
+  final String title;
+  final String partType;
+
+  const ComparisonReportPage({
+    super.key,
+    this.title = 'Ford Mustang GT',
+    this.partType = 'Engine',
+  });
 
   static const List<Map<String, dynamic>> _offers = [
     {
@@ -79,6 +88,20 @@ class ComparisonReportPage extends StatelessWidget {
                 delivery: o['delivery'],
                 isFastest: o['isFastest'],
                 avatarUrl: o['avatar'],
+                // The tapped offer travels through the constructor instead of
+                // OfferDetailPage rendering its own unrelated literals.
+                onOpen: () => Get.to(
+                  () => OfferDetailPage(
+                    sellerName: o['name'],
+                    avatarUrl: o['avatar'],
+                    rating: o['rating'],
+                    price: o['price'],
+                    totalPrice: o['price'],
+                    delivery: o['delivery'],
+                    partName: partType,
+                    vehicle: title,
+                  ),
+                ),
               ),
             ),
 
@@ -109,6 +132,7 @@ class ComparisonReportPage extends StatelessWidget {
 class _OfferDetailCard extends StatelessWidget {
   final String name, subtitle, rating, price, delivery, avatarUrl;
   final bool isLowest, isFastest;
+  final VoidCallback? onOpen;
 
   const _OfferDetailCard({
     required this.name,
@@ -119,6 +143,7 @@ class _OfferDetailCard extends StatelessWidget {
     required this.avatarUrl,
     this.isLowest = false,
     this.isFastest = false,
+    this.onOpen,
   });
 
   @override
@@ -164,7 +189,7 @@ class _OfferDetailCard extends StatelessWidget {
                       color: kBlackColor,
                     ),
                     MyText(
-                      text: subtitle + " sdsdads",
+                      text: subtitle,
                       size: 13,
                       weight: FontWeight.w400,
                       color: kGreyTextColor,
@@ -257,9 +282,7 @@ class _OfferDetailCard extends StatelessWidget {
                   fontSize: 13,
                   icon: Assets.imagesCheck,
                   haveSvg: true,
-                  onTap: () {
-                    Get.to(() => OfferDetailPage());
-                  },
+                  onTap: onOpen,
                 ),
               ),
               const SizedBox(width: 10),
@@ -274,9 +297,7 @@ class _OfferDetailCard extends StatelessWidget {
                   fontColor: kSecondaryColor,
                   icon: Assets.imagesRChat,
                   haveSvg: true,
-                  onTap: () {
-                    Get.to(() => OfferDetailPage());
-                  },
+                  onTap: onOpen,
                 ),
               ),
             ],

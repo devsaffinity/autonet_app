@@ -1,7 +1,8 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_sizes.dart';
-import 'package:autonect/view/screens/launch/role.dart';
+import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/widget/animation_widget.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -17,6 +18,7 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int currentPage = 0;
+  RoleController roleController = Get.find<RoleController>();
 
   final onboardingBK = [Assets.imagesOn1, Assets.imagesOn2, Assets.imagesOn3];
 
@@ -133,10 +135,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             currentPage++;
                             setState(() {});
                           } else {
-                            Get.to(
-                              () => RolePage(),
-                              transition: Transition.rightToLeft,
-                            );
+                            // offAll, not to: slide 3 must not sit under the
+                            // role page.
+                            roleController.markOnboardingSeen();
+                            Get.offAllNamed(AppLinks.role);
                           }
                           setState(() {});
                         },

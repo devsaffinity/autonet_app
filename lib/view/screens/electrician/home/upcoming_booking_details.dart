@@ -1,18 +1,48 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_styling.dart';
-import 'package:autonect/view/screens/electrician/home/booking_requests.dart';
-import 'package:autonect/view/widget/general_appbar.dart';
-import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/my_BSheet.dart';
+import 'package:autonect/view/widget/my_button.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
+/// Every caller — the home dashboard, the bookings list and the request feed —
+/// pushes this page with the row the user actually tapped. The defaults are the
+/// original hard-coded copy, so an un-parameterised push still renders.
 class ElectricianBookingDetailsPage extends StatelessWidget {
-  const ElectricianBookingDetailsPage({super.key});
+  final String clientName;
+  final String clientImage;
+  final String location;
+  final String service;
+  final String date;
+  final String time;
+  final String duration;
+  final String fee;
+  final String vehicle;
+  final String vehicleYear;
+  final String bookingCount;
+  final bool isPremiumClient;
+
+  const ElectricianBookingDetailsPage({
+    super.key,
+    this.clientName = 'Marcus Thorne',
+    this.clientImage = Assets.imagesProfileImage,
+    this.location = 'Downtown District, Sector 7',
+    this.service = 'ECU Coding',
+    this.date = 'Oct 24, 2023',
+    this.time = '10:00 AM',
+    this.duration = '1h 45m',
+    this.fee = '\$285.00',
+    this.vehicle = 'Porsche Taycan Turbo S',
+    this.vehicleYear = 'Model Year: 2023',
+    this.bookingCount = '12 BOOKINGS',
+    this.isPremiumClient = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +99,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
       children: [
         // Avatar
         CommonImageView(
-          imagePath: Assets.imagesProfileImage,
+          imagePath: clientImage,
           width: 80,
           height: 80,
           radius: 18,
@@ -83,7 +113,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               MyText(
-                text: 'Marcus Thorne',
+                text: clientName,
                 size: 17,
                 weight: FontWeight.w800,
                 color: kBlackColor,
@@ -99,7 +129,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                   const SizedBox(width: 3),
                   Expanded(
                     child: MyText(
-                      text: 'Downtown District, Sector 7',
+                      text: location,
                       size: 12,
                       weight: FontWeight.w400,
                       color: kGreyTextColor,
@@ -110,15 +140,17 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
+                  if (isPremiumClient) ...[
+                    _badge(
+                      label: 'PREMIUM CLIENT',
+                      bgColor: kLightOrangeColor,
+                      textColor: kSecondaryColor,
+                      icon: Icons.workspace_premium_rounded,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   _badge(
-                    label: 'PREMIUM CLIENT',
-                    bgColor: kLightOrangeColor,
-                    textColor: kSecondaryColor,
-                    icon: Icons.workspace_premium_rounded,
-                  ),
-                  const SizedBox(width: 8),
-                  _badge(
-                    label: '12 BOOKINGS',
+                    label: bookingCount,
                     bgColor: kTertiaryColor,
                     textColor: kGreyTextColor,
                   ),
@@ -174,7 +206,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
           paddingBottom: 6,
         ),
         MyText(
-          text: 'ECU Coding',
+          text: service,
           size: 30,
           weight: FontWeight.w800,
           color: kBlackColor,
@@ -192,7 +224,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             label: 'SCHEDULE',
             icon: Icons.calendar_today_outlined,
             iconColor: kSecondaryColor,
-            value: 'Oct 24, 2023',
+            value: date,
           ),
         ),
         const SizedBox(width: 12),
@@ -201,7 +233,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             label: 'TIME SLOT',
             icon: Icons.access_time_rounded,
             iconColor: kSecondaryColor,
-            value: '10:00 AM',
+            value: time,
           ),
         ),
       ],
@@ -269,7 +301,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                 paddingBottom: 4,
               ),
               MyText(
-                text: '1h 45m',
+                text: duration,
                 size: 18,
                 weight: FontWeight.w800,
                 color: kBlackColor,
@@ -289,7 +321,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                 paddingBottom: 4,
               ),
               MyText(
-                text: '\$285.00',
+                text: fee,
                 size: 22,
                 weight: FontWeight.w800,
                 color: kSecondaryColor,
@@ -341,13 +373,13 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   MyText(
-                    text: 'Porsche Taycan Turbo S',
+                    text: vehicle,
                     size: 15,
                     weight: FontWeight.w700,
                     color: kBlackColor,
                   ),
                   MyText(
-                    text: 'Model Year: 2023',
+                    text: vehicleYear,
                     size: 12,
                     weight: FontWeight.w400,
                     color: kGreyTextColor,
@@ -541,6 +573,52 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     );
   }
 
+  // ── Mark as Completed ──────────────────────────────────────────────────────
+  void _confirmCompletion() {
+    Get.bottomSheet(
+      MyBSheet(
+        btnText: 'Back to Bookings',
+        onTap: () {
+          Get.back(); // close the sheet
+          Get.back(); // pop this detail page back to the calling list
+        },
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: CommonImageView(
+                imagePath: Assets.imagesDoneCheckIcon,
+                height: 64,
+                width: 64,
+                fit: BoxFit.contain,
+              ),
+            ),
+            MyText(
+              text: 'Job Completed',
+              size: 20,
+              weight: FontWeight.w800,
+              color: kBlackColor,
+              textAlign: TextAlign.center,
+              paddingTop: 16,
+              paddingBottom: 8,
+            ),
+            MyText(
+              text:
+                  '$service for $clientName is marked complete. $fee will settle to your balance once the client confirms.',
+              size: 14,
+              weight: FontWeight.w400,
+              color: kGreyTextColor,
+              textAlign: TextAlign.center,
+              paddingBottom: 8,
+            ),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
   // ── Bottom Action Bar ──────────────────────────────────────────────────────
   Widget _buildBottomBar(BuildContext context) {
     return Container(
@@ -581,7 +659,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
           // Chat button
           Expanded(
             child: MyRippleEffect(
-              onTap: () {},
+              onTap: () => Get.to(() => const ChatRoomPage()),
               radius: 12,
               child: Container(
                 height: 44,
@@ -617,9 +695,12 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             flex: 2,
             child: MyButton(
               buttonText: 'Mark as\nCompleted',
-              onTap: () {
-                // Get.to(ElectricianBookingRequestPage());
-              },
+              // The dead comment here pushed ElectricianBookingRequestPage,
+              // which is the *incoming* request feed — finishing a job must
+              // not dump the provider into a list of jobs they have not
+              // accepted. Confirm the completion, then pop back to whichever
+              // list opened this booking.
+              onTap: _confirmCompletion,
               backgroundColor: kSecondaryColor,
               fontColor: kWhiteColor,
               fontSize: 13,

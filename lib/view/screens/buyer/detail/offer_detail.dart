@@ -9,7 +9,36 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class OfferDetailPage extends StatefulWidget {
-  const OfferDetailPage({super.key});
+  // ── Seller
+  final String sellerName, avatarUrl, rating, reviewCount, location;
+  // ── What the offer is for. Not rendered here, but carried through to
+  //    OrderSummaryPage so the summary stops inventing its own literals.
+  final String vehicle, partName, delivery;
+  // ── Part detail
+  final String partBrand, partNumber, warranty, condition;
+  // ── Money
+  final String price, deliveryFee, totalPrice;
+
+  /// Every field defaults to the literal this screen used to hard-code, so an
+  /// argument-less `OfferDetailPage()` still renders exactly as before.
+  const OfferDetailPage({
+    super.key,
+    this.sellerName = 'AutoParts Hub',
+    this.avatarUrl = 'https://randomuser.me/api/portraits/men/32.jpg',
+    this.rating = '4.8',
+    this.reviewCount = '234',
+    this.location = 'Bole Road, Addis Ababa • USA',
+    this.vehicle = '2020 Toyota Corolla',
+    this.partName = 'Front Brake Pads',
+    this.delivery = 'Today (2–4 hours)',
+    this.partBrand = 'Toyota OEM',
+    this.partNumber = '04465-02280',
+    this.warranty = '12 months',
+    this.condition = 'Brand New',
+    this.price = '3,200 ETB',
+    this.deliveryFee = '300 ETB',
+    this.totalPrice = '3,500 ETB',
+  });
 
   @override
   State<OfferDetailPage> createState() => _OfferDetailPageState();
@@ -48,7 +77,7 @@ class _OfferDetailPageState extends State<OfferDetailPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CommonImageView(
-                        url: 'https://randomuser.me/api/portraits/men/32.jpg',
+                        url: widget.avatarUrl,
                         height: 48,
                         width: 48,
                         radius: 24,
@@ -60,7 +89,7 @@ class _OfferDetailPageState extends State<OfferDetailPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             MyText(
-                              text: 'AutoParts Hub',
+                              text: widget.sellerName,
                               size: 16,
                               weight: FontWeight.w700,
                               color: kBlackColor,
@@ -75,13 +104,13 @@ class _OfferDetailPageState extends State<OfferDetailPage>
                                 ),
                                 const SizedBox(width: 4),
                                 MyText(
-                                  text: '4.8',
+                                  text: widget.rating,
                                   size: 14,
                                   weight: FontWeight.w600,
                                   color: kBlackColor,
                                 ),
                                 MyText(
-                                  text: ' (234 reviews)',
+                                  text: ' (${widget.reviewCount} reviews)',
                                   size: 12,
                                   weight: FontWeight.w400,
                                   color: kGreyTextColor,
@@ -97,11 +126,15 @@ class _OfferDetailPageState extends State<OfferDetailPage>
                                   color: kGreyTextColor,
                                 ),
                                 const SizedBox(width: 4),
-                                MyText(
-                                  text: 'Bole Road, Addis Ababa • USA',
-                                  size: 16,
-                                  weight: FontWeight.w400,
-                                  color: kGreyTextColor,
+                                Expanded(
+                                  child: MyText(
+                                    text: widget.location,
+                                    size: 16,
+                                    weight: FontWeight.w400,
+                                    color: kGreyTextColor,
+                                    maxLines: 1,
+                                    textOverflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
@@ -156,7 +189,18 @@ class _OfferDetailPageState extends State<OfferDetailPage>
                     Expanded(
                       child: TabBarView(
                         controller: _tabController,
-                        children: [_DetailsTab(), _ReviewsTab()],
+                        children: [
+                          _DetailsTab(
+                            partBrand: widget.partBrand,
+                            partNumber: widget.partNumber,
+                            warranty: widget.warranty,
+                            condition: widget.condition,
+                            price: widget.price,
+                            deliveryFee: widget.deliveryFee,
+                            totalPrice: widget.totalPrice,
+                          ),
+                          _ReviewsTab(),
+                        ],
                       ),
                     ),
                   ],
@@ -197,7 +241,19 @@ class _OfferDetailPageState extends State<OfferDetailPage>
                       haveSvg: true,
                       icon: Assets.imagesCheckOrange,
                       onTap: () {
-                        Get.to(() => OrderSummaryPage());
+                        Get.to(
+                          () => OrderSummaryPage(
+                            vehicle: widget.vehicle,
+                            partName: widget.partName,
+                            partBrand: widget.partBrand,
+                            partNumber: widget.partNumber,
+                            sellerName: widget.sellerName,
+                            estimatedTime: widget.delivery,
+                            partPrice: widget.price,
+                            deliveryFee: widget.deliveryFee,
+                            totalPrice: widget.totalPrice,
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -216,6 +272,19 @@ class _OfferDetailPageState extends State<OfferDetailPage>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DetailsTab extends StatelessWidget {
+  final String partBrand, partNumber, warranty, condition;
+  final String price, deliveryFee, totalPrice;
+
+  const _DetailsTab({
+    required this.partBrand,
+    required this.partNumber,
+    required this.warranty,
+    required this.condition,
+    required this.price,
+    required this.deliveryFee,
+    required this.totalPrice,
+  });
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -247,12 +316,12 @@ class _DetailsTab extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _DetailItem(label: 'Brand', value: 'Toyota OEM'),
+                      child: _DetailItem(label: 'Brand', value: partBrand),
                     ),
                     Expanded(
                       child: _DetailItem(
                         label: 'Part Number',
-                        value: '04465-02280',
+                        value: partNumber,
                       ),
                     ),
                   ],
@@ -264,7 +333,7 @@ class _DetailsTab extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _DetailItem(label: 'Warranty', value: '12 months'),
+                      child: _DetailItem(label: 'Warranty', value: warranty),
                     ),
                     Expanded(
                       child: Column(
@@ -287,7 +356,7 @@ class _DetailsTab extends StatelessWidget {
                               radius: 100,
                             ),
                             child: MyText(
-                              text: 'Brand New',
+                              text: condition,
                               size: 12,
                               color: kSecondaryColor,
                               weight: FontWeight.w600,
@@ -317,9 +386,9 @@ class _DetailsTab extends StatelessWidget {
                   paddingBottom: 16,
                 ),
 
-                _PriceRow(label: 'Part Price', value: '3,200 ETB'),
+                _PriceRow(label: 'Part Price', value: price),
                 const SizedBox(height: 12),
-                _PriceRow(label: 'Delivery Fee', value: '300 ETB'),
+                _PriceRow(label: 'Delivery Fee', value: deliveryFee),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 14),
@@ -336,7 +405,7 @@ class _DetailsTab extends StatelessWidget {
                       color: kBlackColor,
                     ),
                     MyText(
-                      text: '3,500 ETB',
+                      text: totalPrice,
                       size: 14,
                       weight: FontWeight.w700,
                       color: kSecondaryColor,

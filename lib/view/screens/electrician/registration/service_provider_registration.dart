@@ -1,11 +1,11 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
-import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_drop_down_btn.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
@@ -24,11 +24,6 @@ class _ServiceProviderRegistrationPageState
   final PageController _pageController = PageController();
   int _currentStep = 0;
 
-  // Step 1
-
-  String? _urgency;
-  String? _condition;
-
   void _next() {
     if (_currentStep < 4) {
       setState(() => _currentStep++);
@@ -37,9 +32,17 @@ class _ServiceProviderRegistrationPageState
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-
-      if (_currentStep == 4) {}
+    } else {
+      _finish();
     }
+  }
+
+  /// End of the electrician KYC wizard. Until this runs, landingRoute (and the
+  /// RoleGuard on every shell route) holds the provider on
+  /// /electrician/onboarding, so the last step must not be a dead end.
+  void _finish() {
+    RoleController.to.completeProviderOnboarding();
+    Get.offAllNamed(AppLinks.electricianShell);
   }
 
   void _back() {
@@ -501,13 +504,6 @@ class _ServiceProviderRegistrationPageState
     );
   }
 
-  Widget _sectionTitle({required String title, required String subtitle}) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        
-      ],
-    );
-  }
-
   // ── Experience slider ───
   Widget _buildExperienceSlider() {
     return Column(
@@ -723,13 +719,13 @@ class _ServiceProviderRegistrationPageState
                   paddingTop: 24,
                 ),
 
-                AccessTier(),
+                AccessTier(onPlanSelected: (_) => _finish()),
 
                 const SizedBox(height: 30),
                 MyButton(
                   fontWeight: FontWeight.w700,
                   buttonText: 'Skip for Now',
-                  onTap: _next,
+                  onTap: _finish,
                 ),
 
                 const SizedBox(height: 50),
@@ -745,7 +741,6 @@ class _ServiceProviderRegistrationPageState
 class _TitleRow extends StatelessWidget {
   final String icon, title, subTitle;
   const _TitleRow({
-    super.key,
     required this.icon,
     required this.title,
     required this.subTitle,
@@ -1194,7 +1189,11 @@ class __AvailabilityState extends State<_Availability> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AccessTier extends StatelessWidget {
-  const AccessTier({super.key});
+  /// Fired when a plan is chosen. Optional so `AccessTier()` still compiles
+  /// wherever the widget is only being displayed (e.g. a pricing sheet).
+  final ValueChanged<String>? onPlanSelected;
+
+  const AccessTier({super.key, this.onPlanSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -1216,7 +1215,7 @@ class AccessTier extends StatelessWidget {
             ],
             buttonText: 'Choose Basic',
             isHighlighted: false,
-            onTap: () {},
+            onTap: () => onPlanSelected?.call('FREE'),
           ),
           const SizedBox(height: 16),
 
@@ -1236,7 +1235,7 @@ class AccessTier extends StatelessWidget {
             buttonText: 'Start Pro Trial',
             isHighlighted: true,
             showBestValue: true,
-            onTap: () {},
+            onTap: () => onPlanSelected?.call('PRO'),
           ),
           const SizedBox(height: 16),
 
@@ -1255,7 +1254,7 @@ class AccessTier extends StatelessWidget {
             ],
             buttonText: 'Choose Credits',
             isHighlighted: false,
-            onTap: () {},
+            onTap: () => onPlanSelected?.call('PAY_PER_LEAD'),
           ),
 
           const SizedBox(height: 24),

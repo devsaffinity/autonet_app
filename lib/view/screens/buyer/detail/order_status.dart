@@ -29,7 +29,15 @@ class _OrderStep {
 enum _StepState { completed, inProgress, pending }
 
 class OrderStatusPage extends StatelessWidget {
-  const OrderStatusPage({super.key});
+  /// Who fulfilled the order and what it was for. Carried so ReviewPage knows
+  /// what the buyer is actually rating instead of asking about nothing.
+  final String sellerName, partName;
+
+  const OrderStatusPage({
+    super.key,
+    this.sellerName = 'AutoParts Hub',
+    this.partName = 'Front Brake Pads',
+  });
 
   // ── Change step states here to reflect real order status
   static final List<_OrderStep> _steps = [
@@ -95,7 +103,7 @@ class OrderStatusPage extends StatelessWidget {
       bottomNavigationBar: NavButton(
         buttonText: "Give Review",
         onTap: () {
-          Get.to(() => ReviewPage());
+          Get.to(() => ReviewPage(sellerName: sellerName, partName: partName));
         },
       ),
     );

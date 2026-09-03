@@ -1,3 +1,4 @@
+import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
@@ -8,7 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class ReviewPage extends StatefulWidget {
-  const ReviewPage({super.key});
+  /// What is being reviewed. Defaults keep an argument-less `ReviewPage()`
+  /// working for any caller that does not know the order yet.
+  final String sellerName, partName;
+
+  const ReviewPage({
+    super.key,
+    this.sellerName = 'AutoParts Hub',
+    this.partName = 'your order',
+  });
 
   @override
   State<ReviewPage> createState() => _ReviewPageState();
@@ -35,6 +44,16 @@ class _ReviewPageState extends State<ReviewPage> {
                 size: 16,
                 weight: FontWeight.w700,
                 color: kBlackColor,
+              ),
+            ),
+            Center(
+              child: MyText(
+                paddingTop: 4,
+                text: '${widget.partName} from ${widget.sellerName}',
+                size: 13,
+                weight: FontWeight.w400,
+                color: kGreyTextColor,
+                textAlign: TextAlign.center,
               ),
             ),
 
@@ -87,7 +106,12 @@ class _ReviewPageState extends State<ReviewPage> {
             MyButton(
               buttonText: 'Confirm Review',
               onTap: () {
-                Get.close(6);
+                // `Get.close(6)` only landed on the shell when this page was
+                // reached through the full six-deep offer funnel; from any
+                // shorter path it over-popped. The end of the order journey is
+                // a stack-clearing navigation, so per the routing rule it is
+                // named.
+                Get.offAllNamed(AppLinks.buyerShell);
               },
             ),
           ],

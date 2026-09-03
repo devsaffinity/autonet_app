@@ -1,15 +1,28 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/view/screens/buyer/services/my_booking.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
 class BookingConfirmedPage extends StatelessWidget {
-  const BookingConfirmedPage({super.key});
+  /// The booking that was just made. Defaults are the literals this screen used
+  /// to hard-code.
+  final String expertName, avatarUrl, service, description, date, time;
+
+  const BookingConfirmedPage({
+    super.key,
+    this.expertName = 'Alex Rivera',
+    this.avatarUrl = 'https://randomuser.me/api/portraits/women/44.jpg',
+    this.service = 'ECU Tuning',
+    this.description =
+        'Stage 2 Performance Mapping & Precision Optimization for enhanced throttle response and power delivery.',
+    this.date = 'Sep, 11',
+    this.time = '11:30 AM',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,15 +91,14 @@ class BookingConfirmedPage extends StatelessWidget {
                           paddingBottom: 4,
                         ),
                         MyText(
-                          text: 'ECU Tuning',
+                          text: service,
                           size: 24,
                           weight: FontWeight.w700,
                           color: kSecondaryColor,
                           paddingBottom: 6,
                         ),
                         MyText(
-                          text:
-                              'Stage 2 Performance Mapping & Precision Optimization for enhanced throttle response and power delivery.',
+                          text: description,
                           size: 12,
                           color: kGreyTextColor,
                           weight: FontWeight.w400,
@@ -106,8 +118,7 @@ class BookingConfirmedPage extends StatelessWidget {
                           child: Row(
                             children: [
                               CommonImageView(
-                                url:
-                                    'https://randomuser.me/api/portraits/women/44.jpg',
+                                url: avatarUrl,
                                 height: 36,
                                 width: 36,
                                 radius: 18,
@@ -124,7 +135,7 @@ class BookingConfirmedPage extends StatelessWidget {
                                     color: kGreyTextColor,
                                   ),
                                   MyText(
-                                    text: 'Alex Rivera',
+                                    text: expertName,
                                     size: 12,
                                     weight: FontWeight.w700,
                                     color: kSecondaryColor,
@@ -155,13 +166,13 @@ class BookingConfirmedPage extends StatelessWidget {
                       paddingBottom: 4,
                     ),
                     MyText(
-                      text: 'Sep, 11',
+                      text: date,
                       size: 24,
                       weight: FontWeight.w700,
                       color: kSecondaryColor,
                     ),
                     MyText(
-                      text: '11:30 AM',
+                      text: time,
                       size: 20,
                       weight: FontWeight.w500,
                       color: kBlackColor,
@@ -169,14 +180,14 @@ class BookingConfirmedPage extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
-                    // ── Chat with Alex (filled)
+                    // ── Chat with the expert (filled)
                     MyButton(
-                      buttonText: 'Chat with Alex',
+                      buttonText: 'Chat with ${expertName.split(' ').first}',
                       height: 52,
                       fontSize: 15,
                       haveSvg: true,
                       icon: Assets.imagesBookingChat,
-                      onTap: () {},
+                      onTap: () => Get.to(() => const ChatRoomPage()),
                     ),
 
                     const SizedBox(height: 12),
@@ -192,7 +203,17 @@ class BookingConfirmedPage extends StatelessWidget {
                       outlineColor: kBlackColor.withOpacity(0.2),
                       fontColor: kBlackColor,
                       onTap: () {
-                        Get.to(() => MyBookingsPage());
+                        // `off` not `to`: the confirmation is terminal, the
+                        // buyer should land on the bookings list and back out
+                        // to whatever opened the funnel.
+                        Get.off(
+                          () => MyBookingsPage(
+                            expertName: expertName,
+                            avatarUrl: avatarUrl,
+                            service: service,
+                            description: description,
+                          ),
+                        );
                       },
                     ),
 
@@ -208,7 +229,13 @@ class BookingConfirmedPage extends StatelessWidget {
                       backgroundColor: kPrimaryColor,
                       outlineColor: kBlackColor.withOpacity(0.2),
                       fontColor: kBlackColor,
-                      onTap: () {},
+                      // TODO(api): needs the receipt endpoint. Acknowledge the
+                      // tap rather than swallowing it.
+                      onTap: () => Get.snackbar(
+                        "Receipt",
+                        "Your receipt will be emailed to you",
+                        backgroundColor: kWhiteColor,
+                      ),
                     ),
 
                     const SizedBox(height: 30),

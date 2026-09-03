@@ -1,9 +1,16 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/view/screens/buyer/detail/comparison.dart';
+import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
+import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
+import 'package:autonect/view/screens/buyer/services/expert_profile.dart';
+import 'package:autonect/view/screens/buyer/services/my_booking.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/role_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class BuyerHomePage extends StatelessWidget {
   const BuyerHomePage({super.key});
@@ -22,15 +29,27 @@ class BuyerHomePage extends StatelessWidget {
               const SizedBox(height: 16),
               _buildSearchBar(),
               const SizedBox(height: 20),
-              _buildSectionHeader(title: 'Active Requests', onViewAll: () {}),
+              _buildSectionHeader(
+                title: 'Active Requests',
+                // Requests is tab 1 of the shell. maybeOf() is nullable on
+                // purpose: this page is also pushable standalone, where there
+                // is no shell ancestor. Never use a bang operator here.
+                onViewAll: () => RoleShell.maybeOf(context)?.goTo(1),
+              ),
               const SizedBox(height: 12),
               _buildActiveRequests(),
               const SizedBox(height: 20),
-              _buildSectionHeader(title: 'Offers', onViewAll: () {}),
+              _buildSectionHeader(
+                title: 'Offers',
+                onViewAll: () => RoleShell.maybeOf(context)?.goTo(1),
+              ),
               const SizedBox(height: 12),
               _buildOffers(),
               const SizedBox(height: 20),
-              _buildSectionHeader(title: 'Service Providers', onViewAll: () {}),
+              _buildSectionHeader(
+                title: 'Service Providers',
+                onViewAll: () => RoleShell.maybeOf(context)?.goTo(2),
+              ),
               const SizedBox(height: 12),
               _buildServiceProviders(),
               const SizedBox(height: 24),
@@ -70,20 +89,41 @@ class BuyerHomePage extends StatelessWidget {
             ),
           ],
         ),
-        Stack(
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications_outlined, size: 28, color: kBlackColor),
-            Positioned(
-              right: 2,
-              top: 2,
-              child: Container(
-                height: 8,
-                width: 8,
-                decoration: const BoxDecoration(
-                  color: kSecondaryColor,
-                  shape: BoxShape.circle,
-                ),
+            // ── Bookings shortcut (the service journey's tail is otherwise
+            // reachable only from the bottom of the booking funnel).
+            GestureDetector(
+              onTap: () => Get.to(() => const MyBookingsPage()),
+              behavior: HitTestBehavior.opaque,
+              child: Icon(
+                Icons.calendar_month_outlined,
+                size: 26,
+                color: kBlackColor,
               ),
+            ),
+            const SizedBox(width: 14),
+            Stack(
+              children: [
+                Icon(
+                  Icons.notifications_outlined,
+                  size: 28,
+                  color: kBlackColor,
+                ),
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    height: 8,
+                    width: 8,
+                    decoration: const BoxDecoration(
+                      color: kSecondaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -94,13 +134,33 @@ class BuyerHomePage extends StatelessWidget {
   // ─── Search Bar ────────────────────────────────────────────────────────────
 
   Widget _buildSearchBar() {
-    return MyTextField(
-      marginBottom: 0,
-      hintText: 'Search Here',
-      prefix: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12),
-        child: Icon(Icons.search, color: kGreyTextColor, size: 20),
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: MyTextField(
+            marginBottom: 0,
+            hintText: 'Search Here',
+            prefix: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(Icons.search, color: kGreyTextColor, size: 20),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // AddPartRequestPage — the buyer's single most important action — had
+        // zero inbound navigation anywhere in lib/ before this button and the
+        // '+' on RequestStatusTrackingPage's app bar.
+        SizedBox(
+          width: 132,
+          child: MyButton(
+            buttonText: 'Request a Part',
+            height: 46,
+            fontSize: 12,
+            radius: 9,
+            onTap: () => Get.to(() => const AddPartRequestPage()),
+          ),
+        ),
+      ],
     );
   }
 
@@ -174,6 +234,15 @@ class BuyerHomePage extends StatelessWidget {
             infoLabel: r['label']!,
             infoValue: r['value']!,
             conditionLabel: r['condition']!,
+            // Tapping a request opens the offers it has collected. The tapped
+            // item travels through the constructor — this is the seam the API
+            // layer plugs into.
+            onTap: () => Get.to(
+              () => ComparisonPage(
+                title: r['name']!,
+                partType: r['condition']!,
+              ),
+            ),
           );
         },
       ),
@@ -214,6 +283,14 @@ class BuyerHomePage extends StatelessWidget {
               type: o['type']!,
               price: o['price']!,
               imageUrl: o['image']!,
+              onTap: () => Get.to(
+                () => OfferDetailPage(
+                  price: o['price']!,
+                  totalPrice: o['price']!,
+                  partName: o['type']!,
+                  vehicle: '${o['brand']} ${o['model']}',
+                ),
+              ),
             ),
           )
           .toList(),
@@ -252,6 +329,13 @@ class BuyerHomePage extends StatelessWidget {
                   brands: p['brands']!,
                   rating: p['rating']!,
                   imageUrl: p['image']!,
+                  onBookNow: () => Get.to(
+                    () => ExpertProfilePage(
+                      name: p['name']!,
+                      avatarUrl: p['image']!,
+                      rating: p['rating']!.split('/').first,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -271,6 +355,7 @@ class _ActiveRequestCard extends StatelessWidget {
       infoLabel,
       infoValue,
       conditionLabel;
+  final VoidCallback? onTap;
 
   const _ActiveRequestCard({
     required this.imageUrl,
@@ -280,91 +365,102 @@ class _ActiveRequestCard extends StatelessWidget {
     required this.infoLabel,
     required this.infoValue,
     required this.conditionLabel,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 165,
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBlackColor.withOpacity(0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: CommonImageView(
-              url: imageUrl,
-              height: 90,
-              width: double.infinity,
-              fit: BoxFit.cover,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 165,
+        decoration: BoxDecoration(
+          color: kPrimaryColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kBlackColor.withOpacity(0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: MyText(
-                        text: name,
-                        size: 12,
-                        weight: FontWeight.w600,
-                        color: kBlackColor,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: CommonImageView(
+                url: imageUrl,
+                height: 90,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: MyText(
+                          text: name,
+                          size: 12,
+                          weight: FontWeight.w600,
+                          color: kBlackColor,
+                        ),
                       ),
-                    ),
-                    MyText(
-                      text: requestId,
-                      size: 10,
-                      color: kSecondaryColor,
-                      weight: FontWeight.w500,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (carDetail.isNotEmpty)
-                      MyText(text: carDetail, size: 10, color: kGreyTextColor),
-                    const Spacer(),
-                    Icon(Icons.settings, size: 12, color: kSecondaryColor),
-                    const SizedBox(width: 2),
-                    MyText(text: conditionLabel, size: 10, color: kBlackColor),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    MyText(
-                      text: '$infoLabel  ',
-                      size: 10,
-                      color: kGreyTextColor,
-                    ),
-                    MyText(
-                      text: infoValue,
-                      size: 10,
-                      color: kBlackColor,
-                      weight: FontWeight.w500,
-                    ),
-                  ],
-                ),
-              ],
+                      MyText(
+                        text: requestId,
+                        size: 10,
+                        color: kSecondaryColor,
+                        weight: FontWeight.w500,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (carDetail.isNotEmpty)
+                        MyText(
+                          text: carDetail,
+                          size: 10,
+                          color: kGreyTextColor,
+                        ),
+                      const Spacer(),
+                      Icon(Icons.settings, size: 12, color: kSecondaryColor),
+                      const SizedBox(width: 2),
+                      MyText(text: conditionLabel, size: 10, color: kBlackColor),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      MyText(
+                        text: '$infoLabel  ',
+                        size: 10,
+                        color: kGreyTextColor,
+                      ),
+                      MyText(
+                        text: infoValue,
+                        size: 10,
+                        color: kBlackColor,
+                        weight: FontWeight.w500,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -374,6 +470,7 @@ class _ActiveRequestCard extends StatelessWidget {
 
 class _OfferCard extends StatelessWidget {
   final String brand, model, date, type, price, imageUrl;
+  final VoidCallback? onTap;
 
   const _OfferCard({
     required this.brand,
@@ -382,117 +479,126 @@ class _OfferCard extends StatelessWidget {
     required this.type,
     required this.price,
     required this.imageUrl,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBlackColor.withOpacity(0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: kPrimaryColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kBlackColor.withOpacity(0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MyText(
+                    text: brand,
+                    size: 11,
+                    color: kGreyTextColor,
+                    weight: FontWeight.w500,
+                  ),
+                  const SizedBox(height: 2),
+                  MyText(
+                    text: model,
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: kBlackColor,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kSecondaryColor,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.calendar_today,
+                              color: kWhiteColor,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 4),
+                            MyText(text: date, size: 10, color: kWhiteColor),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kSecondaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.settings,
+                              color: kSecondaryColor,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 4),
+                            MyText(
+                              text: type,
+                              size: 10,
+                              color: kSecondaryColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 MyText(
-                  text: brand,
-                  size: 11,
-                  color: kGreyTextColor,
-                  weight: FontWeight.w500,
-                ),
-                const SizedBox(height: 2),
-                MyText(
-                  text: model,
-                  size: 13,
+                  text: price,
+                  size: 16,
                   weight: FontWeight.w700,
                   color: kBlackColor,
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kSecondaryColor,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.calendar_today,
-                            color: kWhiteColor,
-                            size: 10,
-                          ),
-                          const SizedBox(width: 4),
-                          MyText(text: date, size: 10, color: kWhiteColor),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kSecondaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.settings,
-                            color: kSecondaryColor,
-                            size: 10,
-                          ),
-                          const SizedBox(width: 4),
-                          MyText(text: type, size: 10, color: kSecondaryColor),
-                        ],
-                      ),
-                    ),
-                  ],
+                CommonImageView(
+                  url: imageUrl,
+                  width: 110,
+                  height: 60,
+                  fit: BoxFit.contain,
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              MyText(
-                text: price,
-                size: 16,
-                weight: FontWeight.w700,
-                color: kBlackColor,
-              ),
-              const SizedBox(height: 8),
-              CommonImageView(
-                url: imageUrl,
-                width: 110,
-                height: 60,
-                fit: BoxFit.contain,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -502,12 +608,14 @@ class _OfferCard extends StatelessWidget {
 
 class _ServiceProviderCard extends StatelessWidget {
   final String name, brands, rating, imageUrl;
+  final VoidCallback? onBookNow;
 
   const _ServiceProviderCard({
     required this.name,
     required this.brands,
     required this.rating,
     required this.imageUrl,
+    this.onBookNow,
   });
 
   @override
@@ -565,7 +673,12 @@ class _ServiceProviderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          MyButton(buttonText: 'Book Now', height: 34, fontSize: 12),
+          MyButton(
+            buttonText: 'Book Now',
+            height: 34,
+            fontSize: 12,
+            onTap: onBookNow,
+          ),
         ],
       ),
     );

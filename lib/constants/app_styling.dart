@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:flutter/material.dart';
 
 class AppStyling {

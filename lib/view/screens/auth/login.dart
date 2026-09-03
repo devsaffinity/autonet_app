@@ -1,11 +1,10 @@
+import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/screens/auth/forget.dart';
-import 'package:autonect/view/screens/auth/register.dart';
-import 'package:autonect/view/screens/electrician/nav_bar/nav_bar.dart';
 import 'package:autonect/view/widget/animation_widget.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
@@ -14,10 +13,7 @@ import 'package:autonect/view/widget/my_checkbox.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:get/get_navigation/src/routes/transitions_type.dart';
+import 'package:get/get.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -45,10 +41,7 @@ class _LoginPageState extends State<LoginPage> {
                   title: "Don’t have an account? ",
                   subTitle: "Sign Up",
                   onTap: () {
-                    Get.to(
-                      () => RegisterPage(),
-                      transition: Transition.rightToLeft,
-                    );
+                    Get.toNamed(AppLinks.register);
                   },
                 ),
 
@@ -118,10 +111,14 @@ class _LoginPageState extends State<LoginPage> {
             MyButton(
               mBottom: 12,
               onTap: () {
-                // roleController.role.value == 0
-                //     ? Get.offAll(() => ServicesNavBar())
-                //     : Get.offAll(() => ContractorNavBar());
-                Get.offAll(() => ElectricianNavBar());
+                // TODO(api): role must come from the POST /auth/login response.
+                final r = roleController.role.value;
+                if (r == null) {
+                  Get.offAllNamed(AppLinks.role);
+                  return;
+                }
+                roleController.signIn(r);
+                Get.offAllNamed(roleController.landingRoute);
               },
               buttonText: "Sign In",
             ),

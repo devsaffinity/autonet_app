@@ -1,6 +1,5 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_fonts.dart';
-import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';

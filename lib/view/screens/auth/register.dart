@@ -1,6 +1,8 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/screens/auth/login.dart';
 import 'package:autonect/view/widget/animation_widget.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
@@ -10,8 +12,7 @@ import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_checkbox.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:get/state_manager.dart';
+import 'package:get/get.dart';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -21,6 +22,7 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   bool isSelected = false;
   bool isObSecure1 = false;
+  RoleController roleController = Get.find<RoleController>();
 
   @override
   Widget build(BuildContext context) {
@@ -119,16 +121,20 @@ class _RegisterPageState extends State<RegisterPage> {
                 MyButton(
                   mTop: 30,
                   mBottom: 12,
-                  onTap: () {
-                    // roleController.role.value == 0
-                    //     ? Get.offAll(() => ServicesNavBar())
-                    //     : Get.offAll(() => ContractorNavBar());
-                    Get.bottomSheet(
-                      AccountCreatedBSheet(),
-                      isScrollControlled: true,
-                    );
-                  },
-                  buttonText: "Sign In",
+                  onTap: () => Get.bottomSheet(
+                    AccountCreatedBSheet(
+                      onContinue: () {
+                        Get.back();
+                        // TODO(api): role comes from the POST /auth/register
+                        // response; buyer is the fallback for a direct signup.
+                        final r = roleController.role.value ?? AppRole.buyer;
+                        roleController.signIn(r);
+                        Get.offAllNamed(roleController.landingRoute);
+                      },
+                    ),
+                    isScrollControlled: true,
+                  ),
+                  buttonText: "Sign Up",
                 ),
 
                 Align(
@@ -175,13 +181,14 @@ class _RegisterPageState extends State<RegisterPage> {
 }
 
 class AccountCreatedBSheet extends StatelessWidget {
-  const AccountCreatedBSheet({super.key});
+  final VoidCallback onContinue;
+  const AccountCreatedBSheet({super.key, required this.onContinue});
 
   @override
   Widget build(BuildContext context) {
     return MyBSheet(
       btnText: "Proceed",
-      onTap: () {},
+      onTap: onContinue,
       body: Column(
         children: [
           CommonImageView(

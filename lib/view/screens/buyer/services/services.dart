@@ -3,13 +3,14 @@ import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/view/screens/buyer/request/request_status_tracking.dart';
 import 'package:autonect/view/screens/buyer/services/expert_profile.dart';
+import 'package:autonect/view/screens/buyer/services/my_booking.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
 class ServicePage extends StatefulWidget {
   const ServicePage({super.key});
@@ -51,7 +52,17 @@ class _ServicePageState extends State<ServicePage> {
         title: "Services",
         hasBackButton: false,
         action: [
-          CommonImageView(svgPath: Assets.imagesCalenderServices),
+          // This icon had no onTap at all, which left MyBookingsPage reachable
+          // only from the very bottom of the booking funnel.
+          MyRippleEffect(
+            radius: 100,
+            onTap: () => Get.to(() => const MyBookingsPage()),
+            splashColor: kSecondaryColor.withValues(alpha: 0.2),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: CommonImageView(svgPath: Assets.imagesCalenderServices),
+            ),
+          ),
           SizedBox(width: 20),
         ],
       ),
@@ -197,7 +208,15 @@ class _ServicePageState extends State<ServicePage> {
                         skills: p['skills']!,
                         avatarUrl: p['avatar']!,
                         onViewProfile: () {
-                          Get.to(() => ExpertProfilePage());
+                          Get.to(
+                            () => ExpertProfilePage(
+                              name: p['name']!,
+                              role: p['role']!,
+                              rating: p['rating']!,
+                              reviews: p['reviews']!,
+                              avatarUrl: p['avatar']!,
+                            ),
+                          );
                         },
                       ),
                     ),

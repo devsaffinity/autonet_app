@@ -5,12 +5,12 @@ import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibi
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
 import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/role_shell.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
 class ElectricianHomePage extends StatefulWidget {
   const ElectricianHomePage({super.key});
@@ -25,20 +25,26 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
   final List<Map<String, String>> _bookings = [
     {
       'name': 'Sarah Johnson',
-      'detail': 'Porsche 911 • Full Diagnostic',
+      'vehicle': 'Porsche 911',
+      'service': 'Full Diagnostic',
       'time': '10:30AM',
+      'fee': '\$285.00',
       'image': Assets.imagesProfileImage,
     },
     {
       'name': 'Michael Chen',
-      'detail': 'Tesla Model S • Brake Service',
+      'vehicle': 'Tesla Model S',
+      'service': 'Brake Service',
       'time': '02:15 PM',
+      'fee': '\$190.00',
       'image': Assets.imagesProfileImage,
     },
     {
       'name': 'James Wilson',
-      'detail': 'Ferrari Roma • Oil Change',
+      'vehicle': 'Ferrari Roma',
+      'service': 'Oil Change',
       'time': '06:45 PM',
+      'fee': '\$140.00',
       'image': Assets.imagesProfileImage,
     },
   ];
@@ -364,15 +370,17 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                 ),
               ),
               onTap: () {
+                // The first two were crossed over: 'Manage Slots' opened the
+                // services editor and 'Edit Services' opened the calendar.
                 switch (i) {
                   case 0:
-                    Get.to(() => ManageServicesPage());
+                    Get.to(() => const ElectricianAvailabilityPage());
                     break;
                   case 1:
-                    Get.to(() => ElectricianAvailabilityPage());
+                    Get.to(() => const ManageServicesPage());
                     break;
                   case 2:
-                    Get.to(() => TotalBalancePage());
+                    Get.to(() => const TotalBalancePage());
                     break;
                 }
               },
@@ -398,7 +406,9 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               color: kBlackColor,
             ),
             MyRippleEffect(
-              onTap: () {},
+              // Null-aware: this page is also pushed standalone, where there
+              // is no shell ancestor.
+              onTap: () => RoleShell.maybeOf(context)?.goTo(1),
               radius: 6,
               child: MyText(
                 text: 'View All',
@@ -439,7 +449,17 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: InkWell(
         onTap: () {
-          Get.to(() => ElectricianBookingDetailsPage());
+          Get.to(
+            () => ElectricianBookingDetailsPage(
+              clientName: booking['name']!,
+              clientImage: booking['image']!,
+              service: booking['service']!,
+              vehicle: booking['vehicle']!,
+              time: booking['time']!,
+              fee: booking['fee']!,
+              date: 'Today',
+            ),
+          );
         },
         child: Row(
           children: [
@@ -474,7 +494,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                   ),
                   const SizedBox(height: 3),
                   MyText(
-                    text: booking['detail']!,
+                    text: '${booking['vehicle']} • ${booking['service']}',
                     size: 12,
                     weight: FontWeight.w400,
                     color: kGreyTextColor,
@@ -558,7 +578,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               const Divider(height: 1, color: kTertiaryColor),
               // Go to Messenger
               MyRippleEffect(
-                onTap: () {},
+                onTap: () => RoleShell.maybeOf(context)?.goTo(3),
                 radius: 0,
                 child: Container(
                   width: double.infinity,

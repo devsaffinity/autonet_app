@@ -3,10 +3,9 @@ import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
-import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────

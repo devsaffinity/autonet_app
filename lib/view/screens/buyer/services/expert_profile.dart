@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/view/screens/buyer/services/new_booking.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
@@ -10,7 +11,18 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class ExpertProfilePage extends StatelessWidget {
-  const ExpertProfilePage({super.key});
+  /// The provider tapped on ServicePage / BuyerHomePage. Defaults are the
+  /// literals this screen used to hard-code.
+  final String name, role, rating, reviews, avatarUrl;
+
+  const ExpertProfilePage({
+    super.key,
+    this.name = 'LARRY ALLISON',
+    this.role = 'Senior Automotive Electrician',
+    this.rating = '4.8',
+    this.reviews = '12 Years Experience',
+    this.avatarUrl = 'https://randomuser.me/api/portraits/men/32.jpg',
+  });
 
   // ── Specializations data
   static const List<Map<String, dynamic>> _specializations = [
@@ -72,7 +84,7 @@ class ExpertProfilePage extends StatelessWidget {
                 children: [
                   // Avatar
                   CommonImageView(
-                    url: 'https://randomuser.me/api/portraits/men/32.jpg',
+                    url: avatarUrl,
                     height: 125,
                     width: 125,
                     radius: 9,
@@ -90,16 +102,17 @@ class ExpertProfilePage extends StatelessWidget {
 
                   // Name
                   MyText(
-                    text: 'LARRY ALLISON',
+                    text: name,
                     size: 24,
                     weight: FontWeight.w600,
                     color: kSecondaryColor,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 2),
 
                   // Role
                   MyText(
-                    text: 'Senior Automotive Electrician',
+                    text: role,
                     size: 14,
                     color: kGreyTextColor,
                     weight: FontWeight.w500,
@@ -111,13 +124,13 @@ class ExpertProfilePage extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       MyText(
-                        text: '4.8',
+                        text: rating,
                         size: 13,
                         weight: FontWeight.w700,
                         color: kSecondaryColor,
                       ),
                       MyText(
-                        text: '  |  12 Years Experience',
+                        text: '  |  $reviews',
                         size: 12,
                         weight: FontWeight.w400,
                         color: kBlackColor,
@@ -271,7 +284,12 @@ class ExpertProfilePage extends StatelessWidget {
             MyButton(
               buttonText: 'Book Diagnostic',
               onTap: () {
-                Get.to(() => NewBookingPage());
+                Get.to(
+                  () => NewBookingPage(
+                    expertName: name,
+                    avatarUrl: avatarUrl,
+                  ),
+                );
               },
             ),
             const SizedBox(height: 10),
@@ -281,7 +299,7 @@ class ExpertProfilePage extends StatelessWidget {
               backgroundColor: kPrimaryColor,
               outlineColor: kSecondaryColor,
               fontColor: kBlackColor,
-              onTap: () {},
+              onTap: () => Get.to(() => const ChatRoomPage()),
             ),
           ],
         ),

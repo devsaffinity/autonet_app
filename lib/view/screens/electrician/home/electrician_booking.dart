@@ -1,10 +1,11 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
-import 'package:autonect/view/widget/general_appbar.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class ElectricianMyBookingsPage extends StatefulWidget {
   const ElectricianMyBookingsPage({super.key});
@@ -157,6 +158,21 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
     );
   }
 
+  // ── Open the brief for the tapped row ─────
+  void _openDetails(Map<String, dynamic> b) {
+    Get.to(
+      () => ElectricianBookingDetailsPage(
+        clientName: b['name'] as String,
+        service: b['service'] as String,
+        date: b['date'] as String,
+        time: (b['time'] as String?) ?? 'To be confirmed',
+        location: (b['location'] as String?) ?? 'Downtown District, Sector 7',
+        fee: (b['price'] as String?) ?? '\$285.00',
+        isPremiumClient: b['status'] == 'premium',
+      ),
+    );
+  }
+
   // ── Booking Card dispatcher ─────
   Widget _buildBookingCard(Map<String, dynamic> b) {
     if (b['status'] == 'premium') return _buildPremiumCard(b);
@@ -229,7 +245,7 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
 
           // Action row
           MyRippleEffect(
-            onTap: () {},
+            onTap: () => _openDetails(b),
             radius: 6,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -258,11 +274,13 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
 
   // ── Premium card ────
   Widget _buildPremiumCard(Map<String, dynamic> b) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(18),
-
-      child: Column(
+    return MyRippleEffect(
+      onTap: () => _openDetails(b),
+      radius: 20,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(18),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Status label + icon
@@ -358,7 +376,8 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

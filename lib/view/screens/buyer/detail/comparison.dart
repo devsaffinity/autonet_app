@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
 import 'package:autonect/view/screens/buyer/detail/report.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_button.dart';
@@ -11,7 +12,22 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class ComparisonPage extends StatelessWidget {
-  const ComparisonPage({super.key});
+  /// The request whose offers are being compared. Defaults keep every existing
+  /// `Get.to(() => ComparisonPage())` call site compiling and looking the same;
+  /// callers that know the request pass it in. This is the seam the API layer
+  /// plugs into — it replaces the literals, nothing else moves.
+  final String title;
+  final String partType;
+  final int offersCount;
+  final String image;
+
+  const ComparisonPage({
+    super.key,
+    this.title = 'Ford Mustang GT',
+    this.partType = 'Engine',
+    this.offersCount = 2,
+    this.image = Assets.imagesCar1,
+  });
 
   // ── Dummy data
   static const List<Map<String, dynamic>> _compareOffers = [
@@ -89,16 +105,20 @@ class ComparisonPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      MyText(
-                        text: 'Ford Mustang GT',
-                        size: 16,
-                        weight: FontWeight.w600,
-                        color: kBlackColor,
+                      Expanded(
+                        child: MyText(
+                          text: title,
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: kBlackColor,
+                          maxLines: 1,
+                          textOverflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
                   CommonImageView(
-                    imagePath: Assets.imagesCar1,
+                    imagePath: image,
                     width: 300,
                     fit: BoxFit.contain,
                   ),
@@ -125,7 +145,7 @@ class ComparisonPage extends StatelessWidget {
                         color: kBlackColor,
                       ),
                       MyText(
-                        text: '(2)',
+                        text: '($offersCount)',
                         size: 12,
                         color: kSecondaryColor,
                         weight: FontWeight.w600,
@@ -143,7 +163,15 @@ class ComparisonPage extends StatelessWidget {
                   ),
 
                   // ── Comparing card
-                  _ComparingCard(offers: _compareOffers),
+                  _ComparingCard(
+                    offers: _compareOffers,
+                    onViewReport: () => Get.to(
+                      () => ComparisonReportPage(
+                        title: title,
+                        partType: partType,
+                      ),
+                    ),
+                  ),
 
                   const SizedBox(height: 20),
 
@@ -165,6 +193,18 @@ class ComparisonPage extends StatelessWidget {
                       delivery: o['delivery'],
                       avatarUrl: o['avatar'],
                       isSelected: o['selected'],
+                      onViewOffer: () => Get.to(
+                        () => OfferDetailPage(
+                          sellerName: o['name'],
+                          avatarUrl: o['avatar'],
+                          rating: o['rating'],
+                          price: o['price'],
+                          totalPrice: o['price'],
+                          delivery: o['delivery'],
+                          partName: partType,
+                          vehicle: title,
+                        ),
+                      ),
                     ),
                   ),
 
@@ -185,8 +225,9 @@ class ComparisonPage extends StatelessWidget {
 
 class _ComparingCard extends StatelessWidget {
   final List<Map<String, dynamic>> offers;
+  final VoidCallback onViewReport;
 
-  const _ComparingCard({required this.offers});
+  const _ComparingCard({required this.offers, required this.onViewReport});
 
   @override
   Widget build(BuildContext context) {
@@ -209,9 +250,7 @@ class _ComparingCard extends StatelessWidget {
                 color: kSecondaryColor,
               ),
               MyText(
-                onTap: () {
-                  Get.to(() => ComparisonReportPage());
-                },
+                onTap: onViewReport,
                 text: 'View Comparison',
                 size: 12,
                 color: kSecondaryColor,
@@ -330,6 +369,7 @@ class _CompareRow extends StatelessWidget {
 class _OfferCard extends StatelessWidget {
   final String name, price, rating, delivery, avatarUrl;
   final bool isSelected;
+  final VoidCallback? onViewOffer;
 
   const _OfferCard({
     required this.name,
@@ -338,6 +378,7 @@ class _OfferCard extends StatelessWidget {
     required this.delivery,
     required this.avatarUrl,
     this.isSelected = false,
+    this.onViewOffer,
   });
 
   @override
@@ -447,7 +488,7 @@ class _OfferCard extends StatelessWidget {
                   fontSize: 12,
                   height: 36,
                   fontWeight: FontWeight.w600,
-                  onTap: () {},
+                  onTap: onViewOffer,
                 ),
               ),
               const SizedBox(width: 8),

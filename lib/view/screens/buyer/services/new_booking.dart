@@ -11,7 +11,15 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
 
 class NewBookingPage extends StatefulWidget {
-  const NewBookingPage({super.key});
+  /// Who the booking is with. Defaults are the literals this screen used to
+  /// hard-code.
+  final String expertName, avatarUrl;
+
+  const NewBookingPage({
+    super.key,
+    this.expertName = 'Larry Allison',
+    this.avatarUrl = 'https://randomuser.me/api/portraits/women/44.jpg',
+  });
 
   @override
   State<NewBookingPage> createState() => _NewBookingPageState();
@@ -57,6 +65,28 @@ class _NewBookingPageState extends State<NewBookingPage> {
     });
   }
 
+  static const List<String> _shortMonths = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  /// 'Sep, 11' — the shape BookingConfirmedPage renders.
+  String get _formattedDate {
+    final d = _selectedDate;
+    if (d == null) return '--';
+    return '${_shortMonths[d.month - 1]}, ${d.day}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,7 +110,7 @@ class _NewBookingPageState extends State<NewBookingPage> {
                       children: [
                         const TextSpan(text: 'Booking with '),
                         TextSpan(
-                          text: 'Larry Allison',
+                          text: widget.expertName,
                           style: const TextStyle(color: kSecondaryColor),
                         ),
                       ],
@@ -360,7 +390,17 @@ class _NewBookingPageState extends State<NewBookingPage> {
               height: 52,
               fontSize: 15,
               onTap: () {
-                Get.to(() => BookingConfirmedPage());
+                // The booking the buyer just built travels forward instead of
+                // BookingConfirmedPage inventing its own.
+                Get.to(
+                  () => BookingConfirmedPage(
+                    expertName: widget.expertName,
+                    avatarUrl: widget.avatarUrl,
+                    service: _serviceController.text,
+                    date: _formattedDate,
+                    time: _selectedSlot ?? '--',
+                  ),
+                );
               },
             ),
           ),

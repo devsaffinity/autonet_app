@@ -1,13 +1,17 @@
 import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/config/theme/light_theme.dart';
 import 'package:autonect/controller/conttroller.dart';
+import 'package:autonect/services/session_store.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
-import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:get/get.dart';
 
-void main() {
-  Get.put(RoleController());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Must precede the Get.put: RoleController.onInit hydrates synchronously
+  // from the store, which is what lets SplashScreen decide with no await.
+  await SessionStore.init();
+  // permanent so a future Get.deleteAll() on logout cannot destroy it.
+  Get.put(RoleController(), permanent: true);
   runApp(MyApp());
 }
 

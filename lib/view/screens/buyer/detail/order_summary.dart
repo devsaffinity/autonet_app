@@ -11,7 +11,27 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
 
 class OrderSummaryPage extends StatelessWidget {
-  const OrderSummaryPage({super.key});
+  final String vehicle, partName, partBrand, partNumber;
+  final String sellerName, sellerAddress;
+  final String deliveryAddress, estimatedTime;
+  final String partPrice, deliveryFee, totalPrice;
+
+  /// Defaults are the literals this screen used to hard-code, so an
+  /// argument-less `OrderSummaryPage()` renders exactly as before.
+  const OrderSummaryPage({
+    super.key,
+    this.vehicle = '2020 Toyota Corolla',
+    this.partName = 'Front Brake Pads',
+    this.partBrand = 'Toyota OEM',
+    this.partNumber = '04465-02280',
+    this.sellerName = 'AutoParts Hub',
+    this.sellerAddress = 'Bole Road, Near Atlas Hotel',
+    this.deliveryAddress = 'Bole, Addis Ababa',
+    this.estimatedTime = 'Today (2–4 hours)',
+    this.partPrice = '3,200 ETB',
+    this.deliveryFee = '300 ETB',
+    this.totalPrice = '3,500 ETB',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,23 +50,23 @@ class OrderSummaryPage extends StatelessWidget {
                   _OrderRow(
                     icon: Assets.imagesSummaryA,
                     topLabel: 'Vehicle',
-                    mainText: '2020 Toyota Corolla',
+                    mainText: vehicle,
                   ),
                   const _Divider(),
                   _OrderRow(
                     icon: Assets.imagesSummaryB,
                     topLabel: 'Part Ordered',
-                    mainText: 'Front Brake Pads',
+                    mainText: partName,
                     bottomWidget: Row(
                       children: [
                         MyText(
-                          text: 'Brand: Toyota OEM',
+                          text: 'Brand: $partBrand',
                           size: 12,
                           color: kGreyTextColor,
                         ),
                         const SizedBox(width: 12),
                         MyText(
-                          text: 'Part #: 04465-02280',
+                          text: 'Part #: $partNumber',
                           size: 12,
                           color: kGreyTextColor,
                         ),
@@ -57,9 +77,9 @@ class OrderSummaryPage extends StatelessWidget {
                   _OrderRow(
                     icon: Assets.imagesSummaryC,
                     topLabel: 'Seller',
-                    mainText: 'AutoParts Hub',
+                    mainText: sellerName,
                     bottomWidget: MyText(
-                      text: 'Bole Road, Near Atlas Hotel',
+                      text: sellerAddress,
                       size: 12,
                       color: kGreyTextColor,
                     ),
@@ -76,18 +96,18 @@ class OrderSummaryPage extends StatelessWidget {
               child: _OrderRow(
                 icon: Assets.imagesSummaryD,
                 topLabel: 'Delivery to Location',
-                mainText: 'Delivered to: Bole, Addis Ababa',
+                mainText: 'Delivered to: $deliveryAddress',
                 bottomWidget: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     MyText(
-                      text: 'Estimated time: Today (2–4 hours)',
+                      text: 'Estimated time: $estimatedTime',
                       size: 12,
                       color: kGreyTextColor,
                     ),
                     const SizedBox(height: 2),
                     MyText(
-                      text: 'Delivery fee: 300 ETB',
+                      text: 'Delivery fee: $deliveryFee',
                       size: 12,
                       color: kSecondaryColor,
                       weight: FontWeight.w500,
@@ -104,9 +124,9 @@ class OrderSummaryPage extends StatelessWidget {
               title: 'Price Breakdown',
               child: Column(
                 children: [
-                  _PriceRow(label: 'Part Price', value: '3,200 ETB'),
+                  _PriceRow(label: 'Part Price', value: partPrice),
                   const SizedBox(height: 12),
-                  _PriceRow(label: 'Delivery Fee', value: '300 ETB'),
+                  _PriceRow(label: 'Delivery Fee', value: deliveryFee),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 14),
                     child: Divider(height: 1, color: kGreyTextColor),
@@ -121,7 +141,7 @@ class OrderSummaryPage extends StatelessWidget {
                         color: kBlackColor,
                       ),
                       MyText(
-                        text: '3,500 ETB',
+                        text: totalPrice,
                         size: 14,
                         weight: FontWeight.w700,
                         color: kSecondaryColor,
@@ -139,7 +159,12 @@ class OrderSummaryPage extends StatelessWidget {
               mBottom: 30,
               buttonText: 'Place Order',
               onTap: () {
-                Get.to(() => OrderStatusPage());
+                Get.to(
+                  () => OrderStatusPage(
+                    sellerName: sellerName,
+                    partName: partName,
+                  ),
+                );
               },
             ),
           ],

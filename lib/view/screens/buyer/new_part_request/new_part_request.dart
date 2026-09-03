@@ -37,7 +37,18 @@ class _AddPartRequestPageState extends State<AddPartRequestPage> {
       );
 
       if (_currentStep == 3) {
-        Get.bottomSheet(const RequestSendBSheet(), isScrollControlled: true);
+        Get.bottomSheet(
+          RequestSendBSheet(
+            // Proceed used to only close the sheet, leaving the buyer parked on
+            // a finished wizard with nowhere to go. Close the sheet, then leave
+            // the wizard back to whatever opened it (Home or the Requests tab).
+            onProceed: () {
+              Get.back();
+              Get.back();
+            },
+          ),
+          isScrollControlled: true,
+        );
       }
     }
   }
@@ -536,15 +547,18 @@ class _BottomButton extends StatelessWidget {
 // BOTTOM SHEET
 
 class RequestSendBSheet extends StatelessWidget {
-  const RequestSendBSheet({super.key});
+  /// What "Proceed" does. Optional so existing/other call sites keep the old
+  /// close-the-sheet behaviour; AddPartRequestPage passes a callback that also
+  /// leaves the wizard.
+  final VoidCallback? onProceed;
+
+  const RequestSendBSheet({super.key, this.onProceed});
 
   @override
   Widget build(BuildContext context) {
     return MyBSheet(
       btnText: "Proceed",
-      onTap: () {
-        Get.back();
-      },
+      onTap: onProceed ?? () => Get.back(),
       body: Column(
         children: [
           CommonImageView(width: 150, imagePath: Assets.imagesRequestPartIcon),

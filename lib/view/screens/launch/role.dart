@@ -1,16 +1,15 @@
+import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/conttroller.dart';
-import 'package:autonect/view/screens/auth/login.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
 class RolePage extends StatefulWidget {
   const RolePage({super.key});
@@ -20,17 +19,30 @@ class RolePage extends StatefulWidget {
 }
 
 class _RolePageState extends State<RolePage> {
-  List<RoleModel> roleList = [
-    RoleModel(title: "I am a ", subTitle: "Buyer", icon: Assets.imagesRoleA),
-    RoleModel(title: "I am a ", subTitle: "Supplier", icon: Assets.imagesRoleB),
+  final List<RoleModel> roleList = [
     RoleModel(
       title: "I am a ",
-      subTitle: "Electrician/ Coder",
+      subTitle: AppRole.buyer.label,
+      icon: Assets.imagesRoleA,
+      role: AppRole.buyer,
+    ),
+    RoleModel(
+      title: "I am a ",
+      subTitle: AppRole.supplier.label,
+      icon: Assets.imagesRoleB,
+      role: AppRole.supplier,
+    ),
+    RoleModel(
+      title: "I am a ",
+      subTitle: AppRole.electrician.label,
       icon: Assets.imagesRoleC,
+      role: AppRole.electrician,
     ),
   ];
-  int currentIndex = 100;
+
+  AppRole? _selected;
   RoleController roleController = Get.find<RoleController>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,15 +57,14 @@ class _RolePageState extends State<RolePage> {
 
               // OPTIONS
               ...List.generate(roleList.length, (index) {
+                final isSelected = roleList[index].role == _selected;
                 return Container(
                   width: Get.width,
                   margin: EdgeInsets.only(bottom: 12),
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                   decoration: AppStyling().myDecoration(
-                    color: (index == currentIndex)
-                        ? kTertiaryColor
-                        : kTertiaryColor,
-                    borderColor: (index == currentIndex)
+                    color: isSelected ? kLightOrangeColor : kTertiaryColor,
+                    borderColor: isSelected
                         ? kSecondaryColor
                         : kTransperentColor,
                     radius: 10,
@@ -63,20 +74,20 @@ class _RolePageState extends State<RolePage> {
                       children: [
                         CommonImageView(
                           width: 40,
-                          imagePath: roleList[index].icon.toString(),
+                          imagePath: roleList[index].icon,
                         ),
                         SizedBox(width: 20),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             MyText(
-                              text: roleList[index].title.toString(),
+                              text: roleList[index].title,
                               size: 16,
                               weight: FontWeight.w400,
                               color: kGreyTextColor,
                             ),
                             MyText(
-                              text: roleList[index].subTitle.toString(),
+                              text: roleList[index].subTitle,
                               size: 18,
                               weight: FontWeight.w600,
                             ),
@@ -84,7 +95,7 @@ class _RolePageState extends State<RolePage> {
                         ),
                         Spacer(),
 
-                        (currentIndex == index)
+                        isSelected
                             ? CommonImageView(
                                 width: 25,
                                 imagePath: Assets.imagesDoneCheckIcon,
@@ -100,11 +111,10 @@ class _RolePageState extends State<RolePage> {
                               ),
                       ],
                     ),
-                    onTap: () {
-                      currentIndex = index;
-                      roleController.role.value = currentIndex;
-                      setState(() {});
-                    },
+                    // Local only — the controller is written on Continue, so
+                    // backing out of this screen cannot change a stored role.
+                    onTap: () =>
+                        setState(() => _selected = roleList[index].role),
                   ),
                 );
               }),
@@ -115,7 +125,7 @@ class _RolePageState extends State<RolePage> {
       bottomNavigationBar: NavButton(
         buttonText: "Continue",
         onTap: () {
-          if (currentIndex != 0 && currentIndex != 1) {
+          if (_selected == null) {
             Get.snackbar(
               "Error",
               "Please select a role to continue",
@@ -123,7 +133,8 @@ class _RolePageState extends State<RolePage> {
             );
             return;
           }
-          Get.to(() => LoginPage());
+          roleController.selectRole(_selected!);
+          Get.toNamed(AppLinks.login);
         },
       ),
     );
@@ -131,6 +142,12 @@ class _RolePageState extends State<RolePage> {
 }
 
 class RoleModel {
-  String? title, subTitle, icon;
-  RoleModel({this.title, this.subTitle, this.icon});
+  final String title, subTitle, icon;
+  final AppRole role;
+  RoleModel({
+    required this.title,
+    required this.subTitle,
+    required this.icon,
+    required this.role,
+  });
 }

@@ -2,12 +2,15 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
-import 'package:autonect/view/widget/general_appbar.dart';
-import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibilty_page.dart';
+import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/my_button.dart';
+import 'package:autonect/view/widget/my_pill_tabs.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Usage:
@@ -84,12 +87,19 @@ class _ElectricianBookingRequestPageState
               ),
 
               // ── Tab bar ─────────────────────────────────────────────────
-              _buildTabBar(),
+              MyPillTabs(
+                labels: _tabs,
+                selectedIndex: _selectedTab,
+                onChanged: (i) => setState(() => _selectedTab = i),
+              ),
               const SizedBox(height: 24),
 
               // ── Booking request cards ────────────────────────────────────
               if (_selectedTab == 0) ...[
-                ..._requests.map((r) => _buildRequestCard(r)),
+                if (_requests.isEmpty)
+                  _buildEmptyState('No pending requests right now')
+                else
+                  ..._requests.map((r) => _buildRequestCard(r)),
                 const SizedBox(height: 8),
 
                 // ── Availability Status ──────────────────────────────────
@@ -109,41 +119,33 @@ class _ElectricianBookingRequestPageState
     );
   }
 
-  // ── Tab Bar ────────────────────────────────────────────────────────────────
-  Widget _buildTabBar() {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: kLightBlueColor,
-        borderRadius: BorderRadius.circular(100),
+  // ── Actions ────────────────────────────────────────────────────────────────
+  void _openDetails(Map<String, dynamic> r) {
+    Get.to(
+      () => ElectricianBookingDetailsPage(
+        clientName: r['name'] as String,
+        service: r['service'] as String,
+        vehicle: r['carBadge'] as String,
+        date: r['date'] as String,
+        time: r['time'] as String,
+        location: (r['location'] as String?) ?? 'On-site Service',
+        isPremiumClient: false,
+        bookingCount: 'NEW CLIENT',
       ),
-      child: Row(
-        children: List.generate(_tabs.length, (i) {
-          final isSelected = _selectedTab == i;
-          return Expanded(
-            child: MyRippleEffect(
-              onTap: () => setState(() => _selectedTab = i),
-              radius: 100,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOut,
-                margin: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: isSelected ? kWhiteColor : kTransperentColor,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                alignment: Alignment.center,
-                child: MyText(
-                  text: _tabs[i],
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: isSelected ? kSecondaryColor : kBlackColor,
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
+    );
+  }
+
+  void _accept(Map<String, dynamic> r) {
+    setState(() => _requests.remove(r));
+    _openDetails(r);
+  }
+
+  void _decline(Map<String, dynamic> r) {
+    setState(() => _requests.remove(r));
+    Get.snackbar(
+      'Request declined',
+      '${r['name']} has been notified.',
+      backgroundColor: kWhiteColor,
     );
   }
 
@@ -156,14 +158,18 @@ class _ElectricianBookingRequestPageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Car image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: CommonImageView(
-              imagePath: r['image'],
-              width: double.infinity,
-              height: 160,
-              fit: BoxFit.cover,
+          // Car image — opens the full booking brief
+          MyRippleEffect(
+            onTap: () => _openDetails(r),
+            radius: 14,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: CommonImageView(
+                imagePath: r['image'],
+                width: double.infinity,
+                height: 160,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -231,7 +237,7 @@ class _ElectricianBookingRequestPageState
               Expanded(
                 child: MyButton(
                   buttonText: 'Accept Request',
-                  onTap: () {},
+                  onTap: () => _accept(r),
                   backgroundColor: kSecondaryColor,
                   fontColor: kWhiteColor,
                   fontSize: 14,
@@ -242,7 +248,7 @@ class _ElectricianBookingRequestPageState
               ),
               const SizedBox(width: 16),
               MyRippleEffect(
-                onTap: () {},
+                onTap: () => _decline(r),
                 radius: 8,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -269,51 +275,56 @@ class _ElectricianBookingRequestPageState
 
   // ── Availability Status ────────────────────────────────────────────────────
   Widget _buildAvailabilityStatus() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xffEEF2FF),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MyText(
-            text: 'AVAILABILITY STATUS',
-            size: 10,
-            weight: FontWeight.w700,
-            color: kBlackColor,
-            paddingBottom: 10,
-          ),
-          Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Color(0xff34C759),
-                  shape: BoxShape.circle,
+    return MyRippleEffect(
+      // "Open calendar to manage capacity" now actually opens the calendar.
+      onTap: () => Get.to(() => const ElectricianAvailabilityPage()),
+      radius: 14,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xffEEF2FF),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MyText(
+              text: 'AVAILABILITY STATUS',
+              size: 10,
+              weight: FontWeight.w700,
+              color: kBlackColor,
+              paddingBottom: 10,
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Color(0xff34C759),
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              MyText(
-                text: 'Active Today',
-                size: 16,
-                weight: FontWeight.w700,
-                color: kBlackColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          MyText(
-            text:
-                'You have 4 slots remaining for next week. Open calendar to manage capacity.',
-            size: 14,
-            weight: FontWeight.w400,
-            color: kBlackColor,
-          ),
-        ],
+                const SizedBox(width: 8),
+                MyText(
+                  text: 'Active Today',
+                  size: 16,
+                  weight: FontWeight.w700,
+                  color: kBlackColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            MyText(
+              text:
+                  'You have 4 slots remaining for next week. Open calendar to manage capacity.',
+              size: 14,
+              weight: FontWeight.w400,
+              color: kBlackColor,
+            ),
+          ],
+        ),
       ),
     );
   }
