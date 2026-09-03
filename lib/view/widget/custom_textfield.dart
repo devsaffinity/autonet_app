@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_fonts.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get_utils/src/extensions/internacionalization.dart';
 
 class MyTextField extends StatefulWidget {
@@ -24,6 +25,10 @@ class MyTextField extends StatefulWidget {
     this.isReadOnly,
     this.onTap,
     this.validator,
+    this.errorText,
+    this.textCapitalization = TextCapitalization.sentences,
+    this.textInputAction = TextInputAction.next,
+    this.inputFormatters,
   }) : super(key: key);
 
   TextInputType? keyboardType;
@@ -39,12 +44,28 @@ class MyTextField extends StatefulWidget {
   final VoidCallback? onTap;
   String? Function(String?)? validator;
 
+  /// Rendered OUTSIDE the ClipRRect below. TextFormField's own error text is
+  /// clipped away by the pill (borderRadius 100) and can never be read, so a
+  /// server-side field error has to be drawn by hand.
+  final String? errorText;
+
+  /// Defaults to .sentences so no existing screen changes. EMAIL FIELDS MUST
+  /// PASS .none: a soft keyboard capitalising the first letter against the
+  /// server's z.email().toLowerCase() makes the OTP row lookup miss.
+  final TextCapitalization textCapitalization;
+  final TextInputAction textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
+
   @override
   State<MyTextField> createState() => _MyTextFieldState();
 }
 
 class _MyTextFieldState extends State<MyTextField> {
   bool isFocused = false;
+
+  /// The validator's message, mirrored out so it can be painted below the
+  /// ClipRRect instead of inside it (where the pill eats it).
+  String? _validationError;
 
   @override
   Widget build(BuildContext context) {
@@ -69,10 +90,28 @@ class _MyTextFieldState extends State<MyTextField> {
                 });
               },
               child: TextFormField(
-                textCapitalization: TextCapitalization.sentences,
+                textCapitalization: widget.textCapitalization,
+                inputFormatters: widget.inputFormatters,
                 keyboardType: widget.keyboardType,
                 onTap: widget.onTap,
-                validator: widget.validator,
+                validator: widget.validator == null
+                    ? null
+                    : (v) {
+                        final m = widget.validator!(v);
+                        // Mirror out of the clipped subtree. Deferred because
+                        // validate() runs during a build.
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted && _validationError != m) {
+                            setState(() => _validationError = m);
+                          }
+                        });
+                        // '' is still a failure to FormField (only null is
+                        // valid) but leaves InputDecoration nothing to draw, so
+                        // the message exists exactly once in the tree — below,
+                        // outside the ClipRRect. Returning `m` here would emit
+                        // it twice and have a screen reader say it twice.
+                        return m == null ? null : '';
+                      },
                 textAlignVertical:
                     widget.prefix != null || widget.suffix != null
                     ? TextAlignVertical.center
@@ -82,7 +121,7 @@ class _MyTextFieldState extends State<MyTextField> {
                 readOnly: widget.isReadOnly ?? false,
                 controller: widget.controller,
                 onChanged: widget.onChanged,
-                textInputAction: TextInputAction.next,
+                textInputAction: widget.textInputAction,
                 obscureText: widget.isObSecure!,
                 obscuringCharacter: '*',
                 style: TextStyle(
@@ -127,11 +166,34 @@ class _MyTextFieldState extends State<MyTextField> {
                     ),
                     borderRadius: BorderRadius.circular(widget.radius!),
                   ),
-                  errorBorder: InputBorder.none,
+                  // An invalid field turns its pill red rather than losing its
+                  // outline entirely, which is what InputBorder.none did here.
+                  errorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: kRedColor, width: 1),
+                    borderRadius: BorderRadius.circular(widget.radius!),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: kRedColor, width: 1),
+                    borderRadius: BorderRadius.circular(widget.radius!),
+                  ),
+                  // Collapse the built-in error slot: it lives inside the
+                  // ClipRRect and the pill would only half-draw it.
+                  errorStyle: const TextStyle(height: 0, fontSize: 0),
                 ),
               ),
             ),
           ),
+          // OUTSIDE the clip. A server field error (errorText) outranks the
+          // local validator message, because it is the more specific news.
+          if ((widget.errorText ?? _validationError) != null)
+            MyText(
+              text: (widget.errorText ?? _validationError)!,
+              size: 12,
+              weight: FontWeight.w400,
+              color: kRedColor,
+              paddingTop: 6,
+              paddingLeft: 16,
+            ),
         ],
       ),
     );
@@ -146,19 +208,46 @@ class PasswordTextField extends StatelessWidget {
     required this.isObSecure,
     required this.labelText,
     required this.onTap,
+    this.controller,
+    this.validator,
+    this.onChanged,
+    this.errorText,
+    this.hintText,
+    this.keyboardType,
+    this.textInputAction = TextInputAction.next,
   });
 
+  /// true means "currently revealed". The eye toggles it; the field below
+  /// obscures on the inverse.
   final bool isObSecure;
   final String labelText;
   final VoidCallback onTap;
+  final TextEditingController? controller;
+  final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
+  final String? errorText;
+  final String? hintText;
+  final TextInputType? keyboardType;
+  final TextInputAction textInputAction;
 
   @override
   Widget build(BuildContext context) {
     return MyTextField(
-      // isObSecure: isObSecure,
+      // Was commented out, so the field never obscured and every password was
+      // rendered in clear text.
+      isObSecure: !isObSecure,
+      controller: controller,
+      validator: validator,
+      onChanged: onChanged,
+      errorText: errorText,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      // A password is never a sentence.
+      textCapitalization: TextCapitalization.none,
       marginBottom: 10,
       labelText: labelText,
-      hintText: "Must have at least 6 characters",
+      // Mirrors auth.dto.ts; the old "at least 6" understated the real rule.
+      hintText: hintText ?? "8+ chars, with a capital and a number",
       suffix: MyRippleEffect(
         radius: 5,
         onTap: onTap,
@@ -166,10 +255,10 @@ class PasswordTextField extends StatelessWidget {
         child: SizedBox(
           width: 50,
           child: Center(
-            child: isObSecure
-                ? Icon(Icons.remove_red_eye, color: kSecondaryColor)
-                : Icon(Icons.remove_red_eye, color: kSecondaryColor),
-            // : CommonImageView(height: 20, imagePath: Assets.imagesEyeIcon),
+            child: Icon(
+              isObSecure ? Icons.visibility : Icons.visibility_off,
+              color: kSecondaryColor,
+            ),
           ),
         ),
       ),

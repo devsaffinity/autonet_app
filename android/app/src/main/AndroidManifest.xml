@@ -3,10 +3,17 @@
          not, so a release build has no network access at all — every cached_network_image
          (and every future API call) fails silently. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- allowBackup="false": tokens live in shared_preferences this phase, and
+         Auto Backup would clone them onto a restored device. Presenting an
+         already-rotated refresh token is treated as theft by
+         refresh-token.service.ts and revokes the whole family, hard-logging the
+         user out everywhere. -->
     <application
         android:label="autonect"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

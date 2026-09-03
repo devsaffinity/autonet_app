@@ -12,8 +12,14 @@ class SessionStore {
   static const _kLoggedIn = 'session.loggedIn';
   static const _kOnboardingSeen = 'session.onboardingSeen';
   static const _kProviderOnboarded = 'session.providerOnboarded';
+  static const _kAccess = 'session.accessToken';
+  static const _kRefresh = 'session.refreshToken';
+  static const _kUser = 'session.user';
 
-  static late final SharedPreferences _prefs;
+  /// Not `final`: tests re-init after SharedPreferences.setMockInitialValues
+  /// to get a clean store per case, and a late-final field can only be written
+  /// once per isolate.
+  static late SharedPreferences _prefs;
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -40,9 +46,44 @@ class SessionStore {
   static set providerOnboarded(bool v) =>
       _prefs.setBool(_kProviderOnboarded, v);
 
+  /// Both tokens live here rather than in flutter_secure_storage this phase:
+  /// TokenStore is the seam that makes a SecureTokenStore a one-line swap in
+  /// main(). android:allowBackup="false" covers the Android clone hazard.
+  static String? get accessToken => _prefs.getString(_kAccess);
+  static set accessToken(String? v) {
+    if (v == null) {
+      _prefs.remove(_kAccess);
+    } else {
+      _prefs.setString(_kAccess, v);
+    }
+  }
+
+  static String? get refreshToken => _prefs.getString(_kRefresh);
+  static set refreshToken(String? v) {
+    if (v == null) {
+      _prefs.remove(_kRefresh);
+    } else {
+      _prefs.setString(_kRefresh, v);
+    }
+  }
+
+  static String? get userJson => _prefs.getString(_kUser);
+  static set userJson(String? v) {
+    if (v == null) {
+      _prefs.remove(_kUser);
+    } else {
+      _prefs.setString(_kUser, v);
+    }
+  }
+
+  /// onboardingSeen deliberately survives — a returning user must not be shown
+  /// onboarding again after a logout.
   static void clearSession() {
     _prefs.remove(_kRole);
     _prefs.remove(_kLoggedIn);
     _prefs.remove(_kProviderOnboarded);
+    _prefs.remove(_kAccess);
+    _prefs.remove(_kRefresh);
+    _prefs.remove(_kUser);
   }
 }

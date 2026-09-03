@@ -109,6 +109,43 @@ String? validatePassword(String? value) {
   return null;
 }
 
+/// Mirrors auth.dto.ts exactly. Register and reset ONLY — validatePassword
+/// above is deliberately left looser because loginBodySchema is
+/// z.string().min(1).max(128), and tightening login would lock out any account
+/// whose password predates the rule.
+String? validateStrongPassword(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Password cannot be empty';
+  }
+  if (value.length < 8) {
+    return 'Password must be at least 8 characters long';
+  }
+  if (value.length > 128) {
+    return 'Password must be 128 characters or fewer';
+  }
+  if (!RegExp(r'[a-z]').hasMatch(value)) {
+    return 'Password must contain a lowercase letter';
+  }
+  if (!RegExp(r'[A-Z]').hasMatch(value)) {
+    return 'Password must contain a capital letter';
+  }
+  if (!RegExp(r'\d').hasMatch(value)) {
+    return 'Password must contain a number';
+  }
+  return null;
+}
+
+/// OTP.LENGTH is 6 (constants.ts:16) and the server regex is /^\d{6}$/.
+String? validateOtpCode(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Enter the 6-digit code';
+  }
+  if (!RegExp(r'^\d{6}$').hasMatch(value)) {
+    return 'The code is 6 digits';
+  }
+  return null;
+}
+
 displayToast({required String msg}) {
   Fluttertoast.showToast(
     msg: msg,

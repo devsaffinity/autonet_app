@@ -1,16 +1,38 @@
 import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/config/theme/light_theme.dart';
 import 'package:autonect/controller/conttroller.dart';
+import 'package:autonect/data/core/api_client.dart';
+import 'package:autonect/data/core/api_config.dart';
+import 'package:autonect/data/core/http_transport_impl.dart';
+import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/repositories/auth_api_repository.dart';
+import 'package:autonect/data/repositories/auth_repository.dart';
 import 'package:autonect/services/session_store.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Must precede the Get.put: RoleController.onInit hydrates synchronously
-  // from the store, which is what lets SplashScreen decide with no await.
+  // Must precede everything: RoleController.onInit and PrefsTokenStore both
+  // read the store synchronously, which is what lets SplashScreen decide with
+  // no await.
   await SessionStore.init();
-  // permanent so a future Get.deleteAll() on logout cannot destroy it.
+  final tokens = PrefsTokenStore();
+  final client = ApiClient(
+    transport: HttpClientTransport(timeout: ApiConfig.fromEnvironment.timeout),
+    baseUrl: ApiConfig.fromEnvironment.baseUrl,
+    tokens: tokens,
+    onSessionExpired: () async {
+      RoleController.to.forceSignOut();
+    },
+  );
+  Get.put<TokenStore>(tokens, permanent: true);
+  // permanent AND singular is LOAD-BEARING, not hygiene: two ApiClients are two
+  // _refreshFuture fields are two concurrent refreshes are revokeFamily(), and
+  // the user is hard-logged-out of every device. Construct it here and nowhere
+  // else.
+  Get.put<ApiClient>(client, permanent: true);
+  Get.put<AuthRepository>(AuthApiRepository(client, tokens), permanent: true);
   Get.put(RoleController(), permanent: true);
   runApp(MyApp());
 }

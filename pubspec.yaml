@@ -40,9 +40,14 @@ dependencies:
   loading_animation_widget: ^1.3.0
   dropdown_button2: ^2.3.9
   flutter_svg: ^2.2.3
-  intl_phone_field:
-  pinput:
+  # Pinned: both were declared with a bare colon, so `pub upgrade` could pull a
+  # breaking major straight into the OTP screen.
+  intl_phone_field: ^3.2.0
+  pinput: ^5.0.2
   shared_preferences: ^2.5.3
+  # Already resolved at 1.6.0 transitively (cached_network_image ->
+  # flutter_cache_manager), so promoting it to a direct dep adds zero packages.
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,4 @@
+import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -12,7 +13,18 @@ import 'package:get/get.dart';
 class RoleGuard extends GetMiddleware {
   @override
   RouteSettings? redirect(String? route) {
-    final target = RoleController.to.landingRoute;
+    final c = RoleController.to;
+    // RolePage writes the role BEFORE the user authenticates, so a role alone
+    // is not a session. landingRoute deliberately ignores isLoggedIn — splash
+    // uses it to place a *restored* session — which would otherwise let a deep
+    // link or a stray toNamed() walk straight into a shell with no tokens.
+    // Terminates: the login route carries no middleware.
+    if (!c.isLoggedIn.value) {
+      return route == AppLinks.login
+          ? null
+          : const RouteSettings(name: AppLinks.login);
+    }
+    final target = c.landingRoute;
     return target == route ? null : RouteSettings(name: target);
   }
 }

@@ -2,8 +2,11 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/constants/loading_animation.dart';
+import 'package:autonect/controller/auth_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/screens/auth/login.dart';
+import 'package:autonect/view/screens/auth/verify_otp.dart';
 import 'package:autonect/view/widget/animation_widget.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
@@ -20,9 +23,54 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+
   bool isSelected = false;
   bool isObSecure1 = false;
-  RoleController roleController = Get.find<RoleController>();
+
+  final RoleController roleController = Get.find<RoleController>();
+  late final AuthController c;
+
+  @override
+  void initState() {
+    super.initState();
+    c = AuthController.ensure();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (!(_form.currentState?.validate() ?? false)) return;
+
+    final outcome = await c.signup(
+      email: _email.text,
+      password: _password.text,
+      name: _name.text,
+      // The ONE place the locally picked role is legitimately authoritative:
+      // the account does not exist yet, so there is no server role to defer to.
+      // From here on the token payload's role wins.
+      role: roleController.role.value ?? AppRole.buyer,
+      form: _form,
+    );
+    if (!mounted || outcome != AuthOutcome.success) return;
+
+    // Signup returns NO TOKENS — the account is left PENDING_VERIFICATION and
+    // the server emails a 6-digit OTP. So this goes to the OTP screen, never to
+    // a home shell, and AccountCreatedBSheet moves to after verification.
+    Get.to(() => VerifyOtpPage(email: c.pendingEmail.value));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,147 +79,160 @@ class _RegisterPageState extends State<RegisterPage> {
         child: SafeArea(
           child: SingleChildScrollView(
             padding: AppSizes.DEFAULT,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Header(
-                  heading: "Create an Account",
-                  title1: "Log in to continue your journey",
-                  title: "Already have an account? ",
-                  subTitle: "Log In",
-                  onTap: () {
-                    Get.back();
-                  },
-                ),
+            child: Form(
+              key: _form,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Header(
+                    heading: "Create an Account",
+                    title1: "Log in to continue your journey",
+                    title: "Already have an account? ",
+                    subTitle: "Log In",
+                    onTap: () {
+                      Get.back();
+                    },
+                  ),
 
-                SizedBox(height: 40),
+                  SizedBox(height: 40),
 
-                MyTextField(
-                  labelText: "Name",
-                  hintText: "e.g John",
-                  keyboardType: TextInputType.name,
-                ),
-                MyTextField(
-                  labelText: "Email Address",
-                  hintText: "example@domain.com",
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                // MyPhoneField(
-                //   marginBottom: 0,
-                //   labelText: "Phone Number",
-                //   hintText: "Phone Number",
-                //   onChanged: (phone) {
-                //     // authCTRL.phoneCode = phone.countryCode;
-                //     // authCTRL.phoneNumber = phone.number;
-
-                //     // log("Country Code: ${authCTRL.phoneCode}");
-                //     // log("Number: ${authCTRL.phoneNumber}");
-                //   },
-                // ),
-                PasswordTextField(
-                  labelText: "Password",
-                  isObSecure: isObSecure1,
-                  onTap: () {
-                    if (isObSecure1 == true) {
-                      isObSecure1 = false;
-                    } else {
-                      isObSecure1 = true;
-                    }
-                    setState(() {});
-                  },
-                ),
-                PasswordTextField(
-                  labelText: "Confirm Password",
-                  isObSecure: isObSecure1,
-                  onTap: () {
-                    if (isObSecure1 == true) {
-                      isObSecure1 = false;
-                    } else {
-                      isObSecure1 = true;
-                    }
-                    setState(() {});
-                  },
-                ),
-
-                SizedBox(height: 20),
-
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    MyCheckBox(
-                      isChecked: isSelected,
-                      onChanged: (value) {
-                        isSelected = value!;
-                        setState(() {});
+                  Obx(
+                    () => MyTextField(
+                      controller: _name,
+                      labelText: "Name",
+                      hintText: "e.g John",
+                      keyboardType: TextInputType.name,
+                      textCapitalization: TextCapitalization.words,
+                      errorText: c.fieldErrorFor('name'),
+                      validator: (v) =>
+                          c.fieldErrorFor('name') ?? validateName(v),
+                      onChanged: (_) => c.clearFieldError('name'),
+                    ),
+                  ),
+                  Obx(
+                    () => MyTextField(
+                      controller: _email,
+                      labelText: "Email Address",
+                      hintText: "example@domain.com",
+                      keyboardType: TextInputType.emailAddress,
+                      textCapitalization: TextCapitalization.none,
+                      errorText: c.fieldErrorFor('email'),
+                      validator: (v) =>
+                          c.fieldErrorFor('email') ?? validateEmail(v),
+                      onChanged: (_) => c.clearFieldError('email'),
+                    ),
+                  ),
+                  Obx(
+                    () => PasswordTextField(
+                      controller: _password,
+                      labelText: "Password",
+                      isObSecure: isObSecure1,
+                      errorText: c.fieldErrorFor('password'),
+                      // Mirrors auth.dto.ts so the user is not round-tripped
+                      // to the server to be told about a capital letter.
+                      validator: (v) =>
+                          c.fieldErrorFor('password') ??
+                          validateStrongPassword(v),
+                      onChanged: (_) => c.clearFieldError('password'),
+                      onTap: () {
+                        setState(() => isObSecure1 = !isObSecure1);
                       },
                     ),
-                    Expanded(
-                      child: MyText(
-                        paddingLeft: 10,
-                        text: "I agree to the Terms and Conditions.",
-                        size: 12,
-                        weight: FontWeight.w400,
-                        color: kGreyTextColor,
-                        textOverflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-
-                MyButton(
-                  mTop: 30,
-                  mBottom: 12,
-                  onTap: () => Get.bottomSheet(
-                    AccountCreatedBSheet(
-                      onContinue: () {
-                        Get.back();
-                        // TODO(api): role comes from the POST /auth/register
-                        // response; buyer is the fallback for a direct signup.
-                        final r = roleController.role.value ?? AppRole.buyer;
-                        roleController.signIn(r);
-                        Get.offAllNamed(roleController.landingRoute);
-                      },
-                    ),
-                    isScrollControlled: true,
                   ),
-                  buttonText: "Sign Up",
-                ),
-
-                Align(
-                  alignment: AlignmentGeometry.center,
-                  child: MyText(
-                    textAlign: TextAlign.center,
-                    paddingBottom: 20,
-                    paddingTop: 10,
-                    text: "OR",
-                    size: 14,
-                    weight: FontWeight.w500,
-                    color: kGreyTextColor,
+                  PasswordTextField(
+                    controller: _confirm,
+                    labelText: "Confirm Password",
+                    hintText: "Re-enter your password",
+                    isObSecure: isObSecure1,
+                    textInputAction: TextInputAction.done,
+                    validator: (v) => (v != _password.text)
+                        ? 'Passwords do not match'
+                        : null,
+                    onTap: () {
+                      setState(() => isObSecure1 = !isObSecure1);
+                    },
                   ),
-                ),
 
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(2, (index) {
-                    List<String> icons = [
-                      Assets.imagesGoogleIcon,
-                      Assets.imagesAppleLogo,
-                    ];
-                    return Padding(
-                      padding: EdgeInsetsGeometry.only(bottom: 10),
-                      child: SocialBtn(
-                        icon: icons[index],
-                        color: kWhiteColor,
-                        title: (index == 0)
-                            ? "Continue With Apple"
-                            : "Continue With Gmail",
-                        onTap: () {},
+                  SizedBox(height: 20),
+
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      MyCheckBox(
+                        isChecked: isSelected,
+                        onChanged: (value) {
+                          isSelected = value!;
+                          setState(() {});
+                        },
                       ),
-                    );
-                  }),
-                ),
-                SizedBox(height: 50),
-              ],
+                      Expanded(
+                        child: MyText(
+                          paddingLeft: 10,
+                          text: "I agree to the Terms and Conditions.",
+                          size: 12,
+                          weight: FontWeight.w400,
+                          color: kGreyTextColor,
+                          textOverflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const AuthFormError(),
+
+                  Obx(
+                    () => MyButton(
+                      mTop: 30,
+                      mBottom: 12,
+                      // The T&C checkbox GATES the button, and busy re-gates it
+                      // during the call: no blind retry against authRateLimit.
+                      onTap: (!isSelected || c.busy.value) ? null : _submit,
+                      backgroundColor: (!isSelected || c.busy.value)
+                          ? kSecondaryColor.withValues(alpha: .5)
+                          : kSecondaryColor,
+                      buttonText: c.busy.value
+                          ? "Creating account…"
+                          : "Sign Up",
+                    ),
+                  ),
+
+                  Align(
+                    alignment: AlignmentGeometry.center,
+                    child: MyText(
+                      textAlign: TextAlign.center,
+                      paddingBottom: 20,
+                      paddingTop: 10,
+                      text: "OR",
+                      size: 14,
+                      weight: FontWeight.w500,
+                      color: kGreyTextColor,
+                    ),
+                  ),
+
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(2, (index) {
+                      List<String> icons = [
+                        Assets.imagesGoogleIcon,
+                        Assets.imagesAppleLogo,
+                      ];
+                      return Padding(
+                        padding: EdgeInsetsGeometry.only(bottom: 10),
+                        child: SocialBtn(
+                          icon: icons[index],
+                          color: kWhiteColor,
+                          title: (index == 0)
+                              ? "Continue With Google"
+                              : "Continue With Apple",
+                          onTap: () {},
+                        ),
+                      );
+                    }),
+                  ),
+                  SizedBox(height: 50),
+                ],
+              ),
             ),
           ),
         ),
