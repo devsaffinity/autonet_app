@@ -1,324 +1,165 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/constants/loading_animation.dart';
+import 'package:autonect/controller/buyer/accept_offer_controller.dart';
+import 'package:autonect/data/models/offer.dart';
+import 'package:autonect/data/models/part_request.dart';
+import 'package:autonect/domain/conflict_kind.dart';
+import 'package:autonect/domain/offer_actionability.dart';
 import 'package:autonect/view/screens/buyer/detail/order_status.dart';
-import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/app_card.dart';
+import 'package:autonect/view/widget/counted_text_field.dart';
+import 'package:autonect/view/widget/detail_item.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/price_row.dart';
+import 'package:autonect/view/widget/status_badge.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
-class OrderSummaryPage extends StatelessWidget {
-  final String vehicle, partName, partBrand, partNumber;
-  final String sellerName, sellerAddress;
-  final String deliveryAddress, estimatedTime;
-  final String partPrice, deliveryFee, totalPrice;
-
-  /// Defaults are the literals this screen used to hard-code, so an
-  /// argument-less `OrderSummaryPage()` renders exactly as before.
+/// The confirm step: read the offer back, say where it should go, accept it.
+///
+/// Accepting CLOSES the parent request and auto-REJECTS every sibling offer in
+/// the SAME transaction, and the buyer is sent no notification of their own
+/// accept — so any comparison or offers screen still on the stack behind this
+/// one is stale the moment this succeeds.
+///
+/// There is no `sellerAddress` row and no 'Part Price + Delivery Fee = Total'
+/// block: neither has a backend source, and `Order.totalPence` is copied
+/// verbatim from `Offer.pricePence`.
+class OrderSummaryPage extends StatefulWidget {
   const OrderSummaryPage({
     super.key,
-    this.vehicle = '2020 Toyota Corolla',
-    this.partName = 'Front Brake Pads',
-    this.partBrand = 'Toyota OEM',
-    this.partNumber = '04465-02280',
-    this.sellerName = 'AutoParts Hub',
-    this.sellerAddress = 'Bole Road, Near Atlas Hotel',
-    this.deliveryAddress = 'Bole, Addis Ababa',
-    this.estimatedTime = 'Today (2–4 hours)',
-    this.partPrice = '3,200 ETB',
-    this.deliveryFee = '300 ETB',
-    this.totalPrice = '3,500 ETB',
+    required this.offer,
+    required this.request,
   });
+
+  final Offer offer;
+  final PartRequest request;
+
+  @override
+  State<OrderSummaryPage> createState() => _OrderSummaryPageState();
+}
+
+class _OrderSummaryPageState extends State<OrderSummaryPage> {
+  /// `deliveryLocation` (1..300) is the ONE writable field on the accept route.
+  final TextEditingController _location = TextEditingController();
+  late final AcceptOfferController _c = AcceptOfferController.ensure();
+
+  @override
+  void initState() {
+    super.initState();
+    // The controller is a Get singleton and outlives this screen, so a 409 it
+    // absorbed for ANOTHER offer would otherwise still be disabling the button
+    // and printing its copy under the field here.
+    _c.beginOffer(widget.offer.id);
+  }
+
+  @override
+  void dispose() {
+    _location.dispose();
+    super.dispose();
+  }
+
+  Future<void> _place() async {
+    FocusScope.of(context).unfocus();
+    // `valueOrNull` rather than a switch over Ok/Err: the sealed result type
+    // lives in data/core, which the view layer must not import (§4). A blank
+    // location is dropped by the repository — `""` fails the server's min(1),
+    // while omitting the key entirely is valid.
+    final order = (await _c.accept(
+      offerId: widget.offer.id,
+      deliveryLocation: _location.text,
+    )).valueOrNull;
+    if (!mounted) return;
+    if (order != null) {
+      // Order payloads carry NO supplier identity — only `supplierId` — so this
+      // is the last screen that knows the name. It travels forward by hand.
+      Get.off(() => OrderStatusPage(
+          orderId: order.id,
+          supplierName: supplierDisplayName(widget.offer.supplier)));
+      return;
+    }
+    // The offer went while the buyer was reading it; the list behind is stale,
+    // so hand them back to it rather than leaving them on a dead summary.
+    if (_c.conflict.value == ConflictKind.offerNotAcceptable) {
+      displayToast(msg: 'This offer is no longer available.');
+      Get.back();
+    }
+    // requestAlreadyAccepted stays put: its copy is already in formError, and
+    // the buyer's existing order is reachable from My Orders, not from here.
+  }
 
   @override
   Widget build(BuildContext context) {
+    final o = widget.offer;
+    final delivery = o.deliveryOption, days = o.deliveryTimeDays;
     return Scaffold(
-      appBar: GeneralAppBar(title: "Order Summary", centerdTitle: false),
-      body: SingleChildScrollView(
-        padding: AppSizes.DEFAULT,
-        physics: BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            // ── Order Details card
-            _SectionCard(
-              title: 'Order Details',
-              child: Column(
-                children: [
-                  _OrderRow(
-                    icon: Assets.imagesSummaryA,
-                    topLabel: 'Vehicle',
-                    mainText: vehicle,
-                  ),
-                  const _Divider(),
-                  _OrderRow(
-                    icon: Assets.imagesSummaryB,
-                    topLabel: 'Part Ordered',
-                    mainText: partName,
-                    bottomWidget: Row(
-                      children: [
-                        MyText(
-                          text: 'Brand: $partBrand',
-                          size: 12,
-                          color: kGreyTextColor,
-                        ),
-                        const SizedBox(width: 12),
-                        MyText(
-                          text: 'Part #: $partNumber',
-                          size: 12,
-                          color: kGreyTextColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const _Divider(),
-                  _OrderRow(
-                    icon: Assets.imagesSummaryC,
-                    topLabel: 'Seller',
-                    mainText: sellerName,
-                    bottomWidget: MyText(
-                      text: sellerAddress,
-                      size: 12,
-                      color: kGreyTextColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // ── Delivery Method card
-            _SectionCard(
-              title: 'Delivery Method',
-              child: _OrderRow(
-                icon: Assets.imagesSummaryD,
-                topLabel: 'Delivery to Location',
-                mainText: 'Delivered to: $deliveryAddress',
-                bottomWidget: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    MyText(
-                      text: 'Estimated time: $estimatedTime',
-                      size: 12,
-                      color: kGreyTextColor,
-                    ),
-                    const SizedBox(height: 2),
-                    MyText(
-                      text: 'Delivery fee: $deliveryFee',
-                      size: 12,
-                      color: kSecondaryColor,
-                      weight: FontWeight.w500,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // ── Price Breakdown card
-            _SectionCard(
-              title: 'Price Breakdown',
-              child: Column(
-                children: [
-                  _PriceRow(label: 'Part Price', value: partPrice),
-                  const SizedBox(height: 12),
-                  _PriceRow(label: 'Delivery Fee', value: deliveryFee),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Divider(height: 1, color: kGreyTextColor),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      MyText(
-                        text: 'Total Price',
-                        size: 14,
-                        weight: FontWeight.w700,
-                        color: kBlackColor,
-                      ),
-                      MyText(
-                        text: totalPrice,
-                        size: 14,
-                        weight: FontWeight.w700,
-                        color: kSecondaryColor,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Place Order button
-            MyButton(
-              mBottom: 30,
-              buttonText: 'Place Order',
-              onTap: () {
-                Get.to(
-                  () => OrderStatusPage(
-                    sellerName: sellerName,
-                    partName: partName,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Section Card (white rounded card with title)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _SectionCard({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: MyText(
-              text: title,
-              size: 16,
-              weight: FontWeight.w700,
-              color: kBlackColor,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Order Row (icon + top label + main text + optional bottom widget)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _OrderRow extends StatelessWidget {
-  final String icon;
-  final String topLabel;
-  final String mainText;
-  final Widget? bottomWidget;
-
-  const _OrderRow({
-    required this.icon,
-    required this.topLabel,
-    required this.mainText,
-    this.bottomWidget,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Icon container
-        CommonImageView(svgPath: icon),
-        const SizedBox(width: 12),
-
-        // Text content
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              MyText(
-                text: topLabel,
-                size: 14,
-                weight: FontWeight.w400,
-                color: kGreyTextColor,
-                paddingBottom: 2,
-              ),
-              MyText(
-                text: mainText,
-                size: 16,
-                weight: FontWeight.w500,
-                color: kBlackColor,
-              ),
-              if (bottomWidget != null) ...[
-                const SizedBox(height: 4),
-                bottomWidget!,
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Price Row
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PriceRow extends StatelessWidget {
-  final String label, value;
-  const _PriceRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        MyText(
-          text: label,
-          size: 14,
-          weight: FontWeight.w400,
-          color: kBlackColor,
+      appBar: GeneralAppBar(title: 'Order Summary', centerdTitle: false),
+      body: ListView(padding: AppSizes.DEFAULT, children: [
+        AppCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            DetailItem(label: 'Vehicle', value: widget.request.regNumber),
+            DetailItem(label: 'Part ordered', value: widget.request.partName),
+            DetailItem(
+                label: 'Supplier', value: supplierDisplayName(o.supplier)),
+            if (delivery != null)
+              DetailItem(label: 'Delivery', value: delivery.label),
+            if (days != null)
+              DetailItem(
+                  label: 'Delivery time',
+                  value: days == 1 ? '1 day' : '$days days'),
+            PriceRow(label: 'Total', pence: o.pricePence, emphasised: true),
+          ]),
         ),
         MyText(
-          text: value,
-          size: 14,
-          weight: FontWeight.w400,
-          color: kBlackColor,
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Thin divider between order rows
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: Divider(height: 1, color: Color(0xffEEEEEE)),
+            text: 'Where should this be delivered?',
+            size: AppTextScale.subtitle,
+            weight: AppWeights.semibold,
+            color: kBlackColor,
+            paddingTop: AppSizes.s20,
+            paddingBottom: AppSizes.s8),
+        Obx(() => CountedTextField(
+              controller: _location,
+              maxLength: 300,
+              maxLines: 2,
+              hintText: 'Street, town and postcode',
+              errorText: _c.fieldErrorFor('deliveryLocation'),
+              marginBottom: AppSizes.s4,
+            )),
+        MyText(
+            text: 'Optional — leave it blank and the supplier will be in touch.',
+            size: AppTextScale.label,
+            color: kGreyTextColor),
+        Obx(() {
+          final e = _c.formError.value;
+          return e == null
+              ? const SizedBox.shrink()
+              : MyText(
+                  text: e,
+                  size: AppTextScale.body,
+                  color: kRedColor,
+                  paddingTop: AppSizes.s12);
+        }),
+      ]),
+      bottomNavigationBar: Obx(() {
+        // Defence in depth. The two screens above already refuse to walk here
+        // on a dead offer; `shouldRefetch` shuts the door AFTER a 409 has
+        // proved THIS one is gone, so a second tap cannot repeat it.
+        final why = unacceptableReason(widget.offer, widget.request);
+        return Padding(
+          padding: AppSizes.DEFAULT,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (why != null)
+              MyText(text: why, size: AppTextScale.label, color: kGreyTextColor,
+                  textAlign: TextAlign.center, paddingBottom: AppSizes.s8),
+            MyButton(buttonText: 'Place Order', loading: _c.busy.value,
+                enabled: why == null && !_c.shouldRefetch, onTap: _place),
+          ]),
+        );
+      }),
     );
   }
 }

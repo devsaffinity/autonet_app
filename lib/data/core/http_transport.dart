@@ -7,6 +7,7 @@ class HttpRequest {
     required this.headers,
     this.query,
     this.body,
+    this.bodyBytes,
   });
 
   final String method;
@@ -14,6 +15,10 @@ class HttpRequest {
   final Map<String, String> headers;
   final Map<String, String>? query;
   final String? body;
+
+  /// Set INSTEAD of [body] for a raw binary PUT (a presigned S3 upload). A
+  /// request carries exactly one payload, so [bodyBytes] takes precedence.
+  final List<int>? bodyBytes;
 }
 
 class HttpResponse {

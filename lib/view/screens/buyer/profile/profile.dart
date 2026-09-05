@@ -1,6 +1,8 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/controller/conttroller.dart';
+import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/view/screens/buyer/services/my_booking.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -11,11 +13,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// Buyer profile — tab 4 of `BuyerNavBar` and one of the app's logout paths.
+///
+/// The identity block reads `TokenStore.user`, which the session already holds
+/// in memory: `GET /v1/me` is phase-2 `profile` scope and this screen needs no
+/// network and no repository of its own to stop lying about who is signed in.
 class BuyerProfilePage extends StatelessWidget {
   const BuyerProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final user = Get.find<TokenStore>().user;
+    final email = user?.email;
     return Scaffold(
       appBar: GeneralAppBar(title: "Profile", hasBackButton: false),
       body: SingleChildScrollView(
@@ -28,8 +36,10 @@ class BuyerProfilePage extends StatelessWidget {
             Center(
               child: Column(
                 children: [
+                  // A local asset, not a stock photo off randomuser.me: there
+                  // is no avatar field on AuthUser and no upload route for one.
                   CommonImageView(
-                    url: 'https://randomuser.me/api/portraits/women/44.jpg',
+                    imagePath: Assets.imagesProfileImage,
                     height: 90,
                     width: 90,
                     radius: 45,
@@ -37,18 +47,21 @@ class BuyerProfilePage extends StatelessWidget {
                   ),
                   MyText(
                     paddingTop: 12,
-                    text: 'Lorem Ipsum',
+                    // `name` is nullable on the wire; email is not, but the
+                    // whole user is absent until a session exists.
+                    text: user?.name ?? 'Autonect buyer',
                     size: 18,
                     weight: FontWeight.w700,
                     color: kBlackColor,
                   ),
-                  MyText(
-                    paddingTop: 2,
-                    text: 'buyer@autonect.com',
-                    size: 13,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
-                  ),
+                  if (email != null)
+                    MyText(
+                      paddingTop: 2,
+                      text: email,
+                      size: 13,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
                 ],
               ),
             ),

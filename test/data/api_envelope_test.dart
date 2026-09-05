@@ -2,6 +2,7 @@ import 'package:autonect/data/core/api_envelope.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/message_ack.dart';
+import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/token_pair.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -113,12 +114,28 @@ void main() {
     expect(ack(401, errorOf('FORBIDDEN')).errorOrNull!.isStaleAccessToken, isFalse);
   });
 
-  test('metaOf reads pagination meta and tolerates its absence', () {
-    const body = '{"success":true,"data":[],"meta":{"page":2,"limit":20,'
-        '"pageSize":20,"total":30,"totalPages":2,"hasNextPage":false,"hasPreviousPage":true}}';
-    expect(metaOf(body)?.page, 2);
-    expect(metaOf('{"success":true,"data":[]}'), isNull);
-    expect(metaOf('not json'), isNull);
+  group('decodeEnvelopeWithMeta hands the top-level meta sibling to the decoder', () {
+    // meta is a SIBLING of data, not a child of it, so a decoder that only ever
+    // sees json['data'] can never read hasNextPage.
+    ApiResult<Map<String, dynamic>?> metaOnly(String body) =>
+        decodeEnvelopeWithMeta<Map<String, dynamic>?>(200, body, (_, m) => m);
+
+    test('meta present is surfaced', () {
+      const body = '{"success":true,"data":[],"meta":{"page":2,"limit":20,'
+          '"pageSize":20,"total":30,"totalPages":2,"hasNextPage":false,"hasPreviousPage":true}}';
+      expect(PageMeta.fromJson(metaOnly(body).valueOrNull!).page, 2);
+    });
+
+    test('meta absent passes null to the decoder', () {
+      final r = metaOnly('{"success":true,"data":[]}');
+      expect(r.isOk, isTrue);
+      expect(r.valueOrNull, isNull);
+    });
+
+    test('a non-JSON body is still malformed', () {
+      expect(metaOnly('not json').errorOrNull?.code,
+          ApiErrorCode.malformedResponse);
+    });
   });
 }
 

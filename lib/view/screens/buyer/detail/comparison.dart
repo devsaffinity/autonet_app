@@ -1,517 +1,199 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
-import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/controller/buyer/accept_offer_controller.dart';
+import 'package:autonect/controller/buyer/request_detail_controller.dart';
+import 'package:autonect/data/models/offer.dart';
+import 'package:autonect/data/models/part_request.dart';
+import 'package:autonect/domain/money_format.dart';
+import 'package:autonect/domain/offer_actionability.dart';
 import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
 import 'package:autonect/view/screens/buyer/detail/report.dart';
-import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/app_card.dart';
+import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/state_view.dart';
+import 'package:autonect/view/widget/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class ComparisonPage extends StatelessWidget {
-  /// The request whose offers are being compared. Defaults keep every existing
-  /// `Get.to(() => ComparisonPage())` call site compiling and looking the same;
-  /// callers that know the request pass it in. This is the seam the API layer
-  /// plugs into — it replaces the literals, nothing else moves.
-  final String title;
-  final String partType;
-  final int offersCount;
-  final String image;
+/// Side-by-side comparison of `GET /v1/requests/{id}/offers`.
+///
+/// Server order is preserved. The PENDING-before-ACCEPTED grouping rests on
+/// Postgres enum declaration order and is asserted nowhere in the repo; only
+/// the pricePence ascending tie-break inside a group is certain, so nothing
+/// here depends on the group order being what it looks like.
+class ComparisonPage extends StatefulWidget {
+  const ComparisonPage({super.key, required this.request});
 
-  const ComparisonPage({
-    super.key,
-    this.title = 'Ford Mustang GT',
-    this.partType = 'Engine',
-    this.offersCount = 2,
-    this.image = Assets.imagesCar1,
-  });
-
-  // ── Dummy data
-  static const List<Map<String, dynamic>> _compareOffers = [
-    {
-      'name': 'Sarah Johnson',
-      'price': '\$3000',
-      'rating': '4.8',
-      'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-    },
-    {
-      'name': 'Sarah Johnson',
-      'price': '\$3000',
-      'rating': '4.8',
-      'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _allOffers = [
-    {
-      'name': 'Sarah Johnson',
-      'price': '\$3000',
-      'rating': '4.8',
-      'delivery': 'Delivery upto 24h',
-      'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'selected': true,
-    },
-    {
-      'name': 'Sarah Johnson',
-      'price': '\$3000',
-      'rating': '4.8',
-      'delivery': 'Delivery upto 24h',
-      'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'selected': true,
-    },
-    {
-      'name': 'Sarah Johnson',
-      'price': '\$3000',
-      'rating': '4.8',
-      'delivery': 'Delivery upto 24h',
-      'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'selected': true,
-    },
-  ];
+  final PartRequest request;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            // ── AppBar
-            Container(
-              padding: EdgeInsets.only(left: 20, right: 20, top: 50),
-              width: double.infinity,
-              height: 250,
-              decoration: AppStyling().allFourSideRaius(
-                color: const Color(0xffFCECEA),
-                topLeft: 0,
-                topRight: 0,
-                bottomLeft: 30,
-                bottomRight: 30,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      MyRippleEffect(
-                        onTap: () => Get.back(),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          size: 18,
-                          color: kBlackColor,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: MyText(
-                          text: title,
-                          size: 16,
-                          weight: FontWeight.w600,
-                          color: kBlackColor,
-                          maxLines: 1,
-                          textOverflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  CommonImageView(
-                    imagePath: image,
-                    width: 300,
-                    fit: BoxFit.contain,
-                  ),
-                ],
-              ),
-            ),
+  State<ComparisonPage> createState() => _ComparisonPageState();
+}
 
-            Padding(
-              padding: AppSizes.HORIZONTAL,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
+class _ComparisonPageState extends State<ComparisonPage> {
+  final RequestDetailController c = RequestDetailController.ensure();
+  final AcceptOfferController _accept = AcceptOfferController.ensure();
 
-                  // ── Offers header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      MyText(
-                        text: 'Offers',
-                        size: 16,
-                        weight: FontWeight.w700,
-                        color: kBlackColor,
-                      ),
-                      MyText(
-                        text: '($offersCount)',
-                        size: 12,
-                        color: kSecondaryColor,
-                        weight: FontWeight.w600,
-                      ),
-                    ],
-                  ),
+  /// Offers the buyer has dismissed with the X. Client-side only: there is no
+  /// buyer endpoint that removes an offer.
+  final Set<String> _removed = {};
 
-                  MyText(
-                    paddingTop: 4,
-                    paddingBottom: 12,
-                    text: 'Compare & choose the best offer for your needs',
-                    size: 14,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
-                  ),
+  @override
+  void initState() {
+    super.initState();
+    // UNCONDITIONALLY, as request_detail.dart does. An id check on a SINGLETON
+    // made re-opening the SAME request the one case that never refetched —
+    // exactly the case a row that now reads '3 offers' sends the buyer into.
+    c.load(widget.request.id);
+  }
 
-                  // ── Comparing card
-                  _ComparingCard(
-                    offers: _compareOffers,
-                    onViewReport: () => Get.to(
-                      () => ComparisonReportPage(
-                        title: title,
-                        partType: partType,
-                      ),
-                    ),
-                  ),
+  /// Pull-to-refresh. Not [RequestDetailController.load]: that blanks both
+  /// states, and a spinner where the list was is two indicators for one wait.
+  /// Id-checked because a deeper screen may have re-pointed the singleton.
+  Future<void> _refresh() => c.requestId == widget.request.id
+      ? Future.wait([c.loadRequest(), c.loadOffers()])
+      : c.load(widget.request.id);
 
-                  const SizedBox(height: 20),
+  List<Offer> _visible(List<Offer> all) =>
+      [for (final o in all) if (!_removed.contains(o.id)) o];
 
-                  // ── Showing N offers label
-                  MyText(
-                    text: 'Showing 8 offers',
-                    size: 14,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
-                    paddingBottom: 10,
-                  ),
+  /// Awaiting the push is what makes this list self-correcting: an accept two
+  /// screens deeper closes the request and rejects every sibling in one
+  /// transaction, notifying nobody, so returning here is when this learns it.
+  Future<void> _open(Offer offer, PartRequest request) async {
+    await Get.to(() => OfferDetailPage(offer: offer, request: request));
+    await c.refreshIfStale(_accept);
+  }
 
-                  // ── All offer cards
-                  ..._allOffers.map(
-                    (o) => _OfferCard(
-                      name: o['name'],
-                      price: o['price'],
-                      rating: o['rating'],
-                      delivery: o['delivery'],
-                      avatarUrl: o['avatar'],
-                      isSelected: o['selected'],
-                      onViewOffer: () => Get.to(
-                        () => OfferDetailPage(
-                          sellerName: o['name'],
-                          avatarUrl: o['avatar'],
-                          rating: o['rating'],
-                          price: o['price'],
-                          totalPrice: o['price'],
-                          delivery: o['delivery'],
-                          partName: partType,
-                          vehicle: title,
-                        ),
-                      ),
-                    ),
-                  ),
+  /// The Obx closure itself, so BOTH Rx reads land in the tracking zone (see
+  /// [StateView]): from [_body], `liveRequest` subscribed to nothing, so a
+  /// refetch proving the request CLOSED never re-judged the cards.
+  Widget _states() {
+    final request = c.liveRequest(widget.request);
+    return StateView<List<Offer>>(state: c.offers.value,
+        onRetry: c.loadOffers, builder: (_, all) => _body(all, request));
+  }
 
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-          ],
+  Widget _body(List<Offer> all, PartRequest request) {
+    final offers = _visible(all);
+    // Physics are load-bearing: an unfilled list must still overscroll, or the
+    // RefreshIndicator above it can never be pulled.
+    return ListView(physics: const AlwaysScrollableScrollPhysics(),
+        padding: AppSizes.DEFAULT, children: [
+      // ONE count, from the list actually rendered, correctly pluralised.
+      MyText(text: offers.length == 1 ? '1 offer' : '${offers.length} offers',
+          size: AppTextScale.subtitle, weight: AppWeights.bold,
+          color: kBlackColor, paddingBottom: AppSizes.s4),
+      MyText(text: 'Compare and choose the best offer for your needs',
+          size: AppTextScale.body, color: kGreyTextColor, paddingBottom: AppSizes.s16),
+      if (offers.isNotEmpty)
+        MyButton(mBottom: AppSizes.s16, buttonText: 'View comparison report',
+            fontSize: AppTextScale.body, backgroundColor: kWhiteColor,
+            outlineColor: kSecondaryColor, fontColor: kSecondaryColor,
+            onTap: () => Get.to(() => ComparisonReportPage(
+                request: request, offers: offers))),
+      for (final o in offers)
+        _OfferCard(
+          offer: o,
+          request: request,
+          onView: () => _open(o, request),
+          onRemove: () => setState(() => _removed.add(o.id)),
         ),
-      ),
-    );
+      if (offers.isEmpty)
+        MyText(text: 'You dismissed every offer on this request.',
+            size: AppTextScale.body, color: kGreyTextColor, textAlign: TextAlign.center),
+    ]);
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Comparing Card (top comparison box with 1 or 2 offers)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ComparingCard extends StatelessWidget {
-  final List<Map<String, dynamic>> offers;
-  final VoidCallback onViewReport;
-
-  const _ComparingCard({required this.offers, required this.onViewReport});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: AppStyling().myDecoration(
-        color: kSecondaryColor.withValues(alpha: .1),
-        borderColor: kSecondaryColor,
-      ),
-      child: Column(
-        children: [
-          // ── Header row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              MyText(
-                text: 'Comparing ${offers.length} offer',
-                size: 16,
-                weight: FontWeight.w600,
-                color: kSecondaryColor,
-              ),
-              MyText(
-                onTap: onViewReport,
-                text: 'View Comparison',
-                size: 12,
-                color: kSecondaryColor,
-                weight: FontWeight.w500,
-                decoration: TextDecoration.underline,
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-
-          // ── Each compared offer row
-          ...offers.asMap().entries.map((e) {
-            final isLast = e.key == offers.length - 1;
-            return Column(
-              children: [
-                _CompareRow(
-                  name: e.value['name'],
-                  price: e.value['price'],
-                  rating: e.value['rating'],
-                  avatarUrl: e.value['avatar'],
-                ),
-                if (!isLast) const Divider(height: 1, color: Color(0xffF0F0F0)),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    appBar: GeneralAppBar(title: widget.request.partName, centerdTitle: false),
+    // Same shape as PagedListView: re-entering the screen is not the only
+    // moment the buyer is entitled to a fresher count.
+    body: RefreshIndicator(
+      color: kSecondaryColor,
+      onRefresh: _refresh,
+      child: Obx(_states),
+    ),
+  );
 }
-
-class _CompareRow extends StatelessWidget {
-  final String name, price, rating, avatarUrl;
-
-  const _CompareRow({
-    required this.name,
-    required this.price,
-    required this.rating,
-    required this.avatarUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 6),
-      decoration: AppStyling().myDecoration(
-        color: kPrimaryColor,
-        borderColor: kTransperentColor,
-        radius: 10,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(
-          children: [
-            // ── Name + X
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    CommonImageView(
-                      url: avatarUrl,
-                      height: 24,
-                      width: 24,
-                      radius: 14,
-                      fit: BoxFit.cover,
-                    ),
-                    const SizedBox(width: 8),
-                    MyText(
-                      text: name,
-                      size: 16,
-                      weight: FontWeight.w600,
-                      color: kSecondaryColor,
-                    ),
-                  ],
-                ),
-                const Icon(Icons.close, size: 20, color: kGreyTextColor),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // ── Price + Rating + Contact
-            Row(
-              children: [
-                CommonImageView(svgPath: Assets.imagesCpA),
-                const SizedBox(width: 4),
-                MyText(text: price, size: 14, weight: FontWeight.w400),
-                const Spacer(),
-                CommonImageView(svgPath: Assets.imagesCpB),
-                const SizedBox(width: 4),
-                MyText(text: rating, size: 14, weight: FontWeight.w400),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                MyText(
-                  text: 'Contact Seller',
-                  size: 14,
-                  weight: FontWeight.w600,
-                ),
-                CommonImageView(svgPath: Assets.imagesCpC),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Single Offer Card (bottom list)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _OfferCard extends StatelessWidget {
-  final String name, price, rating, delivery, avatarUrl;
-  final bool isSelected;
-  final VoidCallback? onViewOffer;
-
   const _OfferCard({
-    required this.name,
-    required this.price,
-    required this.rating,
-    required this.delivery,
-    required this.avatarUrl,
-    this.isSelected = false,
-    this.onViewOffer,
+    required this.offer,
+    required this.request,
+    required this.onView,
+    required this.onRemove,
   });
+
+  final Offer offer;
+  final PartRequest request;
+  final VoidCallback onView, onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBlackColor.withOpacity(0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    final days = offer.deliveryTimeDays;
+    // ONE rule, shared with the detail and summary screens below this card.
+    final gone = unacceptableLabel(offer, request);
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppSizes.s12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          // Both `name` and `businessName` are nullable on the payload, which
+          // is why the fallback lives in supplierDisplayName and not here.
+          Expanded(child: MyText(text: supplierDisplayName(offer.supplier),
+              size: AppTextScale.subtitle, weight: AppWeights.semibold,
+              color: kSecondaryColor, maxLines: 1,
+              textOverflow: TextOverflow.ellipsis)),
+          MyRippleEffect(
+            radius: AppSizes.radiusPill,
+            splashColor: kSecondaryColor.withValues(alpha: .1),
+            onTap: onRemove,
+            child: const Padding(
+              padding: EdgeInsets.all(AppSizes.s4),
+              child: Icon(Icons.close_rounded, size: AppSizes.s20,
+                  color: kGreyTextColor),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // ── Name + Rating + Delivery
-          Row(
-            children: [
-              CommonImageView(
-                url: avatarUrl,
-                height: 24,
-                width: 24,
-                radius: 16,
-                fit: BoxFit.cover,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: MyText(
-                  text: name,
-                  size: 16,
-                  weight: FontWeight.w600,
-                  color: kSecondaryColor,
-                ),
-              ),
-              CommonImageView(svgPath: Assets.imagesCpB),
-              const SizedBox(width: 4),
-              MyText(text: rating, size: 14, weight: FontWeight.w400),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          // ── Price + Contact
-          Row(
-            children: [
-              CommonImageView(svgPath: Assets.imagesCpA),
-              const SizedBox(width: 4),
-              MyText(
-                text: price,
-                size: 14,
-                weight: FontWeight.w400,
-                color: kBlackColor,
-              ),
-              const Spacer(),
-              CommonImageView(svgPath: Assets.imagesCpD),
-              const SizedBox(width: 4),
-              MyText(
-                text: delivery,
-                size: 14,
-                weight: FontWeight.w400,
-                color: kBlackColor,
-              ),
-            ],
-          ),
-          SizedBox(height: 10),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              MyText(text: 'Contact Seller', size: 14, weight: FontWeight.w600),
-              CommonImageView(svgPath: Assets.imagesCpC),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Action buttons
-          Row(
-            children: [
-              // Delete Offer
-              Expanded(
-                child: MyButton(
-                  buttonText: 'Delete Offer',
-                  backgroundColor: kTransperentColor,
-                  outlineColor: kTransperentColor,
-                  fontColor: Colors.red,
-                  fontSize: 12,
-                  height: 36,
-                  fontWeight: FontWeight.w600,
-                  onTap: () {},
-                ),
-              ),
-              const SizedBox(width: 8),
-              // View Offer
-              Expanded(
-                child: MyButton(
-                  buttonText: 'View Offer',
-                  backgroundColor: kTransperentColor,
-                  outlineColor: kTransperentColor,
-                  fontColor: kBlackColor,
-                  fontSize: 12,
-                  height: 36,
-                  fontWeight: FontWeight.w600,
-                  onTap: onViewOffer,
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Selected
-              Expanded(
-                child: MyButton(
-                  buttonText: isSelected ? 'Selected' : 'Select',
-                  backgroundColor: isSelected
-                      ? kSecondaryColor
-                      : kSecondaryColor.withOpacity(0.1),
-                  outlineColor: kTransperentColor,
-                  fontColor: kWhiteColor,
-                  fontSize: 12,
-                  height: 36,
-                  radius: 5,
-                  fontWeight: FontWeight.w600,
-                  onTap: () {},
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ]),
+        MyText(size: AppTextScale.label, color: kGreyTextColor,
+            paddingTop: AppSizes.s4, paddingBottom: AppSizes.s8,
+            text: days == null
+                ? 'Delivery time not stated'
+                : 'Delivery in $days days'),
+        Row(children: [
+          Expanded(child: MyText(text: formatPence(offer.pricePence),
+              size: AppTextScale.title, weight: AppWeights.bold,
+              color: kBlackColor)),
+          if (gone != null)
+            StatusBadge(label: gone, color: kRedColor)
+          else if (offer.stockStatus != null)
+            StatusBadge(label: offer.stockStatus!.label, color: kGreyTextColor),
+        ]),
+        if (gone != null)
+          MyText(text: unacceptableReason(offer, request)!,
+              size: AppTextScale.label, color: kGreyTextColor,
+              paddingTop: AppSizes.s8),
+        const SizedBox(height: AppSizes.s12),
+        // A single full-width CTA: its 'Select' twin only ever wrote a field
+        // that nothing in lib/ or test/ read back. Inert on a dead offer, which
+        // is the whole of this card's path onward.
+        MyButton(
+          buttonText: 'View offer',
+          enabled: gone == null,
+          height: AppSizes.s32,
+          radius: AppSizes.radiusSm,
+          fontSize: AppTextScale.label,
+          backgroundColor: kWhiteColor,
+          outlineColor: kGreyTextColor,
+          fontColor: kBlackColor,
+          onTap: onView,
+        ),
+      ]),
     );
   }
 }

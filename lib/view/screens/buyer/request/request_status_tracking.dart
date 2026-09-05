@@ -1,311 +1,169 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/controller/buyer/my_requests_controller.dart';
+import 'package:autonect/data/models/part_request.dart';
+import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
+import 'package:autonect/view/screens/buyer/request/request_detail.dart';
+import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
-import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/my_button.dart';
+import 'package:autonect/view/widget/my_pill_tabs.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/paged_list_view.dart';
+import 'package:autonect/view/widget/search_field.dart';
+import 'package:autonect/view/widget/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class RequestStatusTrackingPage extends StatelessWidget {
+/// `GET /v1/requests` — the buyer's own requests, with the four states and the
+/// real pagination both coming from the shared [PagedListView].
+class RequestStatusTrackingPage extends StatefulWidget {
   const RequestStatusTrackingPage({super.key});
 
-  // ── The buyer's open requests. Typed rows rather than five identical
-  // defaults, so the tapped item can actually travel to ComparisonPage.
-  // Only one vehicle render exists in assets/images/ (car_1), so every row
-  // carries it. Per-vehicle imagery is a design/API deliverable — do not invent
-  // Assets keys with no file behind them.
-  static const List<Map<String, dynamic>> _requests = [
-    {
-      'brand': 'TOYOTA',
-      'model': '21 i8 Gran Coupe',
-      'offers': 4,
-      'days': '1 Day',
-      'date': '12/08/2025',
-      'partType': 'Engine',
-      'image': Assets.imagesCar1,
-    },
-    {
-      'brand': 'MERCEDES BENZ',
-      'model': 'C 300 AMG Line',
-      'offers': 2,
-      'days': '3 Days',
-      'date': '09/08/2025',
-      'partType': 'Transmission',
-      'image': Assets.imagesCar1,
-    },
-    {
-      'brand': 'FORD',
-      'model': 'Mustang GT',
-      'offers': 6,
-      'days': '5 Days',
-      'date': '04/08/2025',
-      'partType': 'Brakes',
-      'image': Assets.imagesCar1,
-    },
-  ];
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: GeneralAppBar(
-        hasBackButton: false,
-        title: "Request Status Tracking",
-        action: [
-          // AddPartRequestPage had zero inbound navigation in lib/ before this.
-          MyRippleEffect(
-            radius: 100,
-            onTap: () => Get.to(() => const AddPartRequestPage()),
-            splashColor: kSecondaryColor.withValues(alpha: 0.2),
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: CommonImageView(
-                width: 22,
-                svgPath: Assets.imagesMsAdd,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          SizedBox(width: 20),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: AppSizes.DEFAULT,
-        physics: BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            // Search bar
-            MySearchBar(),
-            //Cards List
-            ..._requests.map(
-              (r) => _Card(
-                brand: r['brand'],
-                model: r['model'],
-                offersCount: r['offers'],
-                days: r['days'],
-                date: r['date'],
-                partType: r['partType'],
-                image: r['image'],
-                onViewOffers: () {
-                  Get.to(
-                    () => ComparisonPage(
-                      title: r['model'],
-                      partType: r['partType'],
-                      offersCount: r['offers'],
-                      image: r['image'],
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: 50),
-          ],
-        ),
-      ),
-    );
-  }
+  State<RequestStatusTrackingPage> createState() => _RequestListState();
 }
 
-class MySearchBar extends StatelessWidget {
-  const MySearchBar({super.key});
+class _RequestListState extends State<RequestStatusTrackingPage> {
+  final MyRequestsController c = MyRequestsController.ensure();
 
   @override
-  Widget build(BuildContext context) {
-    return MyTextField(
-      hintText: "Search Vehicle",
-      prefix: SizedBox(
-        width: 30,
-        child: MyRippleEffect(
-          onTap: () {},
-          splashColor: kSecondaryColor.withValues(alpha: 0.2),
-          child: Center(
-            child: CommonImageView(
-              width: 25,
-              imagePath: Assets.imagesSearchPrimaryIcon,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-      ),
-      suffix: SizedBox(
-        width: 30,
-        child: MyRippleEffect(
-          onTap: () {},
-          splashColor: kSecondaryColor.withValues(alpha: 0.2),
-          child: Center(
-            child: CommonImageView(
-              width: 25,
-              imagePath: Assets.imagesFunnelIcon,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-      ),
-      radius: 9,
-    );
+  void initState() {
+    super.initState();
+    c.refreshFirst();
   }
-}
 
-class _Card extends StatelessWidget {
-  final String brand;
-  final String model;
-  final int offersCount;
-  final String days;
-  final String date;
-  final String partType;
-  final String image;
-  final VoidCallback? onViewOffers;
+  /// Deliberately OUTSIDE [PagedListView]: its header slot renders only in the
+  /// Data arm, which would strand a buyer whose chosen filter came back empty.
+  Widget get _filters => Obx(() {
+    const options = MyRequestsController.filterOptions;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSizes.s20, AppSizes.s8, AppSizes.s20, AppSizes.s4),
+      child: MyPillTabs(
+        labels: [for (final o in options) o.label],
+        selectedIndex: options.indexWhere((o) => o.value == c.filter.value),
+        // 'All' carries a null value, so the repository OMITS `status` rather
+        // than sending it blank — `?status=` is a 400 on this route.
+        onChanged: (i) => c.setFilter(options[i].value),
+      ),
+    );
+  });
 
-  const _Card({
-    this.brand = 'TOYOTA',
-    this.model = '21 i8 Gran Coupe',
-    this.offersCount = 4,
-    this.days = '1 Day',
-    this.date = '12/08/2025',
-    this.partType = 'Engine',
-    this.image = Assets.imagesCar1,
-    this.onViewOffers,
+  Widget get _list => Obx(() {
+    final more = c.loadMoreError.value;
+    return PagedListView<PartRequest>(
+      state: c.state.value,
+      loadingMore: c.loadingMore.value,
+      loadMoreError: more == null ? null : userMessageFor(more),
+      hasMore: c.hasMore,
+      onLoadMore: c.loadMore,
+      onRefresh: c.refreshFirst,
+      emptyAction: MyButton(buttonText: 'Request a part',
+          fontSize: AppTextScale.body,
+          onTap: () => Get.to(() => const AddPartRequestPage())),
+      itemBuilder: (_, r) => _RequestRow(request: r),
+    );
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBlackColor.withOpacity(0.09)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // ── Left content
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Brand + View Offers row
-              MyText(
-                text: brand,
-                size: 11,
-                color: kGreyTextColor,
-                weight: FontWeight.w700,
-              ),
-              MyText(
-                onTap: onViewOffers,
-                text: 'View Offers',
-                size: 12,
-                color: kSecondaryColor,
-                weight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-              ),
-            ],
-          ),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Model name
-                  MyText(
-                    paddingTop: 2,
-                    text: model,
-                    size: 14,
-                    weight: FontWeight.w700,
-                    color: kBlackColor,
-                    maxLines: 1,
-                    textOverflow: TextOverflow.ellipsis,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // ── Row 1: Offers + Days
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      SizedBox(
-                        width: 90,
-                        child: _InfoChip(
-                          icon: Assets.imagesRsA,
-                          label: '$offersCount Offers',
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      _InfoChip(icon: Assets.imagesRsB, label: days),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // ── Row 2: Date + Part type
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      SizedBox(
-                        width: 90,
-                        child: _InfoChip(icon: Assets.imagesRsC, label: date),
-                      ),
-                      const SizedBox(width: 5),
-                      _InfoChip(icon: Assets.imagesRsD, label: partType),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(width: 10),
-              // ── Car image
-              CommonImageView(
-                imagePath: image,
-                width: 140,
-                fit: BoxFit.contain,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    appBar: GeneralAppBar(
+      hasBackButton: false,
+      title: 'My Requests',
+      action: [
+        MyRippleEffect(
+          radius: AppSizes.radiusPill,
+          onTap: () => Get.to(() => const AddPartRequestPage()),
+          splashColor: kSecondaryColor.withValues(alpha: .2),
+          child: const Padding(padding: EdgeInsets.all(AppSizes.s8),
+              child: Icon(Icons.add_rounded, color: kBlackColor,
+                  size: AppSizes.s24)),
+        ),
+        const SizedBox(width: AppSizes.s12),
+      ],
+    ),
+    body: Column(children: [_filters, Expanded(child: _list)]),
+  );
 }
 
-// ── Small icon + label chip
-class _InfoChip extends StatelessWidget {
-  final String icon;
-  final String label;
+/// Kept public and const-constructible so services.dart, chat_home.dart and
+/// supplier_leads.dart — none of which this partition may edit — keep
+/// compiling. It delegates to [SearchField]; it is not a second search input.
+class MySearchBar extends StatelessWidget {
+  const MySearchBar({super.key, this.onChanged, this.hint = 'Search'});
 
-  const _InfoChip({required this.icon, required this.label});
+  final ValueChanged<String>? onChanged;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) =>
+      SearchField(hint: hint, onChanged: onChanged ?? (_) {});
+}
+
+class _RequestRow extends StatelessWidget {
+  const _RequestRow({required this.request});
+
+  final PartRequest request;
+
+  /// The fixture's '1 Day' was a literal; the payload carries only createdAt.
+  static String _age(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inDays >= 1) return '${d.inDays}d ago';
+    if (d.inHours >= 1) return '${d.inHours}h ago';
+    if (d.inMinutes >= 1) return '${d.inMinutes}m ago';
+    return 'Just now';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // width: 80,
-      // color: kBlueColor,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CommonImageView(svgPath: icon),
-          const SizedBox(width: 5),
-          MyText(
-            text: label,
-            size: 12,
-            color: kGreyTextColor,
-            weight: FontWeight.w500,
-            maxLines: 1,
-            textOverflow: TextOverflow.ellipsis,
-          ),
-        ],
+    final v = request.vehicle;
+    final n = request.offerCount;
+    return MyRippleEffect(
+      radius: AppSizes.radiusMd,
+      splashColor: kSecondaryColor.withValues(alpha: .1),
+      onTap: () => Get.to(() => BuyerRequestDetailPage(requestId: request.id)),
+      child: AppCard(
+        margin: const EdgeInsets.only(bottom: AppSizes.s12),
+        child: Row(children: [
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                // make and model are BOTH nullable on Vehicle, and vehicle
+                // itself is null on a manual-reg request.
+                Expanded(child: MyText(text: v?.make ?? request.regNumber,
+                    size: AppTextScale.label, weight: AppWeights.bold,
+                    color: kGreyTextColor, maxLines: 1,
+                    textOverflow: TextOverflow.ellipsis)),
+                StatusBadge(label: request.status?.label ?? 'Unknown',
+                    color: requestStatusColor(request.status)),
+              ]),
+              MyText(text: v?.model ?? request.partName,
+                  size: AppTextScale.body, weight: AppWeights.bold,
+                  color: kBlackColor, maxLines: 1, paddingTop: AppSizes.s4,
+                  textOverflow: TextOverflow.ellipsis),
+              MyText(text: '${request.category.name} · ${_age(request.createdAt)}',
+                  size: AppTextScale.label, color: kGreyTextColor,
+                  paddingTop: AppSizes.s4),
+              MyText(text: n == 1 ? '1 offer · View' : '$n offers · View',
+                  onTap: () => Get.to(() => ComparisonPage(request: request)),
+                  size: AppTextScale.label, weight: AppWeights.semibold,
+                  color: kSecondaryColor, paddingTop: AppSizes.s8,
+                  decoration: TextDecoration.underline),
+            ],
+          )),
+          // The API carries no vehicle imagery — Vehicle has no image column
+          // and request photos are unsigned S3 keys — so one static render.
+          CommonImageView(imagePath: Assets.imagesCar1, width: 90,
+              fit: BoxFit.contain),
+        ]),
       ),
     );
   }

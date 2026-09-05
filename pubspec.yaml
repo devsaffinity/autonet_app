@@ -48,6 +48,11 @@ dependencies:
   # Already resolved at 1.6.0 transitively (cached_network_image ->
   # flutter_cache_manager), so promoting it to a direct dep adds zero packages.
   http: ^1.6.0
+  # The buyer wizard attaches part photos. Imported by exactly one file,
+  # lib/services/image_picker_service.dart, the same way shared_preferences is
+  # fenced behind SessionStore. `intl` is deliberately NOT here: money is
+  # formatted by hand from integer pence.
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

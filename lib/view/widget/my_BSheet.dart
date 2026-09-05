@@ -45,7 +45,15 @@ class MyBSheet extends StatelessWidget {
             ),
             body,
             SizedBox(height: 10),
-            MyButton(onTap: onTap, buttonText: btnText ?? "Assign Penalty"),
+            // oneShot for EVERY sheet: this button is the sheet's single CTA
+            // and every one of them pops, navigates or spends something —
+            // withdraw an offer, spend credits, sign out, proceed. A second tap
+            // in the same frame pops the screen behind the sheet as well.
+            MyButton(
+              onTap: onTap,
+              buttonText: btnText ?? "Assign Penalty",
+              oneShot: true,
+            ),
             SizedBox(height: 30),
           ],
         ),

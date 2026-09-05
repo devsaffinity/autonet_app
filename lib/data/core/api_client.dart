@@ -48,10 +48,31 @@ class ApiClient {
   /// success, or with the ApiError callers should surface.
   Future<ApiError?>? _refreshFuture;
 
+  /// The meta-blind spelling. Byte-identical signature to the phase-0 one: every
+  /// existing caller and both refresh tests keep working untouched.
   Future<ApiResult<T>> send<T>({
     required String method,
     required String path,
     required T Function(Object? data) decode,
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+    bool authenticated = true,
+  }) => sendEnvelope(
+    method: method,
+    path: path,
+    decode: (d, _) => decode(d),
+    body: body,
+    query: query,
+    authenticated: authenticated,
+  );
+
+  /// The real send. Identical refresh machinery; the only difference is that the
+  /// decoder also receives the top-level `meta` sibling, so a paged repository
+  /// can read hasNextPage without re-parsing the body.
+  Future<ApiResult<T>> sendEnvelope<T>({
+    required String method,
+    required String path,
+    required EnvelopeDecoder<T> decode,
     Map<String, dynamic>? body,
     Map<String, String>? query,
     bool authenticated = true,
@@ -91,7 +112,7 @@ class ApiClient {
       return Err(ApiError.network(e.message));
     }
 
-    final parsed = decodeEnvelope<T>(res.statusCode, res.body, decode);
+    final parsed = decodeEnvelopeWithMeta<T>(res.statusCode, res.body, decode);
 
     // Only a stale ACCESS token is refreshable. Every /v1/auth route is sent
     // with authenticated:false, and isStaleAccessToken additionally requires
@@ -205,7 +226,7 @@ class ApiClient {
     String path,
     Map<String, dynamic>? body,
     Map<String, String>? query,
-    T Function(Object? data) decode,
+    EnvelopeDecoder<T> decode,
   ) async {
     HttpResponse res;
     try {
@@ -221,7 +242,7 @@ class ApiClient {
     } on TransportFailure catch (e) {
       return Err(ApiError.network(e.message));
     }
-    final parsed = decodeEnvelope<T>(res.statusCode, res.body, decode);
+    final parsed = decodeEnvelopeWithMeta<T>(res.statusCode, res.body, decode);
     // RETRY CAP OF ONE. A 401 on a token minted seconds ago is a dead session,
     // never a reason to refresh again. Recursion is provably bounded.
     if (parsed is Err<T> && parsed.error.isStaleAccessToken) {

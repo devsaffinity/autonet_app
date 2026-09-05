@@ -20,7 +20,11 @@ class HttpClientTransport implements HttpTransport {
         uri = uri.replace(queryParameters: r.query);
       }
       final req = http.Request(r.method, uri)..headers.addAll(r.headers);
-      if (r.body != null) req.body = r.body!;
+      if (r.bodyBytes != null) {
+        req.bodyBytes = r.bodyBytes!;
+      } else if (r.body != null) {
+        req.body = r.body!;
+      }
       final streamed = await _client.send(req).timeout(timeout);
       final res = await http.Response.fromStream(streamed);
       // Decode explicitly: the server is UTF-8 but does not always say so, and

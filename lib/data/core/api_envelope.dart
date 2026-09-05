@@ -2,14 +2,19 @@ import 'dart:convert';
 
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
-import 'package:autonect/data/models/page_meta.dart';
+
+/// Decodes the `data` payload, plus the `meta` object that sits BESIDE it as a
+/// top-level sibling of the envelope (pagination.ts). Handing both to one
+/// function is what lets a paged type be assembled without the envelope ever
+/// being parsed twice.
+typedef EnvelopeDecoder<T> = T Function(Object? data, Map<String, dynamic>? meta);
 
 /// Pure: no Flutter, no GetX, no http. Every response in the app funnels through
 /// here, so this is the one place that knows the success/error envelope shape.
-ApiResult<T> decodeEnvelope<T>(
+ApiResult<T> decodeEnvelopeWithMeta<T>(
   int statusCode,
   String rawBody,
-  T Function(Object? data) decodeData,
+  EnvelopeDecoder<T> decodeData,
 ) {
   Object? json;
   try {
@@ -20,7 +25,7 @@ ApiResult<T> decodeEnvelope<T>(
   if (json is! Map) {
     if (statusCode == 204) {
       try {
-        return Ok(decodeData(null));
+        return Ok(decodeData(null, null));
       } catch (_) {
         return const Err(ApiError.malformed());
       }
@@ -28,10 +33,16 @@ ApiResult<T> decodeEnvelope<T>(
     return Err(ApiError.malformed('Server returned HTTP $statusCode'));
   }
   if (json['success'] == true) {
+    final rawMeta = json['meta'];
     // A decoder throwing here (a missing token field, say) must surface as
     // malformed rather than as an uncaught async error deep in a screen.
     try {
-      return Ok(decodeData(json['data']));
+      return Ok(
+        decodeData(
+          json['data'],
+          rawMeta is Map ? rawMeta.cast<String, dynamic>() : null,
+        ),
+      );
     } catch (e) {
       return Err(ApiError.malformed('Could not read server payload: $e'));
     }
@@ -50,12 +61,9 @@ ApiResult<T> decodeEnvelope<T>(
   );
 }
 
-PageMeta? metaOf(String rawBody) {
-  try {
-    final j = jsonDecode(rawBody);
-    if (j is Map && j['meta'] is Map) {
-      return PageMeta.fromJson((j['meta'] as Map).cast<String, dynamic>());
-    }
-  } catch (_) {}
-  return null;
-}
+/// The meta-free spelling every non-paged call uses. One parser, two arities.
+ApiResult<T> decodeEnvelope<T>(
+  int statusCode,
+  String rawBody,
+  T Function(Object? data) decodeData,
+) => decodeEnvelopeWithMeta<T>(statusCode, rawBody, (d, _) => decodeData(d));

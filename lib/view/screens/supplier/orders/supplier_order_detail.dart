@@ -1,6 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
-import 'package:autonect/view/screens/supplier/orders/supplier_order_progress.dart';
+import 'package:autonect/data/models/order_enums.dart';
+import 'package:autonect/domain/order_steps.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
@@ -8,6 +9,7 @@ import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/order_progress_card.dart';
 import 'package:flutter/material.dart';
 
 /// One accepted order, from the supplier's side.
@@ -24,23 +26,10 @@ class SupplierOrderDetailPage extends StatefulWidget {
 }
 
 class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
-  /// How far the order has been advanced. Index into [_stepTitles]; the real
-  /// implementation posts an OrderStatusEvent and re-reads the order.
+  /// How far the order has been advanced: an index into
+  /// [OrderStatus.forwardPath]. The real implementation posts an
+  /// OrderStatusEvent and re-reads the order.
   int _stage = 1;
-
-  static const List<String> _stepTitles = [
-    'Order Placed',
-    'Preparing Order',
-    'Out for Delivery',
-    'Delivered',
-  ];
-
-  static const List<String> _stepIcons = [
-    Assets.imagesStepperCompleted,
-    Assets.imagesStepperPIcon,
-    Assets.imagesStepperDeliverIcon,
-    Assets.imagesStepperDeliverIcon,
-  ];
 
   static const List<String> _ctas = [
     'Mark as Preparing',
@@ -48,24 +37,15 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
     'Mark as Delivered',
   ];
 
-  List<SupplierOrderStep> get _steps => List.generate(4, (i) {
-    final state = i < _stage
-        ? SupplierStepState.completed
-        : i == _stage
-        ? SupplierStepState.inProgress
-        : SupplierStepState.pending;
-    return SupplierOrderStep(
-      icon: _stepIcons[i],
-      title: _stepTitles[i],
-      subtitle: state == SupplierStepState.completed
-          ? 'Completed'
-          : state == SupplierStepState.inProgress
-          ? 'In progress...'
-          : 'Pending',
-      state: state,
-    );
-  });
+  /// The one stepper in the app now builds these. With no `events[]` behind the
+  /// local counter every earlier row comes back `skipped` rather than `done`,
+  /// which is the honest rendering of "no OrderStatusEvent was ever read".
+  List<OrderStep> get _steps =>
+      buildOrderSteps(OrderStatus.forwardPath[_stage], const []);
 
+  // PHASE 2: a local counter with no PATCH behind it. Wiring
+  // `PATCH /v1/orders/:id/status` on the supplier side is phase-2 work; until
+  // then this advances nothing the buyer's tracker can see.
   void _advance() {
     if (_stage < 3) setState(() => _stage++);
   }
@@ -111,12 +91,12 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
                       ],
                     ),
                   ),
-                  SupplierStatusBadge(label: _stepTitles[_stage]),
+                  SupplierStatusBadge(label: OrderStatus.forwardPath[_stage].label),
                 ],
               ),
             ),
             const SizedBox(height: 14),
-            SupplierOrderProgress(steps: _steps),
+            OrderProgressCard(steps: _steps),
             const SizedBox(height: 14),
             SupplierCard(
               child: Column(

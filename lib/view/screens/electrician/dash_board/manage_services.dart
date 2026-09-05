@@ -325,6 +325,9 @@ class _ManageServicesPageState extends State<ManageServicesPage> {
                     // Save button
                     MyButton(
                       buttonText: 'Save Service',
+                      // Adds the row BEFORE it pops, so a second tap that got
+                      // in first would save the same service twice.
+                      oneShot: true,
                       onTap: () => onSave(
                         nameCtrl.text.trim(),
                         priceCtrl.text.trim(),

@@ -1,14 +1,17 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
-// ignore: must_be_immutable
-class MyButton extends StatelessWidget {
+class MyButton extends StatefulWidget {
+  // NOT const: 37 existing call sites are outside this partition and a const
+  // constructor would make prefer_const_constructors fire in all of them.
+  // ignore: prefer_const_constructors_in_immutables
   MyButton({
+    super.key,
     this.onTap,
     required this.buttonText,
     this.height = 48,
@@ -25,6 +28,9 @@ class MyButton extends StatelessWidget {
     this.mTop = 0,
     this.iconSize,
     this.fontWeight = FontWeight.w600,
+    this.enabled = true,
+    this.loading = false,
+    this.oneShot = false,
   });
 
   final String buttonText;
@@ -42,63 +48,90 @@ class MyButton extends StatelessWidget {
   final double mTop, mBottom;
   final FontWeight fontWeight;
 
+  /// Off for a form that has not validated yet.
+  final bool enabled;
+
+  /// In flight. Closes the double-submit hazard on every existing call site:
+  /// a second tap while a POST is open would create a second part request.
+  final bool loading;
+
+  /// Fires AT MOST ONCE, for the tap that cannot be taken back: a confirm that
+  /// pops with a result, a sheet CTA that navigates.
+  ///
+  /// [loading] and [enabled] cannot cover this. Both are read at BUILD time,
+  /// and two taps inside one frame reach the callback the last build handed
+  /// the InkWell — nothing has rebuilt in between — so both fire. A callback
+  /// that pops SYNCHRONOUSLY is saved by the route it pops, which stops taking
+  /// pointers the moment it starts leaving; one that signs out, spends credits
+  /// or pops only after an `await` has nothing between it and happening twice.
+  final bool oneShot;
+
+  @override
+  State<MyButton> createState() => _MyButtonState();
+}
+
+class _MyButtonState extends State<MyButton> {
+  /// A one-shot button that has been tapped. State, not a widget field: the
+  /// widget is rebuilt on every frame of the pop animation and a field would
+  /// re-arm with it.
+  bool _spent = false;
+
+  bool get _inert => !widget.enabled || widget.loading || _spent;
+
+  void _tap() {
+    // The guard lives HERE as well as in build(), because it is precisely the
+    // taps that arrive with no build between them that this is for.
+    if (_spent) return;
+    // Before the callback, never after: onTap pops this route, and a setState
+    // on a defunct State throws.
+    if (widget.oneShot) setState(() => _spent = true);
+    widget.onTap?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = widget.backgroundColor;
     return Container(
-      margin: EdgeInsets.only(top: mTop, bottom: mBottom),
-      height: height,
+      margin: EdgeInsets.only(top: widget.mTop, bottom: widget.mBottom),
+      height: widget.height,
       decoration: BoxDecoration(
-        color: backgroundColor,
-        border: Border.all(color: outlineColor),
-        // boxShadow: [
-        //   BoxShadow(
-        //     offset: Offset(0, 4),
-        //     color: kPrimaryColor.withOpacity(0.25),
-        //     blurRadius: 15,
-        //     spreadRadius: 0,
-        //   ),
-        // ],
-        borderRadius: BorderRadius.circular(radius),
-        gradient: isGradient
-            ? LinearGradient(
+        color: _inert ? backgroundColor.withValues(alpha: .45) : backgroundColor,
+        border: Border.all(color: widget.outlineColor),
+        borderRadius: BorderRadius.circular(widget.radius),
+        gradient: widget.isGradient
+            ? const LinearGradient(
                 begin: AlignmentGeometry.topCenter,
                 end: AlignmentGeometry.bottomCenter,
-                colors: [
-                  // kGradient1Color,
-                  // kGradient2Color,
-                  kSecondaryColor,
-                  kTertiaryColor,
-                ],
+                colors: [kSecondaryColor, kTertiaryColor],
               )
             : null,
       ),
       child: Material(
         color: kTransperentColor,
         child: InkWell(
-          onTap: onTap,
-          splashColor: kPrimaryColor.withOpacity(0.1),
-          highlightColor: kTertiaryColor.withOpacity(0.1),
+          onTap: _inert || widget.onTap == null ? null : _tap,
+          splashColor: kPrimaryColor.withValues(alpha: 0.1),
+          highlightColor: kTertiaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              (haveSvg == true)
-                  ? CommonImageView(
-                      svgPath: icon,
-                      //svgIconColor: svgIconColor,
-                      // height: iconSize,
-                      width: iconSize,
-                    )
-                  : SizedBox(),
-              MyText(
-                paddingLeft: (haveSvg == true) ? 10 : 0,
-                text: buttonText,
-                size: fontSize,
-                color: fontColor,
-                weight: fontWeight,
-              ),
-            ],
-          ),
+          child: widget.loading
+              ? const Center(child: DiscreteCircleLoading(size: 20))
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.haveSvg == true)
+                      CommonImageView(
+                        svgPath: widget.icon,
+                        width: widget.iconSize,
+                      ),
+                    MyText(
+                      paddingLeft: (widget.haveSvg == true) ? 10 : 0,
+                      text: widget.buttonText,
+                      size: widget.fontSize,
+                      color: widget.fontColor,
+                      weight: widget.fontWeight,
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -106,14 +139,22 @@ class MyButton extends StatelessWidget {
 }
 
 class NavButton extends StatelessWidget {
-  String buttonText;
-  VoidCallback onTap;
-  NavButton({super.key, required this.buttonText, required this.onTap});
+  final String buttonText;
+  final VoidCallback onTap;
+
+  // Non-const for the same reason as MyButton above: its call sites are not
+  // in this partition.
+  // ignore: prefer_const_constructors_in_immutables
+  NavButton({
+    super.key,
+    required this.buttonText,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsetsGeometry.only(left: 20, right: 20, bottom: 40),
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 40),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [MyButton(mBottom: 12, onTap: onTap, buttonText: buttonText)],
@@ -128,13 +169,11 @@ class MyBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsetsGeometry.only(bottom: 25),
+      padding: const EdgeInsets.only(bottom: 25),
       child: MyRippleEffect(
         radius: 100,
-        child: Icon(Icons.arrow_back_ios_new_rounded, size: 15),
-        onTap: () {
-          Get.back();
-        },
+        onTap: () => Get.back(),
+        child: const Icon(Icons.arrow_back_ios_new_rounded, size: 15),
       ),
     );
   }

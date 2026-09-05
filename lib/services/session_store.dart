@@ -15,6 +15,9 @@ class SessionStore {
   static const _kAccess = 'session.accessToken';
   static const _kRefresh = 'session.refreshToken';
   static const _kUser = 'session.user';
+  static const _kCategories = 'session.categories';
+  static const _kLastRegion = 'session.lastRegion';
+  static const _kDraftPrefix = 'session.requestDraft.';
 
   /// Not `final`: tests re-init after SharedPreferences.setMockInitialValues
   /// to get a clean store per case, and a late-final field can only be written
@@ -76,8 +79,53 @@ class SessionStore {
     }
   }
 
+  /// The raw `GET /v1/categories` array, verbatim off the wire. Public
+  /// reference data, not session data: it survives sign-out because it belongs
+  /// to nobody.
+  static String? get categoriesJson => _prefs.getString(_kCategories);
+  static set categoriesJson(String? v) {
+    if (v == null) {
+      _prefs.remove(_kCategories);
+    } else {
+      _prefs.setString(_kCategories, v);
+    }
+  }
+
+  /// The Region wire value from the buyer's last successful create, used to
+  /// PRE-SELECT the wizard's region field. Never a silent default — the field
+  /// still shows and still validates.
+  static String? get lastRegionWire => _prefs.getString(_kLastRegion);
+  static set lastRegionWire(String? v) {
+    if (v == null) {
+      _prefs.remove(_kLastRegion);
+    } else {
+      _prefs.setString(_kLastRegion, v);
+    }
+  }
+
+  /// One unfinished wizard per user id. Keyed per user so a second account on
+  /// the same device can never see the first account's draft, which is also
+  /// what makes it safe to leave behind on sign-out.
+  static String? requestDraftJson(String userId) =>
+      _prefs.getString(_draftKey(userId));
+
+  static void setRequestDraftJson(String userId, String? v) {
+    if (v == null) {
+      _prefs.remove(_draftKey(userId));
+    } else {
+      _prefs.setString(_draftKey(userId), v);
+    }
+  }
+
+  static String _draftKey(String userId) => '$_kDraftPrefix$userId';
+
   /// onboardingSeen deliberately survives — a returning user must not be shown
   /// onboarding again after a logout.
+  ///
+  /// So do the request drafts: a forced sign-out (an expired refresh token, a
+  /// 403 SUSPENDED) is not the buyer abandoning a half-typed request, and
+  /// throwing away already-uploaded S3 keys would force a full re-upload after
+  /// a re-login. The per-user key is what makes keeping them safe.
   static void clearSession() {
     _prefs.remove(_kRole);
     _prefs.remove(_kLoggedIn);

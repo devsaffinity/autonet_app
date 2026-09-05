@@ -20,3 +20,12 @@ const kTransperentColor = Colors.transparent;
 // TEMP
 const kbkColor = Color.fromARGB(255, 234, 241, 235);
 const kBlueColor = Color(0xff1482F3);
+
+// STATUS COLORS
+// The funnel paints 5 order statuses, 3 request statuses and 3 urgency levels.
+// kSecondaryColor and kRedColor alone cannot separate "in progress" from
+// "done" from "needs attention", so the scale is completed here once.
+const kSuccessColor = Color(0xff1E9E5A);
+const kWarningColor = Color(0xffE0A008);
+const kInfoColor = Color(0xff1482F3);
+const kMutedSurfaceColor = Color(0xffF7F7F8);

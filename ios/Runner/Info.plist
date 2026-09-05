@@ -24,6 +24,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- image_picker: iOS terminates the app on first use if either string is
+	     absent, so these are a release requirement, not documentation. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Autonect needs access to your photos so you can attach pictures of the part you need to a request.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Autonect needs access to your camera so you can photograph the part you need and attach it to a request.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

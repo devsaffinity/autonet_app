@@ -3,6 +3,19 @@
          not, so a release build has no network access at all — every cached_network_image
          (and every future API call) fails silently. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The new-request wizard attaches part photos, from the gallery or straight
+         from the camera. READ_MEDIA_IMAGES is the API 33+ replacement for
+         READ_EXTERNAL_STORAGE, which is capped at 32 so it is not requested on
+         devices that would ignore it anyway. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <!-- required="false" so declaring CAMERA does not make Play hide the app from
+         every device without a camera; attaching a photo is optional. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <!-- allowBackup="false": tokens live in shared_preferences this phase, and
          Auto Backup would clone them onto a restored device. Presenting an
          already-rotated refresh token is treated as theft by

@@ -3,10 +3,22 @@ import 'package:autonect/config/theme/light_theme.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/api_client.dart';
 import 'package:autonect/data/core/api_config.dart';
+import 'package:autonect/data/core/blob_uploader.dart';
 import 'package:autonect/data/core/http_transport_impl.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/repositories/auth_api_repository.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';
+import 'package:autonect/data/repositories/catalog_api_repository.dart';
+import 'package:autonect/data/repositories/catalog_repository.dart';
+import 'package:autonect/data/repositories/orders_api_repository.dart';
+import 'package:autonect/data/repositories/orders_repository.dart';
+import 'package:autonect/data/repositories/requests_api_repository.dart';
+import 'package:autonect/data/repositories/requests_repository.dart';
+import 'package:autonect/data/repositories/reviews_api_repository.dart';
+import 'package:autonect/data/repositories/reviews_repository.dart';
+import 'package:autonect/data/repositories/vehicles_api_repository.dart';
+import 'package:autonect/data/repositories/vehicles_repository.dart';
+import 'package:autonect/services/image_picker_service.dart';
 import 'package:autonect/services/session_store.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -18,8 +30,15 @@ void main() async {
   // no await.
   await SessionStore.init();
   final tokens = PrefsTokenStore();
+  // Hoisted so BlobUploader can share it. One transport, one connection pool —
+  // and BlobUploader still bypasses ApiClient entirely, because a presigned S3
+  // PUT must carry no authorization header and its 403s must never reach the
+  // refresh machinery.
+  final transport = HttpClientTransport(
+    timeout: ApiConfig.fromEnvironment.timeout,
+  );
   final client = ApiClient(
-    transport: HttpClientTransport(timeout: ApiConfig.fromEnvironment.timeout),
+    transport: transport,
     baseUrl: ApiConfig.fromEnvironment.baseUrl,
     tokens: tokens,
     onSessionExpired: () async {
@@ -33,6 +52,31 @@ void main() async {
   // else.
   Get.put<ApiClient>(client, permanent: true);
   Get.put<AuthRepository>(AuthApiRepository(client, tokens), permanent: true);
+  // Every repository is registered against its ABSTRACT type: screens and
+  // controllers resolve the seam, never the HTTP implementation, which is what
+  // lets a widget test swap in a fake with no transport at all.
+  Get.put<CatalogRepository>(
+    CatalogApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<VehiclesRepository>(
+    VehiclesApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<RequestsRepository>(
+    RequestsApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<OrdersRepository>(
+    OrdersApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<ReviewsRepository>(
+    ReviewsApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<BlobUploader>(BlobUploader(transport), permanent: true);
+  Get.put<ImagePickerService>(DeviceImagePickerService(), permanent: true);
   Get.put(RoleController(), permanent: true);
   runApp(MyApp());
 }

@@ -1,686 +1,149 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/controller/buyer/buyer_home_controller.dart';
+import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/part_request.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
-import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
+import 'package:autonect/view/screens/buyer/home/widgets/active_request_card.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
-import 'package:autonect/view/screens/buyer/services/expert_profile.dart';
-import 'package:autonect/view/screens/buyer/services/my_booking.dart';
-import 'package:autonect/view/widget/common_image_view_widget.dart';
-import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/role_shell.dart';
+import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class BuyerHomePage extends StatelessWidget {
+/// The buyer's home.
+///
+/// Stateful because BuyerNavBar mounts it as a `const` screen: nothing upstream
+/// can fetch on its behalf, so it owns its own load.
+///
+/// PHASE 4: there is no Service Providers section. The backend exposes no
+/// electrician or provider listing route anywhere — only
+/// `POST /electrician/registration`, a write — so the fixture card deck that
+/// used to sit here could never have been filled from the API.
+class BuyerHomePage extends StatefulWidget {
   const BuyerHomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              _buildHeader(),
-              const SizedBox(height: 16),
-              _buildSearchBar(),
-              const SizedBox(height: 20),
-              _buildSectionHeader(
-                title: 'Active Requests',
-                // Requests is tab 1 of the shell. maybeOf() is nullable on
-                // purpose: this page is also pushable standalone, where there
-                // is no shell ancestor. Never use a bang operator here.
-                onViewAll: () => RoleShell.maybeOf(context)?.goTo(1),
-              ),
-              const SizedBox(height: 12),
-              _buildActiveRequests(),
-              const SizedBox(height: 20),
-              _buildSectionHeader(
-                title: 'Offers',
-                onViewAll: () => RoleShell.maybeOf(context)?.goTo(1),
-              ),
-              const SizedBox(height: 12),
-              _buildOffers(),
-              const SizedBox(height: 20),
-              _buildSectionHeader(
-                title: 'Service Providers',
-                onViewAll: () => RoleShell.maybeOf(context)?.goTo(2),
-              ),
-              const SizedBox(height: 12),
-              _buildServiceProviders(),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Header ────────────────────────────────────────────────────────────────
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        CommonImageView(
-          url: 'https://randomuser.me/api/portraits/women/44.jpg',
-          height: 44,
-          width: 44,
-          radius: 22,
-          fit: BoxFit.cover,
-        ),
-        Column(
-          children: [
-            MyText(
-              text: 'Hello',
-              size: 13,
-              color: kGreyTextColor,
-              weight: FontWeight.w400,
-            ),
-            MyText(
-              text: 'Lorem Ipsum',
-              size: 16,
-              weight: FontWeight.w700,
-              color: kBlackColor,
-            ),
-          ],
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Bookings shortcut (the service journey's tail is otherwise
-            // reachable only from the bottom of the booking funnel).
-            GestureDetector(
-              onTap: () => Get.to(() => const MyBookingsPage()),
-              behavior: HitTestBehavior.opaque,
-              child: Icon(
-                Icons.calendar_month_outlined,
-                size: 26,
-                color: kBlackColor,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Stack(
-              children: [
-                Icon(
-                  Icons.notifications_outlined,
-                  size: 28,
-                  color: kBlackColor,
-                ),
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: Container(
-                    height: 8,
-                    width: 8,
-                    decoration: const BoxDecoration(
-                      color: kSecondaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ─── Search Bar ────────────────────────────────────────────────────────────
-
-  Widget _buildSearchBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: MyTextField(
-            marginBottom: 0,
-            hintText: 'Search Here',
-            prefix: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Icon(Icons.search, color: kGreyTextColor, size: 20),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        // AddPartRequestPage — the buyer's single most important action — had
-        // zero inbound navigation anywhere in lib/ before this button and the
-        // '+' on RequestStatusTrackingPage's app bar.
-        SizedBox(
-          width: 132,
-          child: MyButton(
-            buttonText: 'Request a Part',
-            height: 46,
-            fontSize: 12,
-            radius: 9,
-            onTap: () => Get.to(() => const AddPartRequestPage()),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Section Header ────────────────────────────────────────────────────────
-
-  Widget _buildSectionHeader({
-    required String title,
-    required VoidCallback onViewAll,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        MyText(
-          text: title,
-          size: 16,
-          weight: FontWeight.w700,
-          color: kBlackColor,
-        ),
-        GestureDetector(
-          onTap: onViewAll,
-          child: MyText(
-            text: 'View All',
-            size: 13,
-            color: kSecondaryColor,
-            weight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Active Requests ───────────────────────────────────────────────────────
-
-  Widget _buildActiveRequests() {
-    final List<Map<String, String>> requests = [
-      {
-        'image':
-            'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
-        'name': 'Mercedes Benz',
-        'id': 'BND-123-66',
-        'detail': '1.9MDHJLI',
-        'label': 'Part No',
-        'value': '4SYP119',
-        'condition': 'Engine',
-      },
-      {
-        'image':
-            'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=400',
-        'name': 'Toyota Yaris',
-        'id': 'BND-',
-        'detail': '',
-        'label': 'Condition',
-        'value': 'Used',
-        'condition': 'Engine',
-      },
-    ];
-
-    return SizedBox(
-      height: 175,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: requests.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final r = requests[index];
-          return _ActiveRequestCard(
-            imageUrl: r['image']!,
-            name: r['name']!,
-            requestId: r['id']!,
-            carDetail: r['detail']!,
-            infoLabel: r['label']!,
-            infoValue: r['value']!,
-            conditionLabel: r['condition']!,
-            // Tapping a request opens the offers it has collected. The tapped
-            // item travels through the constructor — this is the seam the API
-            // layer plugs into.
-            onTap: () => Get.to(
-              () => ComparisonPage(
-                title: r['name']!,
-                partType: r['condition']!,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ─── Offers ────────────────────────────────────────────────────────────────
-
-  Widget _buildOffers() {
-    final List<Map<String, String>> offers = [
-      {
-        'brand': 'TOYOTA',
-        'model': '21 i8 Gran Coupe',
-        'date': '12/08/2025',
-        'type': 'Engine',
-        'price': '\$4000',
-        'image':
-            'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400',
-      },
-      {
-        'brand': 'TOYOTA',
-        'model': '21 i8 Gran Coupe',
-        'date': '12/08/2025',
-        'type': 'Transmission',
-        'price': '\$2500',
-        'image':
-            'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=400',
-      },
-    ];
-
-    return Column(
-      children: offers
-          .map(
-            (o) => _OfferCard(
-              brand: o['brand']!,
-              model: o['model']!,
-              date: o['date']!,
-              type: o['type']!,
-              price: o['price']!,
-              imageUrl: o['image']!,
-              onTap: () => Get.to(
-                () => OfferDetailPage(
-                  price: o['price']!,
-                  totalPrice: o['price']!,
-                  partName: o['type']!,
-                  vehicle: '${o['brand']} ${o['model']}',
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  // ─── Service Providers ─────────────────────────────────────────────────────
-
-  Widget _buildServiceProviders() {
-    final List<Map<String, String>> providers = [
-      {
-        'name': 'Abc Garage',
-        'brands': 'BMW, Mercedes, KIA +2',
-        'rating': '4.5/5.0',
-        'image': 'https://randomuser.me/api/portraits/men/32.jpg',
-      },
-      {
-        'name': '123 Motors',
-        'brands': 'BMW, Mercedes, KIA +2',
-        'rating': '4.5/5.0',
-        'image': 'https://randomuser.me/api/portraits/men/45.jpg',
-      },
-    ];
-
-    return Row(
-      children: providers
-          .map(
-            (p) => Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  right: providers.indexOf(p) == 0 ? 8 : 0,
-                  left: providers.indexOf(p) == 1 ? 8 : 0,
-                ),
-                child: _ServiceProviderCard(
-                  name: p['name']!,
-                  brands: p['brands']!,
-                  rating: p['rating']!,
-                  imageUrl: p['image']!,
-                  onBookNow: () => Get.to(
-                    () => ExpertProfilePage(
-                      name: p['name']!,
-                      avatarUrl: p['image']!,
-                      rating: p['rating']!.split('/').first,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
+  State<BuyerHomePage> createState() => _BuyerHomePageState();
 }
 
-// ─── Active Request Card ──────────────────────────────────────────────────────
-
-class _ActiveRequestCard extends StatelessWidget {
-  final String imageUrl,
-      name,
-      requestId,
-      carDetail,
-      infoLabel,
-      infoValue,
-      conditionLabel;
-  final VoidCallback? onTap;
-
-  const _ActiveRequestCard({
-    required this.imageUrl,
-    required this.name,
-    required this.requestId,
-    required this.carDetail,
-    required this.infoLabel,
-    required this.infoValue,
-    required this.conditionLabel,
-    this.onTap,
-  });
+class _BuyerHomePageState extends State<BuyerHomePage> {
+  late final BuyerHomeController _c;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 165,
-        decoration: BoxDecoration(
-          color: kPrimaryColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kBlackColor.withOpacity(0.08)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-              child: CommonImageView(
-                url: imageUrl,
-                height: 90,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: MyText(
-                          text: name,
-                          size: 12,
-                          weight: FontWeight.w600,
-                          color: kBlackColor,
-                        ),
-                      ),
-                      MyText(
-                        text: requestId,
-                        size: 10,
-                        color: kSecondaryColor,
-                        weight: FontWeight.w500,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (carDetail.isNotEmpty)
-                        MyText(
-                          text: carDetail,
-                          size: 10,
-                          color: kGreyTextColor,
-                        ),
-                      const Spacer(),
-                      Icon(Icons.settings, size: 12, color: kSecondaryColor),
-                      const SizedBox(width: 2),
-                      MyText(text: conditionLabel, size: 10, color: kBlackColor),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      MyText(
-                        text: '$infoLabel  ',
-                        size: 10,
-                        color: kGreyTextColor,
-                      ),
-                      MyText(
-                        text: infoValue,
-                        size: 10,
-                        color: kBlackColor,
-                        weight: FontWeight.w500,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _c = BuyerHomeController.ensure();
+    _c.load();
   }
-}
 
-// ─── Offer Card ──────────────────────────────────────────────────────────────
+  /// Straight off the session — `GET /v1/me` is phase 2, and the token payload
+  /// already carries the name that the 'Lorem Ipsum' literal stood in for.
+  String get _name => Get.find<TokenStore>().user?.name ?? 'there';
 
-class _OfferCard extends StatelessWidget {
-  final String brand, model, date, type, price, imageUrl;
-  final VoidCallback? onTap;
+  void _openRequests() => RoleShell.maybeOf(context)?.goTo(1);
 
-  const _OfferCard({
-    required this.brand,
-    required this.model,
-    required this.date,
-    required this.type,
-    required this.price,
-    required this.imageUrl,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: kPrimaryColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kBlackColor.withOpacity(0.08)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    text: brand,
-                    size: 11,
-                    color: kGreyTextColor,
-                    weight: FontWeight.w500,
-                  ),
-                  const SizedBox(height: 2),
-                  MyText(
-                    text: model,
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: kBlackColor,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kSecondaryColor,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              color: kWhiteColor,
-                              size: 10,
-                            ),
-                            const SizedBox(width: 4),
-                            MyText(text: date, size: 10, color: kWhiteColor),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kSecondaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.settings,
-                              color: kSecondaryColor,
-                              size: 10,
-                            ),
-                            const SizedBox(width: 4),
-                            MyText(
-                              text: type,
-                              size: 10,
-                              color: kSecondaryColor,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                MyText(
-                  text: price,
-                  size: 16,
-                  weight: FontWeight.w700,
-                  color: kBlackColor,
-                ),
-                const SizedBox(height: 8),
-                CommonImageView(
-                  url: imageUrl,
-                  width: 110,
-                  height: 60,
-                  fit: BoxFit.contain,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Service Provider Card ───────────────────────────────────────────────────
-
-class _ServiceProviderCard extends StatelessWidget {
-  final String name, brands, rating, imageUrl;
-  final VoidCallback? onBookNow;
-
-  const _ServiceProviderCard({
-    required this.name,
-    required this.brands,
-    required this.rating,
-    required this.imageUrl,
-    this.onBookNow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBlackColor.withOpacity(0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
+  List<PartRequest> _withOffers(ViewState<List<PartRequest>> s) =>
+      switch (s) {
+        Data<List<PartRequest>>(:final value) => [
+          for (final r in value)
+            if (r.offerCount > 0) r,
         ],
+        _ => const [],
+      };
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _c.load,
+        child: ListView(
+          padding: AppSizes.DEFAULT,
+          children: [
+            _header(),
+            const SizedBox(height: AppSizes.s20),
+            // The only inbound navigation to the wizard from this screen; the
+            // search bar it replaces promised a filter no route accepts.
+            MyButton(buttonText: 'Request a Part',
+                onTap: () => Get.to(() => const AddPartRequestPage())),
+            const SizedBox(height: AppSizes.s24),
+            _sectionHeader('Active Requests'),
+            SizedBox(
+              height: kActiveRequestCardHeight,
+              child: Obx(() => StateView<List<PartRequest>>(
+                state: _c.activeRequests.value,
+                onRetry: _c.load,
+                emptyTitle: 'No open requests',
+                builder: (_, items) => _carousel(items),
+              )),
+            ),
+            const SizedBox(height: AppSizes.s24),
+            // NOT an offers feed: there is no cross-request buyer offers
+            // endpoint, so this is driven by the offerCount already on each
+            // request — zero extra calls, and the label says what it shows.
+            _sectionHeader('Requests with offers'),
+            Obx(() {
+              final items = _withOffers(_c.activeRequests.value);
+              if (items.isEmpty) {
+                return MyText(text: 'No offers yet — suppliers reply here.',
+                    size: AppTextScale.body, color: kGreyTextColor);
+              }
+              return SizedBox(
+                height: kActiveRequestCardHeight,
+                child: _carousel(items),
+              );
+            }),
+            const SizedBox(height: AppSizes.s24),
+          ],
+        ),
       ),
-      child: Column(
+    ),
+  );
+
+  Widget _carousel(List<PartRequest> items) => ListView.separated(
+    scrollDirection: Axis.horizontal,
+    itemCount: items.length,
+    separatorBuilder: (_, _) => const SizedBox(width: AppSizes.s12),
+    itemBuilder: (_, i) => ActiveRequestCard(
+      request: items[i],
+      onTap: () => Get.to(() => ComparisonPage(request: items[i])),
+    ),
+  );
+
+  Widget _header() => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CommonImageView(
-            url: imageUrl,
-            height: 60,
-            width: 60,
-            radius: 30,
-            fit: BoxFit.cover,
-          ),
-          const SizedBox(height: 8),
-          MyText(
-            text: name,
-            size: 13,
-            weight: FontWeight.w700,
-            color: kBlackColor,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 2),
-          MyText(
-            text: brands,
-            size: 10,
-            color: kGreyTextColor,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.star, color: Colors.amber, size: 14),
-              const SizedBox(width: 4),
-              MyText(
-                text: rating,
-                size: 11,
-                color: kBlackColor,
-                weight: FontWeight.w500,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          MyButton(
-            buttonText: 'Book Now',
-            height: 34,
-            fontSize: 12,
-            onTap: onBookNow,
-          ),
+          MyText(text: 'Hello', size: AppTextScale.label,
+              color: kGreyTextColor),
+          MyText(text: _name, size: AppTextScale.subtitle,
+              weight: AppWeights.bold, color: kBlackColor),
         ],
       ),
-    );
-  }
+      const Icon(Icons.notifications_outlined, size: AppSizes.s24,
+          color: kBlackColor),
+    ],
+  );
+
+  Widget _sectionHeader(String title) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSizes.s12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        MyText(text: title, size: AppTextScale.subtitle,
+            weight: AppWeights.bold, color: kBlackColor),
+        // maybeOf is nullable on purpose: this page is also pushable
+        // standalone, where there is no shell ancestor.
+        MyText(text: 'View All', size: AppTextScale.label,
+            color: kSecondaryColor, weight: AppWeights.medium,
+            onTap: _openRequests),
+      ],
+    ),
+  );
 }
