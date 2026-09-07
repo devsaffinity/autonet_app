@@ -121,7 +121,7 @@ class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
         children: [
           SupplierBusinessStep(onNext: _next),
           SupplierKycStep(onNext: _next),
-          SupplierPlanStep(onFinish: _finish),
+          SupplierPlanStep(onFinish: _finish, onBack: _back),
         ],
       ),
     );

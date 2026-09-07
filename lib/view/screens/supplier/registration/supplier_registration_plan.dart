@@ -2,29 +2,31 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/supplier/supplier_plan_controller.dart';
+import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
 import 'package:autonect/data/models/billing_plan.dart';
-import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
+import 'package:autonect/domain/growth_model.dart';
+import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Step 5 of 5 — the monetization models.
+/// Step 3 of 3 — the monetization models.
 ///
-/// INFORMATIONAL, not a checkout. Buying goes through Stripe Checkout, which
-/// answers with a hosted URL, and the app has no url_launcher, no webview and
-/// no registered URL scheme — so a "Subscribe" button here could not open
-/// anything. Billing is arranged after approval, and the screen says so rather
-/// than offering a control that fails.
-///
-/// Two models, not the design's three. Commission needs Stripe Connect, a
-/// payout flow and a definition of "completed sale", and there is no money
-/// movement on orders to take a percentage of. The backend's own standards
-/// record the decision: "No commission — monetization is subscription + credit
-/// packs."
+/// INFORMATIONAL. Nothing here is selectable, by design: buying goes through
+/// Stripe Checkout, which answers with a hosted URL, and the app has no
+/// url_launcher, no webview and no registered URL scheme — so a chooser would
+/// set a preference nothing could act on and a Subscribe button could not open
+/// anything. Billing is arranged after approval, and the note at the bottom
+/// says so.
 class SupplierPlanStep extends StatefulWidget {
   final VoidCallback onFinish;
-  const SupplierPlanStep({super.key, required this.onFinish});
+
+  /// The design's "Back to Home". Inside the wizard that is the previous step —
+  /// an unapproved supplier has no home to return to.
+  final VoidCallback? onBack;
+
+  const SupplierPlanStep({super.key, required this.onFinish, this.onBack});
 
   @override
   State<SupplierPlanStep> createState() => _SupplierPlanStepState();
@@ -45,120 +47,125 @@ class _SupplierPlanStepState extends State<SupplierPlanStep> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: AppSizes.HORIZONTAL,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 MyText(
-                  text: 'Choose your growth model',
+                  text: 'Choose Your Growth Model',
                   size: AppTextScale.title,
                   weight: AppWeights.bold,
                   color: kBlackColor,
-                  paddingTop: AppSizes.s24,
+                  paddingTop: AppSizes.s20,
                 ),
                 MyText(
-                  text:
-                      'Autonect offers two ways to pay for leads. You can pick '
-                      'one after your account is approved, and switch later.',
+                  // "Velocity Supply" in the design is a template leftover from
+                  // another product. Using it would put a different company's
+                  // name in front of every supplier who signs up.
+                  text: 'Autonect offers flexible monetization paths tailored '
+                      'to your business scale. Select a model that best fits '
+                      'your logistical capacity and revenue targets.',
                   size: AppTextScale.label,
                   color: kGreyTextColor,
                   lineHeight: 1.5,
                   paddingTop: AppSizes.s8,
                   paddingBottom: AppSizes.s20,
                 ),
+                // Only the PRICES need the server; the copy is presentation
+                // data, so the cards render as soon as the screen opens and the
+                // figures fill in.
                 Obx(() => StateView<List<BillingPlan>>(
                   state: _c.plans.value,
                   onRetry: _c.load,
-                  emptyTitle: 'No plans available',
+                  emptyTitle: 'Pricing unavailable',
                   builder: (_, plans) => Column(
                     children: [
-                      for (final p in plans) ...[
-                        _PlanCard(plan: p),
+                      for (final model in GrowthModel.values) ...[
+                        _PlanCard(model: model, plans: plans),
                         const SizedBox(height: AppSizes.s12),
                       ],
                     ],
                   ),
                 )),
                 const SizedBox(height: AppSizes.s8),
-                _billingNote(),
+                const _RecommendationCard(),
                 const SizedBox(height: AppSizes.s24),
               ],
             ),
           ),
         ),
-        // Never gated on picking a plan: nothing here is selectable, and
-        // billing is arranged after approval.
-        SupplierBottomButton(label: 'Submit for review', onTap: widget.onFinish),
+        _actions(),
       ],
     );
   }
 
-  Widget _billingNote() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(AppSizes.s12),
-    decoration: BoxDecoration(
-      color: kLightOrangeColor,
-      borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _actions() => Container(
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+    color: kPrimaryColor,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.info_outline, size: AppSizes.s16,
-            color: kSecondaryColor),
-        const SizedBox(width: AppSizes.s8),
-        Expanded(
-          child: MyText(
-            text: 'Nothing is charged now. Your account is reviewed first, '
-                'and our team will set up billing with you before you receive '
-                'any leads.',
-            size: AppTextScale.caption,
-            color: kGreyTextColor,
-            lineHeight: 1.4,
+        if (widget.onBack case final onBack?)
+          MyButton(
+            buttonText: '←  Back',
+            backgroundColor: kPrimaryColor,
+            outlineColor: kSecondaryColor,
+            fontColor: kSecondaryColor,
+            onTap: onBack,
+            mBottom: AppSizes.s12,
           ),
-        ),
+        MyButton(buttonText: 'Proceed to Review', onTap: widget.onFinish),
       ],
     ),
   );
 }
 
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan});
+  const _PlanCard({required this.model, required this.plans});
 
-  final BillingPlan plan;
+  final GrowthModel model;
+  final List<BillingPlan> plans;
 
   @override
   Widget build(BuildContext context) {
-    // The credit pack is the recommended model in the design. It is also the
-    // cheaper way in, so the badge is not just decoration.
-    final recommended = plan.isCreditPack;
+    final highlight = model.recommended;
+    final onCard = highlight ? kWhiteColor : kBlackColor;
+    final muted = highlight
+        ? kWhiteColor.withValues(alpha: .85)
+        : kGreyTextColor;
+    final note = model.priceNoteFrom(plans);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSizes.s16),
       decoration: BoxDecoration(
-        color: recommended ? kSecondaryColor : kPrimaryColor,
+        color: highlight ? kSecondaryColor : kPrimaryColor,
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
         border: Border.all(
-          color: recommended
+          color: highlight
               ? kSecondaryColor
-              : kGreyTextColor.withValues(alpha: .3),
+              : kGreyTextColor.withValues(alpha: .25),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: MyText(
-                  text: plan.name,
-                  size: AppTextScale.body,
-                  weight: AppWeights.bold,
-                  color: recommended ? kWhiteColor : kBlackColor,
-                  maxLines: 2,
-                  textOverflow: TextOverflow.ellipsis,
+              Container(
+                padding: const EdgeInsets.all(AppSizes.s8),
+                decoration: BoxDecoration(
+                  color: highlight
+                      ? kWhiteColor.withValues(alpha: .2)
+                      : kLightOrangeColor,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
                 ),
+                child: Icon(_glyph, size: AppSizes.s20,
+                    color: highlight ? kWhiteColor : kSecondaryColor),
               ),
-              if (recommended)
+              const Spacer(),
+              if (highlight)
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSizes.s8, vertical: AppSizes.s4),
@@ -168,50 +175,139 @@ class _PlanCard extends StatelessWidget {
                   ),
                   child: MyText(text: 'RECOMMENDED',
                       size: AppTextScale.caption, color: kWhiteColor,
-                      weight: AppWeights.bold),
+                      weight: AppWeights.bold, letterSpacing: .5),
                 ),
             ],
           ),
-          const SizedBox(height: AppSizes.s8),
-          MyText(
-            text: plan.isCreditPack
-                ? 'Pay only for the leads you want. Best for specialist parts.'
-                : 'A flat monthly fee with no per-lead cost. Best for volume.',
-            size: AppTextScale.label,
-            color: recommended
-                ? kWhiteColor.withValues(alpha: .85)
-                : kGreyTextColor,
-            lineHeight: 1.4,
-          ),
+          MyText(text: model.title, size: AppTextScale.subtitle,
+              weight: AppWeights.bold, color: onCard,
+              paddingTop: AppSizes.s12),
+          MyText(text: model.description, size: AppTextScale.label,
+              color: muted, lineHeight: 1.5, paddingTop: AppSizes.s4),
           const SizedBox(height: AppSizes.s12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              MyText(
-                text: plan.displayPrice,
-                size: AppTextScale.title,
-                weight: AppWeights.bold,
-                color: recommended ? kWhiteColor : kBlackColor,
-              ),
-              const SizedBox(width: AppSizes.s8),
-              // The pack price is not the per-lead price: £10.00 buys TEN
-              // credits, so a lead is £1.00. Omitting this reads as £10 a lead.
-              if (plan.displayPerCredit case final perCredit?)
-                Expanded(
-                  child: MyText(
-                    text: perCredit,
-                    size: AppTextScale.caption,
-                    color: recommended
-                        ? kWhiteColor.withValues(alpha: .85)
-                        : kGreyTextColor,
-                    maxLines: 1,
-                    textOverflow: TextOverflow.ellipsis,
+          for (final feature in model.features)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSizes.s4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.check_circle,
+                      size: AppSizes.s16,
+                      color: highlight ? kWhiteColor : kSecondaryColor),
+                  const SizedBox(width: AppSizes.s8),
+                  Expanded(
+                    child: MyText(text: feature, size: AppTextScale.label,
+                        color: onCard, lineHeight: 1.4),
                   ),
-                ),
+                ],
+              ),
+            ),
+          const SizedBox(height: AppSizes.s12),
+          // Baseline-aligned so the suffix sits on the figure's baseline as
+          // drawn, rather than centred against a much taller number.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              MyText(text: model.priceLabelFrom(plans),
+                  size: AppTextScale.display, weight: AppWeights.bold,
+                  color: onCard),
+              MyText(text: model.priceSuffixFrom(plans),
+                  size: AppTextScale.label, color: muted,
+                  paddingLeft: AppSizes.s4),
+            ],
+          ),
+          // The pack price is not the per-lead price; without this the credits
+          // card reads as ten times its real cost.
+          if (note != null)
+            MyText(text: note, size: AppTextScale.caption, color: muted,
+                paddingTop: AppSizes.s4),
+        ],
+      ),
+    );
+  }
+
+  IconData get _glyph => switch (model) {
+    GrowthModel.subscription => Icons.calendar_month_outlined,
+    GrowthModel.credits => Icons.confirmation_number_outlined,
+    GrowthModel.commission => Icons.sell_outlined,
+  };
+}
+
+/// The design's "Unsure which model to pick?" card.
+class _RecommendationCard extends StatelessWidget {
+  const _RecommendationCard();
+
+  @override
+  Widget build(BuildContext context) {
+    // Reads the categories the supplier picked two steps ago, which are real
+    // and already in memory. The design's "inventory size of 450+ components"
+    // has no source — nothing anywhere counts a supplier's stock, and there is
+    // no point in onboarding at which it could.
+    final categories =
+        Get.isRegistered<SupplierRegistrationController>()
+            ? Get.find<SupplierRegistrationController>().categoryIds.length
+            : 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSizes.s16),
+      decoration: BoxDecoration(
+        color: kMutedSurfaceColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MyText(text: 'Unsure which model to pick?',
+              size: AppTextScale.body, weight: AppWeights.bold,
+              color: kBlackColor),
+          MyText(
+            text: categories > 0
+                ? 'Credits suits most new suppliers, and with '
+                    '$categories part ${categories == 1 ? 'category' : 'categories'} '
+                    'selected you can start small and only pay for the leads '
+                    'you want. You can change model later.'
+                : 'Credits suits most new suppliers: start small and pay only '
+                    'for the leads you want. You can change model later.',
+            size: AppTextScale.label,
+            color: kGreyTextColor,
+            lineHeight: 1.5,
+            paddingTop: AppSizes.s8,
+            paddingBottom: AppSizes.s12,
+          ),
+          Wrap(
+            spacing: AppSizes.s8,
+            runSpacing: AppSizes.s8,
+            children: [
+              // "TAX INCLUSIVE PRICING" from the design is deliberately absent:
+              // it is a tax-treatment claim on a B2B subscription, Stripe Tax
+              // is not configured and Plan carries no tax flag. Encryption is a
+              // fact about the transport and can stay.
+              _chip(Icons.lock_outline, 'ENCRYPTED TRANSACTIONS'),
             ],
           ),
         ],
       ),
     );
   }
+
+  Widget _chip(IconData icon, String label) => Container(
+    padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.s8, vertical: AppSizes.s4),
+    decoration: BoxDecoration(
+      color: kPrimaryColor,
+      borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+      border: Border.all(color: kGreyTextColor.withValues(alpha: .3)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: AppSizes.s12, color: kGreyTextColor),
+        const SizedBox(width: AppSizes.s4),
+        MyText(text: label, size: AppTextScale.caption, color: kGreyTextColor,
+            weight: AppWeights.medium, letterSpacing: .5),
+      ],
+    ),
+  );
 }
