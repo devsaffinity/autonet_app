@@ -1,6 +1,8 @@
 import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/controller/conttroller.dart';
+import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
+import 'package:autonect/view/screens/supplier/registration/supplier_awaiting_approval.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_catalogue.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_kyc.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_steps.dart';
@@ -21,6 +23,10 @@ class SupplierRegistrationPage extends StatefulWidget {
 
 class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
   final PageController _pageController = PageController();
+  // Fresh per wizard: an abandoned half-filled registration must not reappear
+  // the next time this opens.
+  final SupplierRegistrationController _c =
+      SupplierRegistrationController.ensure();
   int _currentStep = 0;
 
   static const List<String> _titles = [
@@ -63,11 +69,29 @@ class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
     }
   }
 
-  /// The KYC gate: flipping providerOnboarded is what stops landingRoute from
-  /// bouncing the supplier back into this wizard on every cold start.
-  void _finish() {
+  /// Submits the registration, then routes on SERVER truth.
+  ///
+  /// This used to flip a SharedPreferences boolean and push the supplier shell,
+  /// having sent nothing anywhere. The supplier arrived with no SupplierProfile
+  /// row, so every supplier route answered 403 NOT_APPROVED and the app looked
+  /// comprehensively broken with no clue why.
+  ///
+  /// Approval is never granted here. A fresh registration is PENDING until an
+  /// admin acts on it, so the destination is the waiting screen; the shell
+  /// opens only for a profile the server already marked approved.
+  Future<void> _finish() async {
+    final profile = await _c.submit();
+    // Null means the submission failed and the controller has already put the
+    // reason on screen. Stay on the wizard so the answers are not lost.
+    if (profile == null) return;
+    if (!mounted) return;
+
     RoleController.to.completeProviderOnboarding();
-    Get.offAllNamed(AppLinks.supplierShell);
+    if (profile.supplierProfile?.canEnterShell ?? false) {
+      Get.offAllNamed(AppLinks.supplierShell);
+    } else {
+      Get.offAll(() => SupplierAwaitingApprovalPage(profile: profile));
+    }
   }
 
   @override

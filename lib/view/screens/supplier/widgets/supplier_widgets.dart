@@ -38,11 +38,21 @@ class SupplierCard extends StatelessWidget {
 /// registration wizard and in new_part_request.dart.
 class SupplierBottomButton extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
+
+  /// Null renders the button DISABLED rather than tappable-and-inert, so a
+  /// wizard step whose required fields are empty says so at the step instead of
+  /// letting the supplier reach the end and collect a server validation error
+  /// naming none of the five screens.
+  final VoidCallback? onTap;
+
+  /// Forwarded to [MyButton], which shows a spinner and swallows repeat taps.
+  final bool loading;
+
   const SupplierBottomButton({
     super.key,
     required this.label,
     required this.onTap,
+    this.loading = false,
   });
 
   @override
@@ -50,7 +60,12 @@ class SupplierBottomButton extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       color: kPrimaryColor,
-      child: MyButton(buttonText: label, onTap: onTap),
+      child: MyButton(
+        buttonText: label,
+        onTap: onTap,
+        enabled: onTap != null,
+        loading: loading,
+      ),
     );
   }
 }

@@ -1,15 +1,48 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
+import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-/// Step 1 of 5 — SupplierProfile.businessName / address / phone.
-class SupplierBusinessStep extends StatelessWidget {
+/// Step 1 of 5 — SupplierProfile.businessName / address.
+///
+/// Stateful only to own its TextEditingControllers: the wizard is a PageView,
+/// so a step is disposed and rebuilt as the supplier moves, and text kept in
+/// the widget would be gone by the time they reach submit. The VALUES live on
+/// [SupplierRegistrationController]; these controllers only seed the fields
+/// from it on the way back.
+///
+/// There is no phone field. It is not on the business-registration payload and
+/// not in the design; the one that used to sit here collected a number nothing
+/// ever sent.
+class SupplierBusinessStep extends StatefulWidget {
   final VoidCallback onNext;
   const SupplierBusinessStep({super.key, required this.onNext});
+
+  @override
+  State<SupplierBusinessStep> createState() => _SupplierBusinessStepState();
+}
+
+class _SupplierBusinessStepState extends State<SupplierBusinessStep> {
+  final _c = Get.find<SupplierRegistrationController>();
+  late final TextEditingController _name = TextEditingController(
+    text: _c.businessName.value,
+  );
+  late final TextEditingController _address = TextEditingController(
+    text: _c.address.value,
+  );
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _address.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,17 +64,16 @@ class SupplierBusinessStep extends StatelessWidget {
                   paddingTop: 24,
                 ),
                 MyTextField(
+                  controller: _name,
                   labelText: 'Business Name',
                   hintText: 'e.g. AutoParts Hub',
+                  onChanged: (v) => _c.businessName.value = v,
                 ),
                 MyTextField(
+                  controller: _address,
                   labelText: 'Business Address',
                   hintText: 'e.g. 14 Bole Road, Manchester',
-                ),
-                MyTextField(
-                  labelText: 'Phone Number',
-                  hintText: '+44 7000 000000',
-                  keyboardType: TextInputType.phone,
+                  onChanged: (v) => _c.address.value = v,
                 ),
                 const SizedBox(height: 12),
                 const SupplierNoteCard(
@@ -54,44 +86,34 @@ class SupplierBusinessStep extends StatelessWidget {
             ),
           ),
         ),
-        SupplierBottomButton(label: 'Continue', onTap: onNext),
+        // Gated: both fields are required server-side, and letting the supplier
+        // walk to step 5 before failing tells them nothing about which of five
+        // screens to go back to.
+        Obx(() => SupplierBottomButton(
+          label: 'Continue',
+          onTap: _c.businessName.value.trim().isEmpty ||
+                  _c.address.value.trim().isEmpty
+              ? null
+              : widget.onNext,
+        )),
       ],
     );
   }
 }
 
 /// Step 2 of 5 — the 12 backend `Region` values as chips.
-class SupplierRegionsStep extends StatefulWidget {
+///
+/// Reads the [Region] enum rather than a hard-coded list of strings. The
+/// previous copy duplicated all twelve labels, which meant a label edit or a
+/// thirteenth region silently disagreed with the wire values the server
+/// accepts.
+class SupplierRegionsStep extends StatelessWidget {
   final VoidCallback onNext;
   const SupplierRegionsStep({super.key, required this.onNext});
 
   @override
-  State<SupplierRegionsStep> createState() => _SupplierRegionsStepState();
-}
-
-class _SupplierRegionsStepState extends State<SupplierRegionsStep> {
-  static const List<String> _regions = [
-    'London',
-    'South East',
-    'South West',
-    'East of England',
-    'East Midlands',
-    'West Midlands',
-    'Yorkshire',
-    'North East',
-    'North West',
-    'Wales',
-    'Scotland',
-    'Northern Ireland',
-  ];
-  final Set<String> _selected = {'London'};
-
-  void _toggle(String r) => setState(
-    () => _selected.contains(r) ? _selected.remove(r) : _selected.add(r),
-  );
-
-  @override
   Widget build(BuildContext context) {
+    final c = Get.find<SupplierRegistrationController>();
     return Column(
       children: [
         Expanded(
@@ -109,24 +131,44 @@ class _SupplierRegionsStepState extends State<SupplierRegionsStep> {
                   paddingBottom: 24,
                   paddingTop: 24,
                 ),
-                SupplierChoiceChips(
-                  options: _regions,
-                  selected: _selected,
-                  onToggle: _toggle,
-                ),
-                const SizedBox(height: 20),
-                MyText(
-                  text: '${_selected.length} of 12 regions selected',
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: kSecondaryColor,
-                ),
+                // The whole subtree reads regionsServed, so it is inside ONE
+                // Obx closure. A read from a child's builder registers no
+                // dependency and would never repaint.
+                Obx(() {
+                  final selectedLabels = {
+                    for (final r in c.regionsServed) r.label,
+                  };
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SupplierChoiceChips(
+                        options: [for (final r in Region.values) r.label],
+                        selected: selectedLabels,
+                        onToggle: (label) => c.toggleRegion(
+                          Region.values.firstWhere((r) => r.label == label),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      MyText(
+                        text:
+                            '${c.regionsServed.length} of ${Region.values.length} regions selected',
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: kSecondaryColor,
+                      ),
+                    ],
+                  );
+                }),
                 const SizedBox(height: 30),
               ],
             ),
           ),
         ),
-        SupplierBottomButton(label: 'Next', onTap: widget.onNext),
+        // At least one region is required by the server.
+        Obx(() => SupplierBottomButton(
+          label: 'Next',
+          onTap: c.regionsServed.isEmpty ? null : onNext,
+        )),
       ],
     );
   }

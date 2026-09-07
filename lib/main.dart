@@ -12,6 +12,8 @@ import 'package:autonect/data/repositories/catalog_api_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
 import 'package:autonect/data/repositories/orders_api_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
+import 'package:autonect/data/repositories/profile_api_repository.dart';
+import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/requests_api_repository.dart';
 import 'package:autonect/data/repositories/requests_repository.dart';
 import 'package:autonect/data/repositories/reviews_api_repository.dart';
@@ -73,6 +75,12 @@ void main() async {
   );
   Get.put<ReviewsRepository>(
     ReviewsApiRepository(client, tokens),
+    permanent: true,
+  );
+  // Registered before RoleController below, which reads it to decide a
+  // provider's landing route from server truth rather than local storage.
+  Get.put<ProfileRepository>(
+    ProfileApiRepository(client, tokens),
     permanent: true,
   );
   Get.put<BlobUploader>(BlobUploader(transport), permanent: true);

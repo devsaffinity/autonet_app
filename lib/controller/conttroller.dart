@@ -2,6 +2,8 @@ import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/data/models/auth_user.dart';
+import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';
 import 'package:autonect/services/session_store.dart';
 import 'package:get/get.dart';
@@ -45,6 +47,37 @@ class RoleController extends GetxController {
   void completeProviderOnboarding() {
     providerOnboarded.value = true;
     SessionStore.providerOnboarded = true;
+  }
+
+  /// Server truth about whether the supplier shell may open.
+  ///
+  /// Null until `GET /v1/me` has answered once this session. [providerOnboarded]
+  /// is only a local record that the wizard was FILLED IN — it says nothing
+  /// about approval, and on its own it let a supplier tap through to a shell
+  /// where every route answered 403.
+  final Rxn<bool> providerApproved = Rxn<bool>();
+
+  /// Re-reads the provider's approval state and routes on the answer.
+  ///
+  /// Approval happens elsewhere — an admin acting on the review queue — and the
+  /// app has no push channel, so an explicit re-read is the only way a waiting
+  /// supplier ever learns about it.
+  ///
+  /// Deliberately silent on failure beyond leaving them where they are: this is
+  /// called from a screen whose entire purpose is to be a holding pattern, and
+  /// a network blip must not eject them from it.
+  Future<void> refreshProviderAccess() async {
+    final r = await Get.find<ProfileRepository>().me();
+    if (r case Ok(:final value)) {
+      final approved = value.supplierProfile?.canEnterShell ?? false;
+      providerApproved.value = approved;
+      // A profile existing at all means the wizard was genuinely submitted,
+      // which is stronger evidence than the local flag it supersedes.
+      if (value.supplierProfile != null) completeProviderOnboarding();
+      if (approved && role.value != null) {
+        Get.offAllNamed(AppLinks.homeFor(role.value!));
+      }
+    }
   }
 
   /// The server's role is authoritative over whatever RolePage recorded.
