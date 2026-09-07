@@ -38,14 +38,70 @@ class SupplierRegistrationController extends ApiController {
   final RxString businessName = ''.obs;
   final RxString address = ''.obs;
 
-  // ── Step 2: coverage ───────────────────────────────────────────────────────
+  // ── Coverage ───────────────────────────────────────────────────────────────
   /// The server requires at least one. Seeded empty rather than with a default
-  /// pick, so a supplier cannot skip the step and silently serve London only.
+  /// pick, so a supplier cannot skip the field and silently serve London only.
   final RxList<Region> regionsServed = <Region>[].obs;
 
-  // ── Step 3: specialization ─────────────────────────────────────────────────
+  /// Single-region view of [regionsServed], for the design's DROPDOWN.
+  ///
+  /// The column is `Region[]` and matching is region-first, so one region means
+  /// this supplier only ever sees leads from that region. That is a real
+  /// narrowing versus the multi-select the data model allows — kept because the
+  /// design asks for a dropdown, and easy to widen later without a migration.
+  Region? get region => regionsServed.isEmpty ? null : regionsServed.first;
+
+  set region(Region? r) => regionsServed.value = r == null ? [] : [r];
+
+  // ── Specialization ─────────────────────────────────────────────────────────
   final RxList<String> brands = <String>[].obs;
   final RxList<String> categoryIds = <String>[].obs;
+
+  /// The chips offered before a supplier types their own.
+  ///
+  /// Client-side because there is NO brand list anywhere on the backend — the
+  /// column is a free-form String[]. Anything typed through "+ Add Brand" is
+  /// added to [brands] and rendered alongside these, so the list is a
+  /// convenience, not a constraint.
+  static const List<String> suggestedBrands = [
+    'Audi',
+    'BMW',
+    'Ford',
+    'Mercedes-Benz',
+    'Nissan',
+    'Peugeot',
+    'Porsche',
+    'Toyota',
+    'Vauxhall',
+    'Volkswagen',
+  ];
+
+  /// Suggestions plus anything the supplier typed, deduped, suggestions first
+  /// so the chip order does not reshuffle as they select.
+  List<String> get brandOptions => [
+    ...suggestedBrands,
+    for (final b in brands)
+      if (!suggestedBrands.contains(b)) b,
+  ];
+
+  /// Trimmed, deduped case-insensitively and selected in one step.
+  ///
+  /// Returns false when it was already there, so the caller can say so rather
+  /// than appearing to do nothing.
+  bool addBrand(String raw) {
+    final name = raw.trim();
+    if (name.isEmpty) return false;
+    final existing = brandOptions.firstWhereOrNull(
+      (b) => b.toLowerCase() == name.toLowerCase(),
+    );
+    if (existing != null) {
+      if (brands.contains(existing)) return false;
+      brands.add(existing);
+      return true;
+    }
+    brands.add(name);
+    return true;
+  }
 
   /// The category list comes from [CatalogController], not from here.
   ///
