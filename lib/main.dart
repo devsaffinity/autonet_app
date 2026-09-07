@@ -8,8 +8,12 @@ import 'package:autonect/data/core/http_transport_impl.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/repositories/auth_api_repository.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';
+import 'package:autonect/data/repositories/billing_api_repository.dart';
+import 'package:autonect/data/repositories/billing_repository.dart';
 import 'package:autonect/data/repositories/catalog_api_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
+import 'package:autonect/data/repositories/kyc_api_repository.dart';
+import 'package:autonect/data/repositories/kyc_repository.dart';
 import 'package:autonect/data/repositories/orders_api_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/data/repositories/profile_api_repository.dart';
@@ -20,6 +24,7 @@ import 'package:autonect/data/repositories/reviews_api_repository.dart';
 import 'package:autonect/data/repositories/reviews_repository.dart';
 import 'package:autonect/data/repositories/vehicles_api_repository.dart';
 import 'package:autonect/data/repositories/vehicles_repository.dart';
+import 'package:autonect/services/document_picker_service.dart';
 import 'package:autonect/services/image_picker_service.dart';
 import 'package:autonect/services/session_store.dart';
 import 'package:flutter/material.dart';
@@ -83,8 +88,17 @@ void main() async {
     ProfileApiRepository(client, tokens),
     permanent: true,
   );
+  Get.put<KycRepository>(KycApiRepository(client, tokens), permanent: true);
+  Get.put<BillingRepository>(
+    BillingApiRepository(client, tokens),
+    permanent: true,
+  );
   Get.put<BlobUploader>(BlobUploader(transport), permanent: true);
   Get.put<ImagePickerService>(DeviceImagePickerService(), permanent: true);
+  Get.put<DocumentPickerService>(
+    const DeviceDocumentPickerService(),
+    permanent: true,
+  );
   Get.put(RoleController(), permanent: true);
   runApp(MyApp());
 }

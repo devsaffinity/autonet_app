@@ -5,6 +5,7 @@ import 'package:autonect/controller/supplier/supplier_registration_controller.da
 import 'package:autonect/view/screens/supplier/registration/supplier_awaiting_approval.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_catalogue.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_kyc.dart';
+import 'package:autonect/view/screens/supplier/registration/supplier_registration_plan.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_steps.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';

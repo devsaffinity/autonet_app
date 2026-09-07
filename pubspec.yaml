@@ -53,6 +53,12 @@ dependencies:
   # fenced behind SessionStore. `intl` is deliberately NOT here: money is
   # formatted by hand from integer pence.
   image_picker: ^1.1.2
+  # KYC documents. image_picker cannot open a PDF, and the backend's
+  # DOCUMENT_MIME_TYPES allowlist is ['application/pdf','image/jpeg','image/png']
+  # — so without this the ID/registry/tax uploads could only ever accept photos.
+  # Imported by exactly one file, lib/services/document_picker_service.dart,
+  # the same way image_picker and shared_preferences are fenced.
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_test:
