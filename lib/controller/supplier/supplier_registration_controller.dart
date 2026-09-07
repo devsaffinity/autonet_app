@@ -1,7 +1,6 @@
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/me_profile.dart';
-import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/controller/buyer/catalog_controller.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';

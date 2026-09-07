@@ -58,6 +58,11 @@ class _LoginPageState extends State<LoginPage> {
 
     switch (outcome) {
       case AuthOutcome.success:
+        // Ask the server where a supplier belongs BEFORE routing: landingRoute
+        // reads flags that otherwise come from this device's storage, which is
+        // cleared on every sign-out. No-op for other roles.
+        await roleController.syncProviderAccess();
+        if (!mounted) return;
         // landingRoute is the ONLY role -> destination mapping in the app, and
         // the role inside it now came from the server's token payload.
         Get.offAllNamed(roleController.landingRoute);

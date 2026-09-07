@@ -15,11 +15,17 @@ import 'package:flutter/material.dart';
 /// where nothing works. There is no back affordance for the same reason — the
 /// only ways out are signing out, or being approved.
 class SupplierAwaitingApprovalPage extends StatelessWidget {
-  const SupplierAwaitingApprovalPage({super.key, required this.profile});
+  /// Optional so this can be a NAMED route.
+  ///
+  /// `landingRoute` and the guard place a supplier here from a cold start,
+  /// where there is no profile object to hand over. Only the rejection copy
+  /// depends on it; everything else on the screen is static, and Check again
+  /// re-reads from the server regardless.
+  const SupplierAwaitingApprovalPage({super.key, this.profile});
 
-  final MeProfile profile;
+  final MeProfile? profile;
 
-  KycStatus? get _status => profile.supplierProfile?.kycStatus;
+  KycStatus? get _status => profile?.supplierProfile?.kycStatus;
 
   bool get _rejected => _status == KycStatus.rejected;
 

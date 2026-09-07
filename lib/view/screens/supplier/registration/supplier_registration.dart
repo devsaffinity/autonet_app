@@ -1,18 +1,18 @@
-import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
-import 'package:autonect/view/screens/supplier/registration/supplier_awaiting_approval.dart';
+import 'package:autonect/view/screens/supplier/registration/supplier_business_step.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_kyc.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration_plan.dart';
-import 'package:autonect/view/screens/supplier/registration/supplier_business_step.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Supplier KYC wizard — the same five-step PageView + segmented progress
-/// header the electrician registration wizard uses, mapped onto the backend
-/// SupplierProfile model.
+/// Supplier registration — three steps over one PageView.
+///
+/// No step counter or progress bar: the design shows none, and the first step
+/// is now the whole of POST /v1/supplier/business rather than three pages of
+/// it.
 class SupplierRegistrationPage extends StatefulWidget {
   const SupplierRegistrationPage({super.key});
 
@@ -76,12 +76,14 @@ class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
     if (profile == null) return;
     if (!mounted) return;
 
-    RoleController.to.completeProviderOnboarding();
-    if (profile.supplierProfile?.canEnterShell ?? false) {
-      Get.offAllNamed(AppLinks.supplierShell);
-    } else {
-      Get.offAll(() => SupplierAwaitingApprovalPage(profile: profile));
-    }
+    // Take the flags from the response we already have rather than issuing a
+    // second read, then route through landingRoute so this is not a fourth
+    // place that decides where a supplier belongs.
+    final role = RoleController.to;
+    role.completeProviderOnboarding();
+    role.providerApproved.value =
+        profile.supplierProfile?.canEnterShell ?? false;
+    Get.offAllNamed(role.landingRoute);
   }
 
   @override

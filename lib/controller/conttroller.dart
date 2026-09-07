@@ -67,16 +67,12 @@ class RoleController extends GetxController {
   /// called from a screen whose entire purpose is to be a holding pattern, and
   /// a network blip must not eject them from it.
   Future<void> refreshProviderAccess() async {
-    final r = await Get.find<ProfileRepository>().me();
-    if (r case Ok(:final value)) {
-      final approved = value.supplierProfile?.canEnterShell ?? false;
-      providerApproved.value = approved;
-      // A profile existing at all means the wizard was genuinely submitted,
-      // which is stronger evidence than the local flag it supersedes.
-      if (value.supplierProfile != null) completeProviderOnboarding();
-      if (approved && role.value != null) {
-        Get.offAllNamed(AppLinks.homeFor(role.value!));
-      }
+    if (!await syncProviderAccess()) return;
+    // landingRoute now reflects the server, so it is the one decision point
+    // again rather than a second copy of the same rules.
+    final target = landingRoute;
+    if (target != AppLinks.supplierAwaitingApproval) {
+      Get.offAllNamed(target);
     }
   }
 
@@ -129,12 +125,47 @@ class RoleController extends GetxController {
   String get landingRoute {
     final r = role.value;
     if (r == null) return AppLinks.role;
-    if (r == AppRole.supplier && !providerOnboarded.value) {
-      return AppLinks.supplierOnboarding;
+    if (r == AppRole.supplier) {
+      // Three destinations, not two. A supplier who HAS registered is not
+      // therefore allowed into the shell — approval is a separate admin
+      // decision, and every supplier route answers 403 until it happens.
+      if (!providerOnboarded.value) return AppLinks.supplierOnboarding;
+      if (providerApproved.value != true) {
+        return AppLinks.supplierAwaitingApproval;
+      }
+      return AppLinks.homeFor(r);
     }
     if (r == AppRole.electrician && !providerOnboarded.value) {
       return AppLinks.electricianOnboarding;
     }
     return AppLinks.homeFor(r);
+  }
+
+  /// Refreshes [providerOnboarded] and [providerApproved] from `GET /v1/me`.
+  ///
+  /// MUST be awaited before routing a supplier anywhere, because both flags
+  /// otherwise come from SharedPreferences — which knows only whether THIS
+  /// install completed the wizard. `_localTeardown` clears the flag on every
+  /// sign-out, so without this a supplier who registered and was approved
+  /// months ago is sent back through the wizard on their next login, and
+  /// RoleGuard bounces them there again if they try to leave.
+  ///
+  /// A failed read leaves both flags untouched and returns false, so a network
+  /// blip falls back to the local answer rather than stranding a supplier at a
+  /// screen they cannot leave.
+  Future<bool> syncProviderAccess() async {
+    if (role.value != AppRole.supplier) return false;
+    switch (await Get.find<ProfileRepository>().me()) {
+      case Err():
+        return false;
+      case Ok(:final value):
+        final profile = value.supplierProfile;
+        // A profile existing is what "onboarded" actually means. The local flag
+        // only ever recorded that the wizard was filled in on this device.
+        providerOnboarded.value = profile != null;
+        SessionStore.providerOnboarded = profile != null;
+        providerApproved.value = profile?.canEnterShell ?? false;
+        return true;
+    }
   }
 }

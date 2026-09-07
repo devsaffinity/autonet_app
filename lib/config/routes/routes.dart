@@ -16,6 +16,7 @@ import 'package:autonect/view/screens/launch/onboarding/onboarding.dart';
 import 'package:autonect/view/screens/launch/role.dart';
 import 'package:autonect/view/screens/launch/splash_screen.dart';
 import 'package:autonect/view/screens/supplier/nav_bar/nav_bar.dart';
+import 'package:autonect/view/screens/supplier/registration/supplier_awaiting_approval.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_registration.dart';
 import 'package:get/get.dart';
 
@@ -64,6 +65,12 @@ class AppRoutes {
       middlewares: [RoleGuard()],
     ),
     GetPage(
+      name: AppLinks.supplierAwaitingApproval,
+      // No profile argument: reached from a cold start where there is none.
+      page: () => const SupplierAwaitingApprovalPage(),
+      middlewares: [RoleGuard()],
+    ),
+    GetPage(
       name: AppLinks.electricianOnboarding,
       page: () => const ServiceProviderRegistrationPage(),
       middlewares: [RoleGuard()],
@@ -83,6 +90,7 @@ class AppLinks {
   static const supplierShell = '/supplier';
   static const electricianShell = '/electrician';
   static const supplierOnboarding = '/supplier/onboarding';
+  static const supplierAwaitingApproval = '/supplier/awaiting-approval';
   static const electricianOnboarding = '/electrician/onboarding';
 
   /// Exhaustive on purpose: a fourth AppRole must be a compile error here and

@@ -103,8 +103,11 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
     // established.
     Get.bottomSheet(
       AccountCreatedBSheet(
-        onContinue: () {
+        onContinue: () async {
           Get.back();
+          // Server truth before routing, same as login. A brand new supplier
+          // has no profile yet, so this correctly lands them on the wizard.
+          await RoleController.to.syncProviderAccess();
           Get.offAllNamed(RoleController.to.landingRoute);
         },
       ),

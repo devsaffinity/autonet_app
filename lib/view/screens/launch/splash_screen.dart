@@ -21,10 +21,17 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   /// Every value read here is already in memory because SessionStore.init()
-  /// was awaited in main(), so there is no await and no flash of a wrong
-  /// screen. Branch 3 is what keeps an ADMIN token — which AppRole.fromWire
-  /// reads as null — from reaching an exhaustive switch.
-  void _route() {
+  /// was awaited in main(), so the first three branches have no await and no
+  /// flash of a wrong screen. Branch 3 is what keeps an ADMIN token — which
+  /// AppRole.fromWire reads as null — from reaching an exhaustive switch.
+  ///
+  /// The LAST branch is the one exception: a restored supplier session needs
+  /// the server's answer, because the local flags record only what this device
+  /// did and are cleared on every sign-out. syncProviderAccess is a no-op for
+  /// every other role, so nobody else pays for it, and this screen is already
+  /// showing a logo — a short wait here beats routing an approved supplier back
+  /// into the wizard.
+  Future<void> _route() async {
     final c = RoleController.to;
     if (!c.onboardingSeen.value) {
       Get.offAllNamed(AppLinks.onboarding);
@@ -33,6 +40,8 @@ class _SplashScreenState extends State<SplashScreen> {
     } else if (!c.hasRole) {
       Get.offAllNamed(AppLinks.role);
     } else {
+      await c.syncProviderAccess();
+      if (!mounted) return;
       Get.offAllNamed(c.landingRoute);
     }
   }
