@@ -163,8 +163,8 @@ class SupplierAwaitingApprovalPage extends StatelessWidget {
               ? 'Re-upload your verification documents from your profile and '
                     'the review team will take another look.'
               : "You'll receive a confirmation email once your credentials "
-                    'have been verified. You can also tap Check again at any '
-                    'time.',
+                    'have been verified. You can also tap Back to Home at any '
+                    'time to check.',
           size: AppTextScale.label,
           color: kGreyTextColor,
           lineHeight: 1.6,
