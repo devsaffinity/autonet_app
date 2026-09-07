@@ -1,6 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/view/widget/dashed_border.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -100,8 +101,9 @@ class _AddChip extends StatelessWidget {
     child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSizes.radiusPill),
-      child: CustomPaint(
-        painter: const _DashedBorderPainter(color: kSecondaryColor),
+      child: DashedBorder(
+        radius: AppSizes.radiusPill,
+        color: kSecondaryColor,
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSizes.s12,
@@ -119,38 +121,4 @@ class _AddChip extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(size.height / 2),
-    );
-    // Walk the rounded rect and draw alternating 4px on / 3px off segments.
-    for (final metric in (Path()..addRRect(rrect)).computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final next = distance + 4;
-        canvas.drawPath(
-          metric.extractPath(distance, next.clamp(0.0, metric.length)),
-          paint,
-        );
-        distance = next + 3;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color;
 }

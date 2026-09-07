@@ -16,7 +16,14 @@ import 'package:get/get.dart';
 /// which is why the screen always re-renders from the server's answer rather
 /// than from what it just did.
 class SupplierKycController extends ApiController {
-  SupplierKycController(this._repo, this._uploader, this._picker);
+  SupplierKycController(
+    this._repo,
+    this._uploader,
+    this._picker, {
+    super.toast,
+    super.showBusy,
+    super.hideBusy,
+  });
 
   static SupplierKycController ensure() =>
       Get.isRegistered<SupplierKycController>()
@@ -43,6 +50,21 @@ class SupplierKycController extends ApiController {
   /// global busy flag would blank all three.
   final Rxn<KycDocType> uploading = Rxn<KycDocType>();
 
+  /// Which document has the system file sheet open.
+  ///
+  /// SEPARATE from [uploading] on purpose. The picker await used to sit outside
+  /// any latch at all, so two taps in the ~300ms before the sheet appears both
+  /// called into file_picker, whose Android delegate answers the second with
+  /// `already_active` — an uncaught async error, swallowed in release. Reusing
+  /// [uploading] for it would fix that but make the card claim an upload is in
+  /// flight for as long as the sheet is open, then snap back on cancel.
+  final Rxn<KycDocType> picking = Rxn<KycDocType>();
+
+  /// Any document operation in flight. One at a time across ALL cards: the
+  /// backend deletes the previous row inside the ticket call, so overlapping
+  /// operations on the same type can leave a row pointing at nothing.
+  bool get isLatched => uploading.value != null || picking.value != null;
+
   KycState? get current => switch (state.value) {
     Data<KycState>(:final value) => value,
     _ => null,
@@ -65,9 +87,21 @@ class SupplierKycController extends ApiController {
   /// sits in a try/finally: an exception on any of the three calls would
   /// otherwise strand that card in a permanent spinner with no way back.
   Future<void> pickAndUpload(KycDocType type) async {
-    if (uploading.value != null) return;
+    if (isLatched) {
+      // Never a bare return: every caller is a control the user just tapped,
+      // and silence reads as a broken button.
+      toast('Wait for the current document to finish.');
+      return;
+    }
 
-    final picked = await _picker.pickDocument();
+    final DocumentPickResult picked;
+    picking.value = type;
+    try {
+      picked = await _picker.pickDocument();
+    } finally {
+      picking.value = null;
+    }
+
     final doc = picked.document;
     if (doc == null) {
       // Backing out of the system sheet is not an error.
@@ -75,7 +109,17 @@ class SupplierKycController extends ApiController {
       return;
     }
 
+    // Re-checked AFTER the pick, not just before it: a remove() on this or
+    // another card can start and finish while the sheet is open, and uploading
+    // on top of it races a DELETE against an INSERT.
+    if (uploading.value != null) {
+      toast('Wait for the current document to finish.');
+      return;
+    }
+
     uploading.value = type;
+    // A failure from a previous attempt must not sit under a new one.
+    clearErrors();
     try {
       final UploadTicket ticket;
       switch (await _repo.createUploadTicket(
@@ -86,8 +130,15 @@ class SupplierKycController extends ApiController {
           fileName: doc.fileName,
         ),
       )) {
+        // EVERY failure arm re-reads. The ticket call DELETES the previous
+        // document and its S3 object before a single byte moves, so a failure
+        // after it means the card is now showing a file the server no longer
+        // has — and `isComplete` would keep Next enabled over the hole.
+        // load() goes through runRead, which does not clearErrors, so the
+        // message set by absorb survives the reload.
         case Err(:final error):
           absorb(error);
+          await load();
           return;
         case Ok(:final value):
           ticket = value;
@@ -100,6 +151,7 @@ class SupplierKycController extends ApiController {
       )) {
         case Err(:final error):
           absorb(error);
+          await load();
           return;
         case Ok():
           break;
@@ -108,10 +160,10 @@ class SupplierKycController extends ApiController {
       // The ONLY call that makes the upload count. Its answer replaces the
       // whole screen state, so a document the server rejected on re-read never
       // renders as uploaded.
-      final confirmed = await _repo.confirmUpload(ticket.key);
-      switch (confirmed) {
+      switch (await _repo.confirmUpload(ticket.key)) {
         case Err(:final error):
           absorb(error);
+          await load();
         case Ok(:final value):
           state.value = Data<KycState>(value);
       }
@@ -121,13 +173,17 @@ class SupplierKycController extends ApiController {
   }
 
   Future<void> remove(KycDocType type) async {
-    if (uploading.value != null) return;
+    if (isLatched) {
+      toast('Wait for the current document to finish.');
+      return;
+    }
     uploading.value = type;
+    clearErrors();
     try {
-      final r = await _repo.removeDocument(type);
-      switch (r) {
+      switch (await _repo.removeDocument(type)) {
         case Err(:final error):
           absorb(error);
+          await load();
         case Ok(:final value):
           state.value = Data<KycState>(value);
       }

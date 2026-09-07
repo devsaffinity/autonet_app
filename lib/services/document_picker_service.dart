@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart' show PlatformException;
 
 /// The maximum a KYC document may be, mirroring the server's
 /// `UPLOAD.DOCUMENT_MAX_BYTES`.
@@ -81,13 +82,28 @@ class DeviceDocumentPickerService implements DocumentPickerService {
 
   @override
   Future<DocumentPickResult> pickDocument() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: _mimeByExtension.keys.toList(),
-      // The bytes are PUT straight to S3 and never touched as a File, and on
-      // web there is no path at all.
-      withData: true,
-    );
+    final FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _mimeByExtension.keys.toList(),
+        // The bytes are PUT straight to S3 and never touched as a File, and on
+        // web there is no path at all.
+        withData: true,
+      );
+    } on PlatformException catch (e) {
+      // Caught HERE, in the seam that owns the plugin, not in the controller.
+      //
+      // 'already_active' means a previous pick is still opening — the Android
+      // delegate rejects the second call. That is a double tap, not a failure,
+      // so it must be as silent as a cancel; toasting 'that file could not be
+      // read' at someone who tapped twice would be nonsense.
+      return DocumentPickResult.failed(
+        e.code == 'already_active'
+            ? DocumentPickFailure.cancelled
+            : DocumentPickFailure.unreadable,
+      );
+    }
     final file = result?.files.singleOrNull;
     if (file == null) {
       return const DocumentPickResult.failed(DocumentPickFailure.cancelled);

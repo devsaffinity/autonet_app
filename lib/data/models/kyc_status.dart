@@ -14,19 +14,23 @@ enum KycDocType {
   businessRegistry(
     'BUSINESS_REGISTRY',
     'Business Registry',
-    'Companies House certificate',
+    'Articles of Incorporation',
   ),
-  tax('TAX', 'Tax Documents', 'VAT registration certificate'),
+  tax('TAX', 'Tax Documents', 'VAT / EIN Certification'),
   license('LICENSE', 'Licence', 'Trade or installer licence');
 
   const KycDocType(this.wire, this.label, this.hint);
   final String wire;
   final String label;
 
-  /// The card's grey subtitle. The design said "Articles of Incorporation" and
-  /// "VAT / EIN Certification" — both US/Canadian instruments on a UK-only
-  /// system, which would send a British supplier looking for paperwork that
-  /// does not exist here.
+  /// The card's grey subtitle, verbatim from the design.
+  ///
+  /// NOTE for the product owner: 'EIN' is a US IRS number and 'Articles of
+  /// Incorporation' is a US/Canadian instrument. On a UK-only system the
+  /// equivalents are a Companies House certificate and a VAT registration
+  /// certificate, and a British supplier may go looking for paperwork that does
+  /// not exist here. Kept as drawn on request; change these two strings and
+  /// nothing else if that is revisited.
   final String hint;
 
   static KycDocType? fromWire(String? v) =>
