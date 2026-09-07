@@ -4,6 +4,7 @@ import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/controller/buyer/catalog_controller.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
+import 'package:autonect/domain/growth_model.dart';
 import 'package:get/get.dart';
 
 /// Owns the supplier registration wizard's answers across all five steps.
@@ -116,6 +117,14 @@ class SupplierRegistrationController extends ApiController {
   /// collected could ever have been submitted.
   CatalogController get catalog => CatalogController.ensure();
 
+  // ── Growth model ───────────────────────────────────────────────────────────
+  /// Which monetization model the supplier picked on the last step.
+  ///
+  /// Seeded with the recommended one rather than left null: the design shows a
+  /// card already highlighted, and an empty selection would make Proceed look
+  /// broken until they tapped something they had no reason to change.
+  final Rx<GrowthModel> growthModel = Rx<GrowthModel>(GrowthModel.credits);
+
   // ── Result ─────────────────────────────────────────────────────────────────
   /// The profile the server returned from the submission. Its `kycStatus` and
   /// `approved` decide which screen the supplier lands on next, so the wizard
@@ -128,6 +137,7 @@ class SupplierRegistrationController extends ApiController {
     regionsServed: regionsServed.toList(),
     categoryIds: categoryIds.toList(),
     brands: brands.toList(),
+    monetizationModel: growthModel.value.wire,
   );
 
   bool get canSubmit => draft.isComplete;

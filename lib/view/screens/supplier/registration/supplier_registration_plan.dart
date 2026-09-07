@@ -13,12 +13,12 @@ import 'package:get/get.dart';
 
 /// Step 3 of 3 — the monetization models.
 ///
-/// INFORMATIONAL. Nothing here is selectable, by design: buying goes through
-/// Stripe Checkout, which answers with a hosted URL, and the app has no
-/// url_launcher, no webview and no registered URL scheme — so a chooser would
-/// set a preference nothing could act on and a Subscribe button could not open
-/// anything. Billing is arranged after approval, and the note at the bottom
-/// says so.
+/// The supplier PICKS one and it is sent with the registration, landing on
+/// `SupplierProfile.monetizationModel`. It is a stated preference rather than a
+/// purchase: nothing charges here, because Stripe Checkout answers with a
+/// hosted URL this app cannot open (no url_launcher, no webview, no registered
+/// scheme). Billing is arranged after approval — the note at the bottom says
+/// so — and the reviewer gets an answer instead of having to ask.
 class SupplierPlanStep extends StatefulWidget {
   final VoidCallback onFinish;
 
@@ -34,6 +34,9 @@ class SupplierPlanStep extends StatefulWidget {
 
 class _SupplierPlanStepState extends State<SupplierPlanStep> {
   final _c = SupplierPlanController.ensure();
+  // The wizard's controller owns the answer, because it is submitted with the
+  // rest of the registration rather than on its own.
+  final _reg = Get.find<SupplierRegistrationController>();
 
   @override
   void initState() {
@@ -74,19 +77,31 @@ class _SupplierPlanStepState extends State<SupplierPlanStep> {
                 // Only the PRICES need the server; the copy is presentation
                 // data, so the cards render as soon as the screen opens and the
                 // figures fill in.
-                Obx(() => StateView<List<BillingPlan>>(
+                Obx(() {
+                  // Read HERE, inside the Obx closure. From StateView.builder it
+                  // would run in a different performRebuild with no tracking
+                  // proxy installed, register no dependency, and tapping a card
+                  // would change nothing on screen.
+                  final chosen = _reg.growthModel.value;
+                  return StateView<List<BillingPlan>>(
                   state: _c.plans.value,
                   onRetry: _c.load,
                   emptyTitle: 'Pricing unavailable',
                   builder: (_, plans) => Column(
                     children: [
                       for (final model in GrowthModel.values) ...[
-                        _PlanCard(model: model, plans: plans),
+                        _PlanCard(
+                          model: model,
+                          plans: plans,
+                          selected: model == chosen,
+                          onSelect: () => _reg.growthModel.value = model,
+                        ),
                         const SizedBox(height: AppSizes.s12),
                       ],
                     ],
                   ),
-                )),
+                );
+                }),
                 const SizedBox(height: AppSizes.s8),
                 const _RecommendationCard(),
                 const SizedBox(height: AppSizes.s24),
@@ -121,21 +136,41 @@ class _SupplierPlanStepState extends State<SupplierPlanStep> {
 }
 
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.model, required this.plans});
+  const _PlanCard({
+    required this.model,
+    required this.plans,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final GrowthModel model;
   final List<BillingPlan> plans;
+  final bool selected;
+  final VoidCallback onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final highlight = model.recommended;
+    // The orange fill means SELECTED, not "recommended". Those were the same
+    // card in the design because the recommended one is preselected, but tying
+    // the fill to `recommended` made the highlight a constant — tapping another
+    // card changed nothing visible.
+    final highlight = selected;
     final onCard = highlight ? kWhiteColor : kBlackColor;
     final muted = highlight
         ? kWhiteColor.withValues(alpha: .85)
         : kGreyTextColor;
     final note = model.priceNoteFrom(plans);
 
-    return Container(
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: model.title,
+      child: InkWell(
+        onTap: onSelect,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        child: ExcludeSemantics(
+          child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       width: double.infinity,
       padding: const EdgeInsets.all(AppSizes.s16),
       decoration: BoxDecoration(
@@ -145,6 +180,7 @@ class _PlanCard extends StatelessWidget {
           color: highlight
               ? kSecondaryColor
               : kGreyTextColor.withValues(alpha: .25),
+          width: highlight ? 1 : 1.2,
         ),
       ),
       child: Column(
@@ -165,17 +201,28 @@ class _PlanCard extends StatelessWidget {
                     color: highlight ? kWhiteColor : kSecondaryColor),
               ),
               const Spacer(),
-              if (highlight)
+              // Independent of selection: the recommendation does not move when
+              // the supplier picks a different card.
+              if (model.recommended)
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSizes.s8, vertical: AppSizes.s4),
                   decoration: BoxDecoration(
-                    color: kWhiteColor.withValues(alpha: .25),
+                    color: highlight
+                        ? kWhiteColor.withValues(alpha: .25)
+                        : kLightOrangeColor,
                     borderRadius: BorderRadius.circular(AppSizes.radiusPill),
                   ),
                   child: MyText(text: 'RECOMMENDED',
-                      size: AppTextScale.caption, color: kWhiteColor,
+                      size: AppTextScale.caption,
+                      color: highlight ? kWhiteColor : kSecondaryColor,
                       weight: AppWeights.bold, letterSpacing: .5),
+                ),
+              if (selected)
+                Padding(
+                  padding: const EdgeInsets.only(left: AppSizes.s8),
+                  child: Icon(Icons.check_circle_rounded,
+                      size: AppSizes.s20, color: kWhiteColor),
                 ),
             ],
           ),
@@ -223,6 +270,9 @@ class _PlanCard extends StatelessWidget {
             MyText(text: note, size: AppTextScale.caption, color: muted,
                 paddingTop: AppSizes.s4),
         ],
+      ),
+          ),
+        ),
       ),
     );
   }

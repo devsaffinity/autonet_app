@@ -106,16 +106,25 @@ class _SupplierBusinessStepState extends State<SupplierBusinessStep> {
               )),
               const SizedBox(height: AppSizes.s20),
               _sectionLabel('Part Categories'),
-              Obx(() => StateView<List<PartCategory>>(
-                state: _c.catalog.categories.value,
-                onRetry: () => _c.catalog.load(forceRefresh: true),
-                emptyTitle: 'No categories yet',
-                builder: (_, all) => CategoryGrid(
-                  categories: all,
-                  selectedIds: _c.categoryIds.toSet(),
-                  onToggle: _c.toggleCategory,
-                ),
-              )),
+              Obx(() {
+                // BOTH reads happen HERE, synchronously inside the Obx closure.
+                // categoryIds used to be read from StateView's `builder`, which
+                // runs inside StateView.build — a different performRebuild with
+                // no tracking proxy installed — so it registered no dependency
+                // and tapping a card updated the list while the grid never
+                // repainted. Selection looked completely dead.
+                final selected = _c.categoryIds.toSet();
+                return StateView<List<PartCategory>>(
+                  state: _c.catalog.categories.value,
+                  onRetry: () => _c.catalog.load(forceRefresh: true),
+                  emptyTitle: 'No categories yet',
+                  builder: (_, all) => CategoryGrid(
+                    categories: all,
+                    selectedIds: selected,
+                    onToggle: _c.toggleCategory,
+                  ),
+                );
+              }),
               const SizedBox(height: AppSizes.s24),
             ],
           ),

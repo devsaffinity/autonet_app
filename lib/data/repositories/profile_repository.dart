@@ -15,6 +15,7 @@ class SupplierBusinessDraft {
     required this.categoryIds,
     this.brands = const [],
     this.specialization,
+    this.monetizationModel,
   });
 
   final String businessName;
@@ -23,6 +24,10 @@ class SupplierBusinessDraft {
   final List<String> categoryIds;
   final List<String> brands;
   final String? specialization;
+
+  /// SUBSCRIPTION | CREDITS | COMMISSION. A stated preference: nothing bills
+  /// on it, and the server treats it as optional.
+  final String? monetizationModel;
 
   /// The server requires at least one region and at least one category, so a
   /// draft failing this would 400. Checked before submit so the wizard can say
@@ -44,6 +49,9 @@ class SupplierBusinessDraft {
     // absent key is simply "not provided".
     if (specialization case final s? when s.trim().isNotEmpty)
       'specialization': s.trim(),
+    // Omitted when absent, so re-submitting without touching the plan step
+    // cannot clear a choice already recorded.
+    if (monetizationModel case final m?) 'monetizationModel': m,
   };
 }
 

@@ -8,12 +8,15 @@ import 'package:autonect/domain/money_format.dart';
 /// server returns `Plan` rows with a name, a price and an interval and nothing
 /// else. What DOES come from the server is the price, bound per model below.
 ///
-/// Nothing here is selectable. Billing is arranged after approval, and Stripe
-/// Checkout answers with a hosted URL the app cannot open (no url_launcher, no
-/// webview, no registered scheme), so a chooser would be a control that cannot
-/// complete. See [SupplierPlanController].
+/// The supplier PICKS one, and the choice is sent with the registration and
+/// stored on their profile. It is a stated preference, not a purchase: nothing
+/// charges on it, because Stripe Checkout answers with a hosted URL this app
+/// cannot open (no url_launcher, no webview, no registered scheme). Billing is
+/// arranged after approval, and the reviewer gets an answer instead of having
+/// to ask.
 enum GrowthModel {
   subscription(
+    wire: 'SUBSCRIPTION',
     title: 'Subscription',
     description:
         'Predictable monthly fees for high-volume suppliers. Includes premium '
@@ -21,6 +24,7 @@ enum GrowthModel {
     features: ['Zero commission per lead', 'Advanced logistics toolkit'],
   ),
   credits(
+    wire: 'CREDITS',
     title: 'Credits',
     description:
         'Pay only for the RFQs you want. Perfect for specialized parts with '
@@ -29,6 +33,7 @@ enum GrowthModel {
     recommended: true,
   ),
   commission(
+    wire: 'COMMISSION',
     title: 'Commission',
     description:
         'Success-based model. We only get paid when you complete a sale. '
@@ -37,11 +42,15 @@ enum GrowthModel {
   );
 
   const GrowthModel({
+    required this.wire,
     required this.title,
     required this.description,
     required this.features,
     this.recommended = false,
   });
+
+  /// Matches the backend MonetizationModel enum.
+  final String wire;
 
   final String title;
   final String description;

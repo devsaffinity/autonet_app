@@ -90,14 +90,16 @@ class SupplierAwaitingApprovalPage extends StatelessWidget {
                 const SizedBox(height: AppSizes.s24),
                 _whatsNextCard(),
                 const Spacer(),
-                // "Back to Home" in the design. There is no home to go back to
-                // until the server says approved, so this is the control that
-                // can actually move them: approval happens elsewhere and the
-                // app has no push channel, making an explicit re-read the only
-                // way to learn about it.
+                // Labelled as the design draws it, and it genuinely tries to go
+                // home: it re-reads /v1/me first, and landingRoute opens the
+                // shell the moment the server says approved. Approval happens
+                // elsewhere and there is no push channel, so this re-read is
+                // the ONLY way an approval ever reaches the app — which is why
+                // the one button both checks and navigates rather than making
+                // the supplier find a separate refresh.
                 MyButton(
-                  buttonText: 'Check again',
-                  onTap: () => RoleController.to.refreshProviderAccess(),
+                  buttonText: 'Back to Home',
+                  onTap: _backToHome,
                 ),
                 if (kSupportEmail.isNotEmpty) ...[
                   const SizedBox(height: AppSizes.s12),
@@ -170,6 +172,22 @@ class SupplierAwaitingApprovalPage extends StatelessWidget {
       ],
     ),
   );
+
+  /// Re-reads the server and leaves if it may.
+  ///
+  /// `refreshProviderAccess` navigates when landingRoute stops pointing here.
+  /// When it does not, the supplier is still under review and would otherwise
+  /// see a button that appeared to do nothing — so this says so explicitly.
+  Future<void> _backToHome() async {
+    final role = RoleController.to;
+    await role.refreshProviderAccess();
+    if (role.providerApproved.value == true) return;
+    Get.snackbar(
+      'Still under review',
+      'Your account has not been approved yet. We will email you when it is.',
+      backgroundColor: kWhiteColor,
+    );
+  }
 
   /// No url_launcher in this project, so a mailto: cannot be opened. Copying
   /// the address is the most a client can honestly offer.
