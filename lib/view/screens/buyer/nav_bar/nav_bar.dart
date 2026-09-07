@@ -1,22 +1,29 @@
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/view/screens/buyer/home/home.dart';
+import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/screens/buyer/orders/my_orders.dart';
-import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/screens/buyer/request/request_status_tracking.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/widget/role_nav_bar.dart';
 import 'package:autonect/view/widget/role_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 /// Buyer shell — the destination of `AppLinks.buyerShell`.
 ///
-/// Five tabs, five DISTINCT screens: the `assert` inside `RoleShell` makes the
-/// index-4-duplicates-index-0 bug that ElectricianNavBar shipped with
-/// structurally impossible to reintroduce here.
+/// FOUR tabs, four DISTINCT screens, split 2 | 2 around the centre FAB: the
+/// `assert` inside `RoleShell` makes the index-4-duplicates-index-0 bug that
+/// ElectricianNavBar shipped with structurally impossible to reintroduce here.
+///
+/// Profile is deliberately NOT a tab. The design puts a centre action where the
+/// fifth tab used to sit, and profile is a once-a-session destination, so it
+/// moved to a tappable avatar in `BuyerHomePage`'s header and is pushed with
+/// `Get.to`. Tab indices 0-3 kept their old meaning, so every existing
+/// `goTo(1)` still lands on Requests.
 ///
 /// Icon set note for design: assets/images/ currently holds exactly one nav
 /// glyph set (e_home / e_calender / e_setting / e_chat), so all three shells
-/// share it — and there is no orders glyph in it, which is why tab 3 keeps the
+/// share it — and there is no orders glyph in it, which is why tab 2 keeps the
 /// setting pair under an Orders label. Per-role glyphs are a design
 /// deliverable, not an invention for us to make — do not add Assets keys that
 /// have no file behind them.
@@ -56,12 +63,6 @@ class BuyerNavBar extends StatelessWidget {
       iconFill: Assets.imagesEChatFill,
       iconOutline: Assets.imagesEChatOutline,
     ),
-    NavItem(
-      label: 'Profile',
-      iconFill: Assets.imagesProfileImage,
-      iconOutline: Assets.imagesProfileImage,
-      isAvatar: true,
-    ),
   ];
 
   // ── Screens list ───────────────────────────────────────────────────────────
@@ -80,12 +81,22 @@ class BuyerNavBar extends StatelessWidget {
     RequestStatusTrackingPage(),
     MyOrdersPage(),
     ChatHomePage(),
-    BuyerProfilePage(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return RoleShell(
-        items: _navItems, screens: _screens, initialIndex: initialIndex);
+      items: _navItems,
+      screens: _screens,
+      initialIndex: initialIndex,
+      // Same call as Home's 'Request a Part' button and the two entry points on
+      // RequestStatusTracking — one wizard, one way in. It pushes ON TOP of the
+      // shell rather than replacing a tab, so the buyer keeps their place and
+      // Get.back() returns them to whichever tab they left.
+      centerAction: NavCenterAction(
+        semanticLabel: 'New part request',
+        onTap: () => Get.to(() => const AddPartRequestPage()),
+      ),
+    );
   }
 }

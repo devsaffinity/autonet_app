@@ -9,11 +9,22 @@ class RoleShell extends StatefulWidget {
   final List<Widget> screens;
   final int initialIndex;
 
+  /// Optional centre button, forwarded straight to [RoleNavBar]. Null keeps the
+  /// plain bar, so the supplier and electrician shells are unaffected by the
+  /// buyer opting in.
+  ///
+  /// Deliberately NOT part of [screens]: the centre action pushes a route on
+  /// top of the shell, it is not a tab. Adding it to the tab list would break
+  /// the items/screens assert below and give it a selected state it must never
+  /// have.
+  final NavCenterAction? centerAction;
+
   const RoleShell({
     super.key,
     required this.items,
     required this.screens,
     this.initialIndex = 0,
+    this.centerAction,
   });
   // The tab/screen count assert lives in RoleShellState.initState, NOT in this
   // constructor: an assert in a `const` constructor is evaluated at compile
@@ -51,10 +62,15 @@ class RoleShellState extends State<RoleShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: index, children: widget.screens),
+      // Deliberately NOT extendBody: true. The pill floats with a transparent
+      // margin, so extending the body under it looks tidier — but every
+      // scrollable in every role would then need its own bottom padding or its
+      // last row hides behind the bar. Not worth it for the margin.
       bottomNavigationBar: RoleNavBar(
         items: widget.items,
         currentIndex: index,
         onTap: goTo,
+        centerAction: widget.centerAction,
       ),
     );
   }

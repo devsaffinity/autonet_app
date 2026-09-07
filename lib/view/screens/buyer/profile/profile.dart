@@ -8,24 +8,39 @@ import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/profile_menu_tile.dart';
-import 'package:autonect/view/widget/role_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Buyer profile — tab 4 of `BuyerNavBar` and one of the app's logout paths.
+/// Buyer profile — PUSHED from the avatar in `BuyerHomePage`'s header, and one
+/// of the app's logout paths.
+///
+/// No longer a tab: the design gave the fifth tab slot to the centre FAB. That
+/// makes this a routed page, so it now carries a back button — without one the
+/// buyer would be stranded on a screen with no nav bar under it.
 ///
 /// The identity block reads `TokenStore.user`, which the session already holds
 /// in memory: `GET /v1/me` is phase-2 `profile` scope and this screen needs no
 /// network and no repository of its own to stop lying about who is signed in.
 class BuyerProfilePage extends StatelessWidget {
-  const BuyerProfilePage({super.key});
+  /// Pops back to the shell and switches to the Requests tab.
+  ///
+  /// Supplied by the pusher because THIS page can no longer find the shell
+  /// itself: it is routed on top of the shell, so `RoleShell.maybeOf(context)`
+  /// returns null here and the old `?.goTo(1)` was a silently dead tile. The
+  /// caller is inside the shell and can capture it; we cannot.
+  ///
+  /// Null when the page is opened with no shell behind it, in which case the
+  /// tile is omitted rather than shown doing nothing.
+  final VoidCallback? onOpenRequests;
+
+  const BuyerProfilePage({super.key, this.onOpenRequests});
 
   @override
   Widget build(BuildContext context) {
     final user = Get.find<TokenStore>().user;
     final email = user?.email;
     return Scaffold(
-      appBar: GeneralAppBar(title: "Profile", hasBackButton: false),
+      appBar: GeneralAppBar(title: "Profile", hasBackButton: true),
       body: SingleChildScrollView(
         padding: AppSizes.DEFAULT,
         physics: const BouncingScrollPhysics(),
@@ -73,14 +88,14 @@ class BuyerProfilePage extends StatelessWidget {
               label: 'My Bookings',
               onTap: () => Get.to(() => const MyBookingsPage()),
             ),
-            ProfileMenuTile(
-              icon: Icons.receipt_long_outlined,
-              label: 'My Requests',
-              // Requests live in tab 1 of the shell. maybeOf() is nullable on
-              // purpose — this page is also reachable as a standalone push,
-              // where there is no shell ancestor. Never bang it.
-              onTap: () => RoleShell.maybeOf(context)?.goTo(1),
-            ),
+            // Omitted, not disabled, when there is no shell to go back to: a
+            // tile that navigates nowhere is worse than an absent one.
+            if (onOpenRequests != null)
+              ProfileMenuTile(
+                icon: Icons.receipt_long_outlined,
+                label: 'My Requests',
+                onTap: onOpenRequests!,
+              ),
             ProfileMenuTile(
               icon: Icons.notifications_none_rounded,
               label: 'Notifications',

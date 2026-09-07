@@ -32,10 +32,25 @@ class CommonImageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _buildImageView();
+    return _buildImageView(context);
   }
 
-  Widget _buildImageView() {
+  /// Pixels to decode to, from the logical [width] and this screen's density.
+  ///
+  /// Without it Flutter decodes the file at its FULL source resolution however
+  /// small the slot is: assets/images/profile_image.jpg is 3456x5184, which is
+  /// ~68MB of RGBA in memory to fill a 56px circle. Capping the decode is the
+  /// difference between that and ~90KB.
+  ///
+  /// Null when the caller gave no width — decoding to an unknown box is worse
+  /// than not capping, since it would resample to the wrong size.
+  int? _decodeWidth(BuildContext context) {
+    final w = width;
+    if (w == null || w <= 0 || !w.isFinite) return null;
+    return (w * MediaQuery.devicePixelRatioOf(context)).round();
+  }
+
+  Widget _buildImageView(BuildContext context) {
     if (svgPath != null && svgPath!.isNotEmpty) {
       return Container(
         height: height,
@@ -47,6 +62,12 @@ class CommonImageView extends StatelessWidget {
             height: height,
             width: width,
             fit: fit,
+            // Without this an SVG silently ignores imageColor while a PNG in
+            // the same slot honours it — so swapping a glyph from .png to .svg
+            // drops its tint with no error and no warning.
+            colorFilter: imageColor == null
+                ? null
+                : ColorFilter.mode(imageColor!, BlendMode.srcIn),
           ),
         ),
       );
@@ -62,6 +83,7 @@ class CommonImageView extends StatelessWidget {
           height: height,
           width: width,
           fit: fit,
+          memCacheWidth: _decodeWidth(context),
           imageUrl: url!,
           placeholder: (context, url) => Container(
             height: 23,
@@ -90,6 +112,7 @@ class CommonImageView extends StatelessWidget {
           height: height,
           width: width,
           fit: fit,
+          cacheWidth: _decodeWidth(context),
         ),
       );
     }
