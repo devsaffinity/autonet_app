@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
@@ -75,8 +75,25 @@ class _Tile extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-          child: CommonImageView(
-              file: File(image.path), height: _tile, width: _tile),
+          // Freshly picked images carry their bytes, which renders identically
+          // on every platform. A RESTORED draft does not — bytes are too large
+          // to persist — so that path falls back to the file, which only exists
+          // where there is a filesystem.
+          child: image.bytes != null
+              ? Image.memory(
+                  Uint8List.fromList(image.bytes!),
+                  height: _tile,
+                  width: _tile,
+                  fit: BoxFit.cover,
+                  // The picker validates the EXTENSION, not the contents, so a
+                  // renamed or truncated file reaches here as bytes no decoder
+                  // accepts. Image.memory THROWS on those where Image.file
+                  // failed quietly, so without this a single bad photo takes
+                  // out the whole tray.
+                  errorBuilder: (_, _, _) => const _BrokenTile(),
+                )
+              : CommonImageView(
+                  filePath: image.path, height: _tile, width: _tile),
         ),
         if (image.status == ImageUploadStatus.uploading)
           _scrim(const DiscreteCircleLoading(size: AppSizes.s24)),
@@ -141,5 +158,23 @@ class _AddTile extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+/// What a tile shows when its bytes are not a decodable image.
+///
+/// Deliberately not an error state the buyer has to act on: the upload itself
+/// is unaffected — the server validates what actually lands — and the tray
+/// already has a Retry affordance for real failures.
+class _BrokenTile extends StatelessWidget {
+  const _BrokenTile();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: _tile,
+    width: _tile,
+    color: kMutedSurfaceColor,
+    child: const Icon(Icons.broken_image_outlined,
+        color: kGreyTextColor, size: AppSizes.s24),
   );
 }

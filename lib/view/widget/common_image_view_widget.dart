@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:autonect/view/widget/local_file_image.dart';
 import 'package:flutter_svg/svg.dart';
 
 class CommonImageView extends StatelessWidget {
@@ -9,7 +9,10 @@ class CommonImageView extends StatelessWidget {
   String? url;
   String? imagePath;
   String? svgPath;
-  File? file;
+  /// A LOCAL FILE PATH, not a File: dart:io does not compile for web, and
+  /// this widget is on every screen. Rendering goes through local_file_image,
+  /// which is the only place in lib/ that still touches the filesystem.
+  String? filePath;
   double? height;
   double? width;
   double? radius;
@@ -22,7 +25,7 @@ class CommonImageView extends StatelessWidget {
     this.url,
     this.imagePath,
     this.svgPath,
-    this.file,
+    this.filePath,
     this.height,
     this.width,
     this.radius = 0.0,
@@ -71,10 +74,16 @@ class CommonImageView extends StatelessWidget {
           ),
         ),
       );
-    } else if (file != null && file!.path.isNotEmpty) {
+    } else if (filePath != null && filePath!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius!),
-        child: Image.file(file!, height: height, width: width, fit: fit),
+        child: localFileImage(
+          path: filePath!,
+          height: height,
+          width: width,
+          fit: fit,
+          cacheWidth: _decodeWidth(context),
+        ),
       );
     } else if (url != null && url!.isNotEmpty) {
       return ClipRRect(
