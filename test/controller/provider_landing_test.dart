@@ -4,6 +4,7 @@ import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/me_profile.dart';
+import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -34,6 +35,15 @@ class _FakeProfileRepository implements ProfileRepository {
   Future<ApiResult<MeProfile>> registerSupplierBusiness(
     SupplierBusinessDraft draft,
   ) async => throw UnimplementedError();
+
+  // The avatar endpoints are not exercised here; the seam requires them.
+  @override
+  Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>
+      throw UnimplementedError();
+
+  @override
+  Future<ApiResult<MeProfile>> setAvatar(String avatarKey) =>
+      throw UnimplementedError();
 }
 
 MeProfile _profile({Map<String, dynamic>? supplier}) => MeProfile.fromJson({

@@ -1,8 +1,10 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/services/my_booking.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -51,15 +53,7 @@ class BuyerProfilePage extends StatelessWidget {
             Center(
               child: Column(
                 children: [
-                  // A local asset, not a stock photo off randomuser.me: there
-                  // is no avatar field on AuthUser and no upload route for one.
-                  CommonImageView(
-                    imagePath: Assets.imagesProfileImage,
-                    height: 90,
-                    width: 90,
-                    radius: 45,
-                    fit: BoxFit.cover,
-                  ),
+                  const _AvatarEditor(),
                   MyText(
                     paddingTop: 12,
                     // `name` is nullable on the wire; email is not, but the
@@ -99,12 +93,10 @@ class BuyerProfilePage extends StatelessWidget {
             ProfileMenuTile(
               icon: Icons.notifications_none_rounded,
               label: 'Notifications',
-              // TODO(screens): there is no notifications screen in lib/ yet.
-              onTap: () => Get.snackbar(
-                "Notifications",
-                "You have no new notifications",
-                backgroundColor: kWhiteColor,
-              ),
+              // Opens the real centre. It used to snackbar "You have no new
+              // notifications" unconditionally — which was a claim the app had
+              // never checked, and was wrong the moment an offer arrived.
+              onTap: () => Get.to(() => const NotificationsPage()),
             ),
             ProfileMenuTile(
               icon: Icons.logout_rounded,
@@ -119,4 +111,96 @@ class BuyerProfilePage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The profile photo, and the control that changes it.
+///
+/// Its own widget so only THIS subtree rebuilds while an upload runs — the
+/// identity block around it has no reason to flicker.
+class _AvatarEditor extends StatefulWidget {
+  const _AvatarEditor();
+
+  @override
+  State<_AvatarEditor> createState() => _AvatarEditorState();
+}
+
+class _AvatarEditorState extends State<_AvatarEditor> {
+  final _c = ProfileController.ensure();
+
+  @override
+  void initState() {
+    super.initState();
+    // The presigned avatarUrl is short-lived, so it is re-read on every visit
+    // rather than trusted from a previous one.
+    _c.load();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Change profile photo',
+    child: InkWell(
+      onTap: _c.changeAvatar,
+      customBorder: const CircleBorder(),
+      child: ExcludeSemantics(
+        child: SizedBox(
+          height: 106,
+          width: 106,
+          child: Obx(() {
+            final url = _c.avatarUrl;
+            final busy = _c.uploadingAvatar.value;
+            return Stack(
+              children: [
+                Center(
+                  child: ClipOval(
+                    child: SizedBox(
+                      height: 90,
+                      width: 90,
+                      // A presigned URL when the user has uploaded one, the
+                      // shipped asset otherwise — NOT an empty circle, which
+                      // reads as a failed load rather than "no photo yet".
+                      child: url != null && url.isNotEmpty
+                          ? CommonImageView(
+                              url: url, height: 90, width: 90,
+                              fit: BoxFit.cover)
+                          : CommonImageView(
+                              imagePath: Assets.imagesProfileImage,
+                              height: 90, width: 90, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+                if (busy)
+                  const Positioned.fill(
+                    child: Center(
+                      child: SizedBox(
+                        height: AppSizes.s24,
+                        width: AppSizes.s24,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: kSecondaryColor),
+                      ),
+                    ),
+                  ),
+                // The affordance. Without it a tappable circle is invisible as
+                // a control — nobody taps their own photo on spec.
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSizes.s8),
+                    decoration: BoxDecoration(
+                      color: kSecondaryColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: kPrimaryColor, width: 2),
+                    ),
+                    child: const Icon(Icons.camera_alt_rounded,
+                        size: AppSizes.s16, color: kWhiteColor),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      ),
+    ),
+  );
 }

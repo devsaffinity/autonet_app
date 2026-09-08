@@ -1,6 +1,7 @@
 import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/me_profile.dart';
+import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/view/screens/supplier/registration/widgets/category_grid.dart';
@@ -15,6 +16,15 @@ class _StubProfileRepository implements ProfileRepository {
   Future<ApiResult<MeProfile>> registerSupplierBusiness(
     SupplierBusinessDraft draft,
   ) async => throw UnimplementedError();
+
+  // The avatar endpoints are not exercised here; the seam requires them.
+  @override
+  Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>
+      throw UnimplementedError();
+
+  @override
+  Future<ApiResult<MeProfile>> setAvatar(String avatarKey) =>
+      throw UnimplementedError();
 }
 
 void main() {

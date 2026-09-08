@@ -2,6 +2,7 @@ import 'package:autonect/data/core/api_client.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/me_profile.dart';
+import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 
 class ProfileApiRepository implements ProfileRepository {
@@ -36,6 +37,28 @@ class ProfileApiRepository implements ProfileRepository {
     body: draft.toBody(),
     // Returns the refreshed profile, so the caller learns the resulting
     // kycStatus without a second round trip.
+    decode: _one,
+  );
+
+  @override
+  Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>
+      _c.send(
+        method: 'POST',
+        path: '/v1/me/avatar-url',
+        body: {'contentType': contentType},
+        decode: (d) =>
+            UploadTicket.fromJson((d as Map).cast<String, dynamic>()),
+      );
+
+  /// PUT, not PATCH — the route is profileRouter.put('/me/profile').
+  ///
+  /// Sends ONLY avatarKey: every other field on updateProfileBodySchema is
+  /// optional, and including a null name would blank the user's name.
+  @override
+  Future<ApiResult<MeProfile>> setAvatar(String avatarKey) => _c.send(
+    method: 'PUT',
+    path: '/v1/me/profile',
+    body: {'avatarKey': avatarKey},
     decode: _one,
   );
 

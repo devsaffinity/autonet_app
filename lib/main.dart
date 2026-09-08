@@ -14,6 +14,8 @@ import 'package:autonect/data/repositories/catalog_api_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
 import 'package:autonect/data/repositories/kyc_api_repository.dart';
 import 'package:autonect/data/repositories/kyc_repository.dart';
+import 'package:autonect/data/repositories/notifications_api_repository.dart';
+import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/orders_api_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/data/repositories/profile_api_repository.dart';
@@ -91,6 +93,10 @@ void main() async {
   Get.put<KycRepository>(KycApiRepository(client, tokens), permanent: true);
   Get.put<BillingRepository>(
     BillingApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<NotificationsRepository>(
+    NotificationsApiRepository(client, tokens),
     permanent: true,
   );
   Get.put<BlobUploader>(BlobUploader(transport), permanent: true);

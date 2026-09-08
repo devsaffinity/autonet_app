@@ -9,7 +9,9 @@ import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
+import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
+import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/requests_repository.dart';
 import 'package:autonect/services/session_store.dart';
 import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
@@ -81,6 +83,8 @@ void main() {
       requests = _QueuedRequests();
       orders = FakeOrdersRepository()..offersResult = Ok([_offer()]);
       Get.put<RequestsRepository>(requests);
+      Get.put<NotificationsRepository>(FakeNotificationsRepository());
+      Get.put<ProfileRepository>(FakeProfileRepository());
       Get.put<OrdersRepository>(orders);
       Get.put(RequestDetailController(requests, orders,
           toast: (_) {}, showBusy: () {}, hideBusy: () {}));
@@ -133,10 +137,12 @@ void main() {
       await SessionStore.init();
       Get.reset();
       Get.testMode = true;
-      // The shell mounts all five tabs at once, so every screen behind the nav
-      // bar — profile included — has to find what it reads.
+      // The shell mounts all four tabs at once, so every screen behind the nav
+      // bar has to find what it reads.
       Get.put<TokenStore>(InMemoryTokenStore());
       Get.put<RequestsRepository>(FakeRequestsRepository());
+      Get.put<NotificationsRepository>(FakeNotificationsRepository());
+      Get.put<ProfileRepository>(FakeProfileRepository());
       Get.put<OrdersRepository>(FakeOrdersRepository()
         ..listResult = const Err(ApiError.network()));
       c = NewRequestController(

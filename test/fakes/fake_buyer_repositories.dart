@@ -1,3 +1,7 @@
+import 'package:autonect/data/repositories/profile_repository.dart';
+import 'package:autonect/data/repositories/notifications_repository.dart';
+import 'package:autonect/data/models/me_profile.dart';
+import 'package:autonect/data/models/app_notification.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/blob_uploader.dart';
@@ -190,4 +194,60 @@ class _UnusedTransport implements HttpTransport {
   @override
   Future<HttpResponse> send(HttpRequest request) =>
       throw StateError('FakeBlobUploader must not reach the transport');
+}
+
+/// Home reads both of these on mount — the notification badge and the avatar —
+/// so any test that pumps the buyer shell must register them or the whole
+/// IndexedStack throws before a single assertion runs.
+class FakeNotificationsRepository implements NotificationsRepository {
+  FakeNotificationsRepository({this.unread = 0, this.items = const []});
+
+  final int unread;
+  final List<AppNotification> items;
+
+  @override
+  Future<ApiResult<NotificationPage>> list({int page = 1, int limit = 20}) async =>
+      Ok(NotificationPage(
+        items: items,
+        unread: unread,
+        total: items.length,
+        page: page,
+        hasMore: false,
+      ));
+
+  @override
+  Future<ApiResult<int>> markRead(String id) async => const Ok(1);
+
+  @override
+  Future<ApiResult<int>> markAllRead() async => Ok(unread);
+}
+
+class FakeProfileRepository implements ProfileRepository {
+  FakeProfileRepository({this.avatarUrl});
+
+  final String? avatarUrl;
+
+  @override
+  Future<ApiResult<MeProfile>> me() async => Ok(MeProfile.fromJson({
+    'id': 'u1',
+    'email': 'buyer@example.com',
+    'role': 'BUYER',
+    'name': 'Test Buyer',
+    if (avatarUrl != null) 'avatarUrl': avatarUrl,
+  }));
+
+  @override
+  Future<ApiResult<MeProfile>> registerSupplierBusiness(
+    SupplierBusinessDraft draft,
+  ) async => me();
+
+  @override
+  Future<ApiResult<UploadTicket>> createAvatarUploadTicket(
+    String contentType,
+  ) async => const Ok(
+    UploadTicket(key: 'avatars/u1/x', url: 'https://s3/x', expiresInSec: 300),
+  );
+
+  @override
+  Future<ApiResult<MeProfile>> setAvatar(String avatarKey) async => me();
 }

@@ -3,12 +3,15 @@ import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/buyer_home_controller.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/active_request_card.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/offer_style_request_card.dart';
+import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -36,12 +39,22 @@ class BuyerHomePage extends StatefulWidget {
 
 class _BuyerHomePageState extends State<BuyerHomePage> {
   late final BuyerHomeController _c;
+  // Permanent, so the badge is already correct the moment Home builds rather
+  // than only after the list screen has been visited once.
+  final NotificationsController _notifications =
+      NotificationsController.ensure();
+  final ProfileController _profile = ProfileController.ensure();
 
   @override
   void initState() {
     super.initState();
     _c = BuyerHomeController.ensure();
     _c.load();
+    // Badge only — a one-row read, not the whole list. Home should not pay for
+    // a page the buyer may never open.
+    _notifications.refreshUnread();
+    // The presigned avatarUrl expires, so it is re-read rather than cached.
+    _profile.load();
   }
 
   /// Straight off the session — `GET /v1/me` is phase 2, and the token payload
@@ -49,6 +62,8 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   String get _name => Get.find<TokenStore>().user?.name ?? 'there';
 
   void _openRequests() => RoleShell.maybeOf(context)?.goTo(1);
+
+  void _openNotifications() => Get.to(() => const NotificationsPage());
 
   /// Profile is pushed on top of the shell rather than being a tab, so it
   /// cannot reach the shell itself — `RoleShell.maybeOf` returns null from a
@@ -203,30 +218,76 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
             shape: BoxShape.circle,
             border: Border.all(color: kSecondaryColor, width: 2),
           ),
-          child: CommonImageView(
-            imagePath: Assets.imagesProfileImage,
-            height: 40,
-            width: 40,
-            radius: 20,
-            fit: BoxFit.cover,
-          ),
+          // Reads the same permanent controller Profile writes, so changing the
+          // photo there updates this header without a restart.
+          child: Obx(() {
+            final url = _profile.avatarUrl;
+            return ClipOval(
+              child: SizedBox(
+                height: 40,
+                width: 40,
+                child: url != null && url.isNotEmpty
+                    ? CommonImageView(
+                        url: url, height: 40, width: 40, fit: BoxFit.cover)
+                    : CommonImageView(
+                        imagePath: Assets.imagesProfileImage,
+                        height: 40, width: 40, fit: BoxFit.cover),
+              ),
+            );
+          }),
         ),
       ),
     ),
   );
 
-  /// No unread badge. The backend does expose one — `GET /v1/notifications`
-  /// returns `meta.unread` — but a dot the buyer cannot tap through to a list
-  /// and clear is worse than no dot, so the badge ships in the same commit as
-  /// the notifications screen or not at all. Until then this opens Profile,
-  /// which is where the notifications entry lives.
+  /// The badge and the list ship together, as they had to: a dot the buyer
+  /// cannot tap through to something they can clear is worse than no dot.
+  ///
+  /// The count is the SERVER's `meta.unread`, not a count of whatever page the
+  /// list happens to have loaded — the controller is permanent so the badge
+  /// survives leaving the screen.
   Widget _bellButton() => Semantics(
     button: true,
     label: 'Notifications',
     child: IconButton(
-      onPressed: _openProfile,
-      icon: const Icon(Icons.notifications_outlined,
-          size: AppSizes.s24, color: kBlackColor),
+      onPressed: _openNotifications,
+      icon: Obx(() {
+        final unread = _notifications.unread.value;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.notifications_outlined,
+                size: AppSizes.s24, color: kBlackColor),
+            if (unread > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  constraints: const BoxConstraints(minWidth: 16),
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: kRedColor,
+                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                    // Against the white header the ring is what stops the badge
+                    // reading as part of the glyph.
+                    border: Border.all(color: kPrimaryColor, width: 1.5),
+                  ),
+                  child: Center(
+                    child: MyText(
+                      // Capped: a three-digit count is wider than the icon and
+                      // the exact number stops mattering well before then.
+                      text: unread > 99 ? '99+' : '$unread',
+                      size: AppTextScale.caption,
+                      color: kWhiteColor,
+                      weight: AppWeights.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      }),
     ),
   );
 

@@ -1,6 +1,7 @@
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
+import 'package:autonect/data/models/upload_ticket.dart';
 
 /// The supplier's business registration payload.
 ///
@@ -50,8 +51,9 @@ class SupplierBusinessDraft {
     if (specialization case final s? when s.trim().isNotEmpty)
       'specialization': s.trim(),
     // Omitted when absent, so re-submitting without touching the plan step
-    // cannot clear a choice already recorded.
-    if (monetizationModel case final m?) 'monetizationModel': m,
+    // cannot clear a choice already recorded. The `?` goes on the VALUE — on
+    // the key it would mean "omit when the key is null", which is never.
+    'monetizationModel': ?monetizationModel,
   };
 }
 
@@ -67,4 +69,15 @@ abstract class ProfileRepository {
   Future<ApiResult<MeProfile>> registerSupplierBusiness(
     SupplierBusinessDraft draft,
   );
+
+  /// Step 1 of 3 for a new profile photo: a presigned PUT.
+  ///
+  /// The key is server-generated under `avatars/<userId>/`, and
+  /// `PUT /v1/me/profile` refuses an avatarKey outside the caller's own prefix
+  /// — so the client can neither choose the key nor point at someone else's.
+  Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType);
+
+  /// Step 3, after the bytes are in S3. Returns the refreshed profile, whose
+  /// `avatarUrl` is a freshly presigned GET.
+  Future<ApiResult<MeProfile>> setAvatar(String avatarKey);
 }
