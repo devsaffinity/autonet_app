@@ -1,24 +1,41 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
+import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
-/// One offer on the buyer's home feed — the comp's offer card, now driven by a
-/// real [Offer] from `GET /v1/buyer/offers`.
-///
-/// It replaces OfferStyleRequestCard, which stood in for this while no
-/// cross-request offers route existed and could therefore only ever show an
-/// offer COUNT where the comp shows a price.
+/// The comp's metadata glyphs at their shipped size, with #D94D2F baked in —
+/// the same two the requests list and the active-request card already draw, so
+/// a date and a part category look the same everywhere in the app.
+const double _kMetaIcon = 16;
+
+/// The offer thumbnail. Wide and short, because the only art available is a
+/// side-on car.
+const double _kThumbWidth = 96, _kThumbHeight = 52;
+
+/// One offer on the buyer's home feed — the comp's offer card, driven by a real
+/// [Offer] from `GET /v1/buyer/offers`.
 ///
 /// Every field below is optional on the wire except the price and the date, so
 /// each line is omitted rather than blanked when absent: DVLA returns no model
 /// for most plates, and `offer.request` is null on the per-request route this
 /// same model also serves.
+///
+/// WHAT THE COMP SHOWS AND THIS CANNOT: a photograph of the part, per offer.
+/// There is nowhere for one to come from. `model Offer` in schema.prisma has no
+/// image relation and no image column, `createOfferBodySchema` takes no keys,
+/// and the buyer-offers projection selects none — a supplier cannot attach a
+/// photo to a quote anywhere in the system. The slot is filled with the same
+/// static car the requests list uses, which is decoration and reads as
+/// decoration. Making it real is a backend feature (an OfferImage table, an
+/// upload ticket, signed reads, and the supplier client to post them), not a
+/// change to this file.
 class BuyerOfferCard extends StatelessWidget {
   const BuyerOfferCard({super.key, required this.offer, this.onTap});
 
@@ -45,6 +62,7 @@ class BuyerOfferCard extends StatelessWidget {
         padding: const EdgeInsets.all(AppSizes.s12),
         decoration: AppStyling().myShadowStyle(),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
@@ -62,9 +80,9 @@ class BuyerOfferCard extends StatelessWidget {
                       textOverflow: TextOverflow.ellipsis,
                     ),
                   MyText(
-                    // The part, not the supplier: two offers on one home feed
-                    // are told apart by what they are for, and the supplier
-                    // name sits on the line below where the comp puts it.
+                    // The part, not the vehicle the comp's mock put here: two
+                    // offers on one feed are told apart by what they are FOR,
+                    // and the car is already named on the line above.
                     text: request?.partName ?? 'Offer',
                     size: AppTextScale.body,
                     weight: AppWeights.bold,
@@ -73,19 +91,22 @@ class BuyerOfferCard extends StatelessWidget {
                     textOverflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: AppSizes.s8),
-                  // Wrap, not Row: at 200% system font three icon+label pairs
-                  // do not fit one line inside a phone-width card, and a Row
+                  // Wrap, not Row: at 200% system font two icon+label pairs do
+                  // not fit one line inside a phone-width card, and a Row
                   // overflows where this reflows.
+                  //
+                  // The supplier's name and rating are deliberately NOT here —
+                  // the comp's card is price, part and provenance. Both are on
+                  // ComparisonPage, which is where an offer is actually chosen
+                  // and where a rating can sit beside its rivals.
                   Wrap(
                     spacing: AppSizes.s12,
                     runSpacing: AppSizes.s4,
                     children: [
-                      _meta(Icons.calendar_today_outlined,
+                      _meta(Assets.imagesRsC,
                           formatDayMonthYear(offer.createdAt)),
                       if (request?.categoryName case final name?)
-                        _meta(Icons.build_outlined, name),
-                      if (_supplierName case final name?)
-                        _meta(Icons.storefront_outlined, name),
+                        _meta(Assets.imagesRsD, name),
                     ],
                   ),
                 ],
@@ -97,53 +118,29 @@ class BuyerOfferCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 MyText(
+                  // GBP, not the comp's dollars: money is integer pence and
+                  // sterling everywhere in this system.
                   text: formatPence(offer.pricePence),
                   size: AppTextScale.subtitle,
                   weight: AppWeights.bold,
                   color: kSecondaryColor,
                 ),
-                // ratingCount, not ratingAvg alone: a 5.0 from one review and a
-                // 5.0 from two hundred are not the same claim, and only this
-                // route selects either — see OfferSupplier.ratingAvg.
-                if (offer.supplier.ratingAvg case final avg?)
-                  if ((offer.supplier.ratingCount ?? 0) > 0)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.star_rounded,
-                            size: AppSizes.s12, color: kSecondaryColor),
-                        const SizedBox(width: 2),
-                        MyText(
-                          text: '${avg.toStringAsFixed(1)} '
-                              '(${offer.supplier.ratingCount})',
-                          size: AppTextScale.caption,
-                          color: kGreyTextColor,
-                        ),
-                      ],
-                    ),
+                const SizedBox(height: AppSizes.s8),
+                CommonImageView(imagePath: Assets.imagesCar1,
+                    width: _kThumbWidth, height: _kThumbHeight,
+                    fit: BoxFit.contain),
               ],
             ),
-            const Icon(Icons.chevron_right,
-                size: AppSizes.s20, color: kGreyTextColor),
           ],
         ),
       ),
     );
   }
 
-  /// businessName over name: the trading name is what a buyer recognises, and
-  /// the account holder's own name is the fallback. Both are nullable.
-  String? get _supplierName {
-    final business = offer.supplier.businessName;
-    if (business != null && business.isNotEmpty) return business;
-    final name = offer.supplier.name;
-    return name != null && name.isNotEmpty ? name : null;
-  }
-
-  Widget _meta(IconData icon, String label) => Row(
+  Widget _meta(String asset, String label) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: AppSizes.s12, color: kSecondaryColor),
+      CommonImageView(svgPath: asset, height: _kMetaIcon, width: _kMetaIcon),
       const SizedBox(width: AppSizes.s4),
       // Flexible, NOT a fixed maxWidth: a fixed cap still demands its full
       // width when the Wrap has less to give, overflowing by the shortfall.

@@ -1,5 +1,6 @@
 import 'package:autonect/controller/buyer/buyer_home_controller.dart';
 import 'package:autonect/controller/buyer/buyer_offers_controller.dart';
+import 'package:autonect/controller/buyer/offers_list_controller.dart';
 import 'package:autonect/controller/buyer/my_requests_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
@@ -199,6 +200,21 @@ void main() {
       expect((c.offers.value as Data<List<Offer>>).value.single.id, 'o1');
     });
 
+    test('home asks for the latest TWO, not five trimmed to two', () async {
+      final repo = FakeOrdersRepository()
+        ..buyerOffersResult = Ok(Paged<Offer>([_offer('o1')], _meta(9)));
+      final c = _offersOf(repo);
+
+      await c.load();
+      // The route already orders by createdAt desc, so page 1 at limit 2 IS
+      // the latest two. Fetching five to render two would pay for three rows
+      // nobody sees, on the landing screen, on every cold start and every pull.
+      expect(repo.calls.single, 'buyerOffers:1:2');
+      // meta.total still counts the whole feed in the same transaction, which
+      // is what keeps the empty state and View All honest against a short page.
+      expect((c.offers.value as Data<List<Offer>>).value, hasLength(1));
+    });
+
     test('a zero total is Empty with copy, not an empty Data list', () async {
       final repo = FakeOrdersRepository()
         ..buyerOffersResult = Ok(Paged<Offer>(const [], _meta(0)));
@@ -230,6 +246,25 @@ void main() {
       expect(offer.request?.categoryName, 'Brakes');
       expect(offer.supplier.ratingAvg, 4.6);
       expect(offer.supplier.ratingCount, 128);
+    });
+  });
+
+  group('OffersListController', () {
+    test('View All pages the BUYER route, and rows are keyed by offer id',
+        () async {
+      final repo = FakeOrdersRepository()
+        ..buyerOffersResult = Ok(Paged<Offer>([_offer('o1')], _meta(1)));
+      final c = OffersListController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {});
+
+      await c.refreshFirst();
+      // Page 1 with the repository's own limit, NOT the home teaser's two —
+      // and buyerOffers, not the supplier list, which 403s a buyer.
+      expect(repo.calls.single, startsWith('buyerOffers:1:'));
+      expect(repo.calls.single, isNot('buyerOffers:1:2'));
+      // dedupe on load-more keys off this, so an offer id it cannot produce
+      // would silently drop rows from page two onward.
+      expect(c.idOf(_offer('o1')), 'o1');
     });
   });
 }

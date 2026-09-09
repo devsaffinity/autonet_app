@@ -20,6 +20,7 @@ import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.d
 import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
 import 'package:autonect/view/screens/buyer/providers/providers_list.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
+import 'package:autonect/view/screens/buyer/offers/offers_list.dart';
 import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -119,6 +120,9 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
 
   void _openProviders() => Get.to(() => const ProvidersListPage());
 
+  /// The whole feed, paged. Home shows the latest two; this is the rest.
+  void _openOffers() => Get.to(() => const BuyerOffersListPage());
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
@@ -157,7 +161,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
             // offer across all of this buyer's requests with the request and
             // supplier joined in, so these cards carry the comp's price instead
             // of the offer COUNT the old derived-from-offerCount list showed.
-            SectionHeader(title: 'Offers', onAction: _openRequests),
+            SectionHeader(title: 'Offers', onAction: _openOffers),
             // minHeight, not height: the loading spinner and the empty panel
             // both shrink-wrap in an unbounded ListView slot, so without a
             // floor the section is a few pixels tall while it loads and the

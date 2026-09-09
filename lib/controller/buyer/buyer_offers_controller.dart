@@ -21,9 +21,15 @@ class BuyerOffersController extends ApiController {
       ? Get.find<BuyerOffersController>()
       : Get.put(BuyerOffersController(Get.find<OrdersRepository>()));
 
-  /// A preview, like the requests carousel above it. The full list is one tap
-  /// away on My Requests, so paging here would duplicate that screen.
-  static const int _previewLimit = 5;
+  /// The latest TWO, as the comp draws them — and two FETCHED, not five
+  /// fetched and two rendered. The route already orders by createdAt desc, so
+  /// page 1 at limit 2 is exactly the latest two, and `meta.total` still counts
+  /// the whole feed in the same transaction, so the empty state stays honest.
+  ///
+  /// The rest live behind View All, which is a real paged screen of its own now
+  /// rather than a jump to My Requests — which is why paging here would still
+  /// be duplicating a screen.
+  static const int _previewLimit = 2;
 
   static const StateSlot _offersRead = StateSlot('buyerOffers');
 

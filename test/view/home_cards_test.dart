@@ -267,48 +267,27 @@ void main() {
       expect(find.text('12/08/2026'), findsOneWidget);
     });
 
-    testWidgets('prefers the trading name over the account name', (
+    testWidgets('the teaser carries no supplier name and no rating', (
       tester,
     ) async {
+      // Both are real on this route and both are deliberately off the comp's
+      // card. They belong on ComparisonPage, which is where an offer is
+      // actually chosen and where a rating can be read against its rivals - one
+      // supplier's 4.6, alone on a home feed, is not a thing a buyer can act
+      // on. Asserted rather than left implicit, because the obvious "improvement"
+      // to this card is to put them back.
       await tester.pumpWidget(
         _host(BuyerOfferCard(offer: _offer(
           businessName: 'Halewood Motor Factors',
           supplierName: 'A Person',
+          ratingAvg: 4.6,
+          ratingCount: 128,
         ))),
       );
 
-      expect(find.text('Halewood Motor Factors'), findsOneWidget);
+      expect(find.text('Halewood Motor Factors'), findsNothing);
       expect(find.text('A Person'), findsNothing);
-    });
-
-    testWidgets('an unrated supplier shows no rating, not a zero', (
-      tester,
-    ) async {
-      // Both fields null means "this route did not select a rating" - only
-      // /v1/buyer/offers does - so a 0.0 here would be an invented claim.
-      await tester.pumpWidget(_host(BuyerOfferCard(offer: _offer())));
-
-      expect(find.textContaining('0.0'), findsNothing);
-    });
-
-    testWidgets('a rating with no reviews behind it is not shown', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(BuyerOfferCard(offer: _offer(ratingAvg: 0, ratingCount: 0))),
-      );
-
-      expect(find.textContaining('(0)'), findsNothing);
-    });
-
-    testWidgets('a real rating shows the average and the count', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(BuyerOfferCard(offer: _offer(ratingAvg: 4.6, ratingCount: 128))),
-      );
-
-      expect(find.text('4.6 (128)'), findsOneWidget);
+      expect(find.textContaining('4.6'), findsNothing);
     });
 
     testWidgets('survives a row with no request joined in', (tester) async {
