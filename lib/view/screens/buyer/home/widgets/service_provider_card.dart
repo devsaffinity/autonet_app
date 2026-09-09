@@ -1,10 +1,10 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
@@ -100,10 +100,9 @@ class ServiceProviderCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSizes.s8),
-          // Omitted entirely when nobody has reviewed them. ratingAvg defaults
-          // to 0 server-side, so rendering it unconditionally would show a
-          // brand-new garage as '0.0/5.0' — worse than showing no rating.
-          if (provider.isRated) _rating() else const SizedBox(height: AppSizes.s4),
+          // ALWAYS present, so every card in the strip is the same shape and
+          // the row does not appear and vanish down the carousel.
+          _rating(),
           const SizedBox(height: AppSizes.s12),
           MyButton(
             buttonText: 'View Profile',
@@ -138,34 +137,49 @@ class ServiceProviderCard extends StatelessWidget {
               radius: AppSizes.radiusMd,
               fit: BoxFit.cover,
             )
-          : CommonImageView(
-              imagePath: Assets.imagesProfileImage,
-              height: size,
-              width: size,
-              radius: AppSizes.radiusMd,
-              fit: BoxFit.cover,
-            ),
+          : InitialsAvatar(name: provider.fullName, size: size),
     );
   }
 
-  Widget _rating() => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      const Icon(Icons.star_rounded, size: AppSizes.s16, color: kWarningColor),
-      const SizedBox(width: AppSizes.s4),
-      Flexible(
-        child: MyText(
-          // '/5.0' is in the comp and worth keeping: it makes the scale
-          // explicit for a buyer who has not seen a rating on another card.
-          text: '${provider.ratingAvg.toStringAsFixed(1)}/5.0',
-          size: AppTextScale.label,
-          weight: AppWeights.semibold,
-          color: kBlackColor,
-          maxLines: 1,
-          textOverflow: TextOverflow.ellipsis,
+  /// The comp's star line — and for a provider nobody has reviewed, 'New'
+  /// rather than '0.0/5.0'.
+  ///
+  /// ratingAvg defaults to 0 server-side, so printing it unconditionally tells
+  /// a buyer that a brand-new garage scored zero out of five. That is not a
+  /// missing rating, it is a bad one, and it is the difference between a
+  /// provider getting their first job and never getting one. 'New' is what
+  /// every marketplace shows here, and it keeps the row's height so the
+  /// carousel does not jag.
+  ///
+  /// Worth knowing: today NOTHING can move this off 'New'. Review.orderId is
+  /// required and points at Order, which only a parts Offer creates, so a
+  /// booking cannot produce a review. Until that changes every provider card
+  /// reads 'New' — correctly.
+  Widget _rating() {
+    final rated = provider.isRated;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          rated ? Icons.star_rounded : Icons.star_outline_rounded,
+          size: AppSizes.s16,
+          color: rated ? kWarningColor : kGreyTextColor,
         ),
-      ),
-    ],
-  );
+        const SizedBox(width: AppSizes.s4),
+        Flexible(
+          child: MyText(
+            // '/5.0' is in the comp and worth keeping: it makes the scale
+            // explicit for a buyer who has not seen a rating on another card.
+            text: rated ? '${provider.ratingAvg.toStringAsFixed(1)}/5.0' : 'New',
+            size: AppTextScale.label,
+            weight: AppWeights.semibold,
+            color: rated ? kBlackColor : kGreyTextColor,
+            maxLines: 1,
+            textOverflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
 }

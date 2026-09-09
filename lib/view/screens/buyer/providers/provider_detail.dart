@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
@@ -9,6 +8,7 @@ import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.d
     show brandsLabel;
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
@@ -74,16 +74,19 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
           child: url != null && url.isNotEmpty
               ? CommonImageView(url: url, cacheKey: p.id, height: 96, width: 96,
                   radius: AppSizes.radiusLg, fit: BoxFit.cover)
-              : CommonImageView(imagePath: Assets.imagesProfileImage,
-                  height: 96, width: 96, radius: AppSizes.radiusLg,
-                  fit: BoxFit.cover),
+              : InitialsAvatar(name: p.fullName, size: 96,
+                  radius: AppSizes.radiusLg),
         ),
         const SizedBox(height: AppSizes.s12),
         MyText(text: p.fullName, size: AppTextScale.title,
             weight: AppWeights.bold, color: kBlackColor,
             textAlign: TextAlign.center),
-        if (p.isRated) ...[
-          const SizedBox(height: AppSizes.s4),
+        const SizedBox(height: AppSizes.s4),
+        if (!p.isRated)
+          // 'No reviews yet' rather than 0.0/5.0 — see ServiceProviderCard.
+          MyText(text: 'No reviews yet', size: AppTextScale.body,
+              color: kGreyTextColor)
+        else ...[
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Icon(Icons.star_rounded, size: AppSizes.s20,
                 color: kWarningColor),

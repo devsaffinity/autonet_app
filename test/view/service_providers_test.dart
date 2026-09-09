@@ -6,6 +6,7 @@ import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -90,18 +91,61 @@ void main() {
       expect(find.text('4.5/5.0'), findsOneWidget);
     });
 
-    testWidgets('an unrated provider shows no rating, not 0.0/5.0', (
+    testWidgets("an unrated provider reads 'New', never 0.0/5.0", (
       tester,
     ) async {
-      // ratingAvg defaults to 0 server-side, so an unconditional render would
-      // brand every new garage as zero-rated.
+      // ratingAvg defaults to 0 server-side. Printing it says a brand-new
+      // garage scored zero out of five — a bad rating, not a missing one.
       await tester.pumpWidget(
         _host(ServiceProviderCard(provider: _provider(ratingAvg: 0, ratingCount: 0))),
       );
 
       expect(find.text('0.0/5.0'), findsNothing);
       expect(find.textContaining('/5.0'), findsNothing);
-      expect(find.text('Abc Garage'), findsOneWidget);
+      expect(find.text('New'), findsOneWidget);
+    });
+
+    testWidgets('the rating row is present whether or not they are rated', (
+      tester,
+    ) async {
+      // Same shape either way, so the row does not appear and vanish as the
+      // carousel scrolls.
+      for (final rated in [true, false]) {
+        await tester.pumpWidget(_host(ServiceProviderCard(
+          provider: rated
+              ? _provider()
+              : _provider(ratingAvg: 0, ratingCount: 0),
+        )));
+        expect(find.byIcon(rated ? Icons.star_rounded : Icons.star_outline_rounded),
+            findsOneWidget);
+      }
+    });
+
+    testWidgets('a provider with no photo gets initials, not a stock face', (
+      tester,
+    ) async {
+      // The old fallback was a photograph of a real person, put on every
+      // provider who had not uploaded anything.
+      await tester.pumpWidget(
+        _host(ServiceProviderCard(provider: _provider(fullName: 'Jack Brennan'))),
+      );
+
+      expect(find.byType(InitialsAvatar), findsOneWidget);
+      expect(find.text('JB'), findsOneWidget);
+    });
+
+    testWidgets('a provider WITH a photo does not get initials', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(ServiceProviderCard(
+        provider: ServiceProvider.fromJson({
+          'id': 'p1', 'fullName': 'Abc Garage', 'brands': <String>[],
+          'ratingAvg': 0, 'ratingCount': 0,
+          'avatarUrl': 'https://example.invalid/a.jpg',
+        }),
+      )));
+
+      expect(find.byType(InitialsAvatar), findsNothing);
     });
 
     testWidgets('a provider with no brands omits the row entirely', (
@@ -184,6 +228,32 @@ void main() {
 
       await c.load();
       expect(c.providers.value, isA<Failed<List<ServiceProvider>>>());
+    });
+  });
+
+  group('InitialsAvatar.initialsOf', () {
+    test('takes the first letter of the first two words', () {
+      expect(InitialsAvatar.initialsOf('Jack Brennan'), 'JB');
+      expect(InitialsAvatar.initialsOf('Abc Garage'), 'AG');
+    });
+
+    test('a single word gives one letter', () {
+      expect(InitialsAvatar.initialsOf('Cher'), 'C');
+    });
+
+    test('ignores extra whitespace and third names', () {
+      expect(InitialsAvatar.initialsOf('  leah   dunne  smith '), 'LD');
+    });
+
+    test('a name of only whitespace yields nothing, and the tile falls back',
+        () {
+      expect(InitialsAvatar.initialsOf('   '), '');
+    });
+
+    test('does not split a surrogate pair in half', () {
+      // String.fromCharCode on a code UNIT would emit half a pair and render
+      // as a replacement glyph.
+      expect(InitialsAvatar.initialsOf('😀 Garage'), '😀G'.toUpperCase());
     });
   });
 

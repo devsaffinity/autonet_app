@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/providers_list_controller.dart';
@@ -11,6 +10,7 @@ import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
@@ -103,9 +103,7 @@ class _ProviderRow extends StatelessWidget {
                 ? CommonImageView(url: url, cacheKey: provider.id,
                     height: 56, width: 56, radius: AppSizes.radiusMd,
                     fit: BoxFit.cover)
-                : CommonImageView(imagePath: Assets.imagesProfileImage,
-                    height: 56, width: 56, radius: AppSizes.radiusMd,
-                    fit: BoxFit.cover),
+                : InitialsAvatar(name: provider.fullName, size: 56),
           ),
           const SizedBox(width: AppSizes.s12),
           Expanded(child: Column(
@@ -134,8 +132,8 @@ class _ProviderRow extends StatelessWidget {
               ],
             ],
           )),
-          if (provider.isRated) ...[
-            const SizedBox(width: AppSizes.s8),
+          const SizedBox(width: AppSizes.s8),
+          if (provider.isRated)
             Column(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.star_rounded, size: AppSizes.s16,
                   color: kWarningColor),
@@ -144,8 +142,15 @@ class _ProviderRow extends StatelessWidget {
                   color: kBlackColor),
               MyText(text: '(${provider.ratingCount})',
                   size: AppTextScale.caption, color: kGreyTextColor),
+            ])
+          else
+            // 'New', never 0.0 — see ServiceProviderCard for why.
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.star_outline_rounded, size: AppSizes.s16,
+                  color: kGreyTextColor),
+              MyText(text: 'New', size: AppTextScale.label,
+                  weight: AppWeights.semibold, color: kGreyTextColor),
             ]),
-          ],
         ]),
       ),
     );
