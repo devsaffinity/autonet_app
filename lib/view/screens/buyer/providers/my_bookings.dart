@@ -280,30 +280,35 @@ class _BookingCard extends StatelessWidget {
         TechnicianPanel(name: _providerName,
             headline: booking.provider?.headline),
         const SizedBox(height: AppSizes.s12),
-        // Wrap, not a Row of Expanded. Three labels at three equal thirds are
-        // ~77dp each on a 320dp handset and 'View Booking' does not fit in
-        // that, so an equal split would either clip the middle label or
-        // overflow. Wrapping puts the third onto its own line on a small
-        // phone and keeps all three on one line everywhere else, which is
-        // what the comp draws.
-        Wrap(
-          spacing: AppSizes.s8,
-          runSpacing: AppSizes.s8,
-          children: [
-            _CardAction(label: 'Chat Now',
-                onTap: () => Get.to(() => const ChatHomePage())),
-            _CardAction(label: 'View Booking', onTap: onOpen),
-            const _CardAction(
-              label: 'Save Receipt',
-              // Permanently unavailable, not merely unavailable yet on this
-              // row: no booking in this product has a receipt. The tooltip is
-              // the explanation — a caption under every card in a list would
-              // repeat the same sentence down the whole page.
-              tooltip: 'Receipts arrive once your provider has quoted and the '
-                  'job is complete',
-            ),
-          ],
-        ),
+        // EQUAL THIRDS, and the row is guaranteed to stay a row.
+        //
+        // Intrinsic widths in a Wrap were tried first and are the closer
+        // reading of the comp, whose 'Chat Now' is visibly the narrow one.
+        // Measured, they do not survive: this app sets Cairo, a wide face,
+        // and at label size the three labels plus their padding land within
+        // a few pixels of the card width on a 390dp handset — the commonest
+        // width there is. A layout that is one glyph away from silently
+        // becoming three stacked bars is not the comp, it is a coin toss.
+        //
+        // Thirds cost a little fidelity and buy certainty, and the label
+        // ellipsizes rather than overflowing if a very narrow phone or a
+        // large text scale takes the third below what fits.
+        Row(children: [
+          Expanded(child: _CardAction(label: 'Chat Now',
+              onTap: () => Get.to(() => const ChatHomePage()))),
+          const SizedBox(width: AppSizes.s8),
+          Expanded(child: _CardAction(label: 'View Booking', onTap: onOpen)),
+          const SizedBox(width: AppSizes.s8),
+          const Expanded(child: _CardAction(
+            label: 'Save Receipt',
+            // Permanently unavailable, not merely unavailable yet on this
+            // row: no booking in this product has a receipt. The tooltip is
+            // the explanation — a caption under every card in a list would
+            // repeat the same sentence down the whole page.
+            tooltip: 'Receipts arrive once your provider has quoted and the '
+                'job is complete',
+          )),
+        ]),
         // COMPLETED is the only state a review is accepted from, so the
         // control appears exactly there. A second review earns a 409, but the
         // server is the authority on that and the toast says so.
@@ -339,9 +344,10 @@ class _BookingCard extends StatelessWidget {
 
 /// One of the comp's small outlined actions inside a booking card.
 ///
-/// Local rather than MyButton, which stretches to its parent's width and has
-/// no single-line guard on its label. These three sit in a Wrap at their
-/// intrinsic widths, which is the only way the row both fits and degrades.
+/// Local rather than MyButton, which has no single-line guard on its label —
+/// at a large text scale MyButton wraps its text and grows the card instead
+/// of ellipsizing. These three share a row of equal thirds, so the guard is
+/// the whole point of them.
 ///
 /// A null [onTap] renders it UNAVAILABLE rather than merely inert: greyed,
 /// hairline border, and no ripple, so it never invites the tap that proves it
@@ -362,9 +368,19 @@ class _CardAction extends StatelessWidget {
     final action = onTap;
     final hint = tooltip;
     final enabled = action != null;
+    // `alignment` is correct HERE and was the bug one layout ago, which is
+    // worth spelling out because it looks like the same line of code.
+    //
+    // A Container with an alignment EXPANDS to fill bounded incoming
+    // constraints, then positions its child inside itself. Under Expanded
+    // the incoming width is TIGHT — exactly one third — so expanding is
+    // what is wanted and the label centres in it. Under the Wrap this
+    // briefly used, the constraints were LOOSE and bounded, so the same
+    // line took the whole card width, every pill became a run of its own,
+    // and the comp's row of three rendered as three full-width bars.
     final pill = Container(
       height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.s12),
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.s8),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: kWhiteColor,
@@ -379,6 +395,7 @@ class _CardAction extends StatelessWidget {
         color: enabled ? kSecondaryColor : kGreyTextColor,
         maxLines: 1,
         textOverflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
       ),
     );
     final child = action == null

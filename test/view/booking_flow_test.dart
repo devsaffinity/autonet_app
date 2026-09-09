@@ -72,6 +72,21 @@ PageMeta _meta(int n) => PageMeta(
   totalPages: n == 0 ? 0 : 1, hasNextPage: false, hasPreviousPage: false,
 );
 
+/// Pumps at a REAL phone width, where layout is actually decided.
+///
+/// [_pumpTall] uses a 1200dp surface so a lazy ListView builds its whole
+/// page, and at 1200dp almost any row fits — which is exactly how a row of
+/// three buttons shipped stacked one per line and still passed. Anything
+/// asserting about ARRANGEMENT has to be pumped at a width a phone has.
+Future<void> _pumpPhone(WidgetTester tester, Widget home) async {
+  tester.view.physicalSize = const Size(390, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(GetMaterialApp(home: home));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
 Future<void> _pumpTall(WidgetTester tester, Widget home) async {
   tester.view.physicalSize = const Size(1200, 4000);
   tester.view.devicePixelRatio = 1;
@@ -421,6 +436,40 @@ void main() {
       // a second copy of the reason dialog is how the two screens would
       // end up disagreeing about what is still cancellable.
       expect(find.text('Cancel booking'), findsOneWidget);
+    });
+
+    testWidgets("the card's three actions sit on ONE line at phone width",
+        (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpPhone(tester, const MyBookingsPage());
+
+      // The regression itself, and it was invisible on a wide surface: a
+      // Container given an `alignment` EXPANDS to fill bounded incoming
+      // constraints, so inside a Wrap each pill took the whole card width
+      // and became a run of its own. The comp's row of three came out as
+      // three full-width bars.
+      final chat = tester.getTopLeft(find.text('Chat Now'));
+      final view = tester.getTopLeft(find.text('View Booking'));
+      final receipt = tester.getTopLeft(find.text('Save Receipt'));
+
+      // One line...
+      expect(view.dy, chat.dy);
+      expect(receipt.dy, chat.dy);
+      // ...in the comp's order, left to right. Equal dy alone would also
+      // hold if all three were stacked at zero height.
+      expect(view.dx, greaterThan(chat.dx));
+      expect(receipt.dx, greaterThan(view.dx));
+
+      // Thirds, so the row cannot become three bars whatever the label or
+      // the font measures. The labels ellipsize instead — this suite runs
+      // on the test font, where every glyph is as wide as it is tall, so a
+      // third here is far tighter than Cairo will ever make it.
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a PENDING booking offers no review', (tester) async {
