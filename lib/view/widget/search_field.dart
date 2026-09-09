@@ -15,6 +15,7 @@ class SearchField extends StatelessWidget {
     this.hint = 'Search',
     this.controller,
     this.marginBottom = AppSizes.s16,
+    this.suffix,
   });
 
   final ValueChanged<String> onChanged;
@@ -22,12 +23,18 @@ class SearchField extends StatelessWidget {
   final TextEditingController? controller;
   final double marginBottom;
 
+  /// Sits INSIDE the field, at its trailing edge — the comp puts the requests
+  /// filter there rather than on a row of its own. Null on every other call
+  /// site, which keeps the plain search box exactly as it was.
+  final Widget? suffix;
+
   @override
   Widget build(BuildContext context) => MyTextField(
     controller: controller,
     hintText: hint,
     onChanged: onChanged,
     marginBottom: marginBottom,
+    suffix: suffix,
     textCapitalization: TextCapitalization.none,
     textInputAction: TextInputAction.search,
     prefix: const Padding(
