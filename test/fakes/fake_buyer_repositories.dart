@@ -264,8 +264,12 @@ class FakeProfileRepository implements ProfileRepository {
 
   final String? avatarUrl;
 
+  /// Overrides the default BUYER profile. Needed by any test about a
+  /// PROVIDER screen, which reads electricianProfile off this.
+  ApiResult<MeProfile>? meResult;
+
   @override
-  Future<ApiResult<MeProfile>> me() async => Ok(MeProfile.fromJson({
+  Future<ApiResult<MeProfile>> me() async => meResult ?? Ok(MeProfile.fromJson({
     'id': 'u1',
     'email': 'buyer@example.com',
     'role': 'BUYER',
@@ -277,6 +281,20 @@ class FakeProfileRepository implements ProfileRepository {
   Future<ApiResult<MeProfile>> registerSupplierBusiness(
     SupplierBusinessDraft draft,
   ) async => me();
+
+  /// Records the draft so a wizard test can assert what was actually sent —
+  /// the wizard used to submit nothing at all, which is precisely the
+  /// regression worth pinning.
+  ElectricianRegistrationDraft? electricianDraft;
+
+  @override
+  Future<ApiResult<MeProfile>> registerElectrician(
+    ElectricianRegistrationDraft draft,
+  ) async {
+    electricianDraft = draft;
+
+    return me();
+  }
 
   @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(

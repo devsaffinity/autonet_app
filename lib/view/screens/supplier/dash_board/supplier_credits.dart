@@ -1,7 +1,6 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
-import 'package:autonect/view/screens/electrician/registration/service_provider_registration.dart'
-    show AccessTier;
+import 'package:autonect/view/screens/supplier/widgets/access_tier.dart';
 import 'package:autonect/view/screens/supplier/dash_board/supplier_credit_chart.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/my_BSheet.dart';

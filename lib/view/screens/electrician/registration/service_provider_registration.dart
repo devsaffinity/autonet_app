@@ -2,6 +2,12 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/controller/electrician/electrician_registration_controller.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/request_enums.dart';
+import 'package:autonect/domain/select_option.dart';
+import 'package:autonect/view/screens/supplier/registration/supplier_registration_kyc.dart';
+import 'package:autonect/view/widget/enum_select_field.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
@@ -22,10 +28,35 @@ class ServiceProviderRegistrationPage extends StatefulWidget {
 class _ServiceProviderRegistrationPageState
     extends State<ServiceProviderRegistrationPage> {
   final PageController _pageController = PageController();
+  final ElectricianRegistrationController c =
+      ElectricianRegistrationController.ensure();
+
+  /// Screens own their TextEditingControllers and dispose them; the controller
+  /// owns the VALUES. The fields here had no controllers at all, so everything
+  /// typed on this step was discarded on the way to the next one.
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+  final TextEditingController _locationCtrl = TextEditingController();
+
+  /// AVAILABILITY AND ACCESS TIER ARE GONE, and both for a reason.
+  ///
+  /// The availability step let a provider set arbitrary start and end times per
+  /// day. The schedule this product stores is weekday + half-day BAND, so
+  /// every one of those times would have been silently dropped on submit.
+  /// Working hours are set from the dashboard's Availability screen, which
+  /// writes the model that actually exists — and a provider cannot be booked
+  /// before an admin approves them anyway, so nothing is lost by setting them
+  /// after.
+  ///
+  /// The Access Tier step offered a plan picker. Billing is SUPPLIER-only by
+  /// design — `ElectricianProfile` has no credit balance and nothing bills a
+  /// provider — so it could only ever have taken a choice nobody would honour.
+  static const List<String> _stepTitles = ['Basic Info', 'Services', 'KYC'];
+
   int _currentStep = 0;
 
   void _next() {
-    if (_currentStep < 4) {
+    if (_currentStep < _stepTitles.length - 1) {
       setState(() => _currentStep++);
       _pageController.animateToPage(
         _currentStep,
@@ -37,12 +68,27 @@ class _ServiceProviderRegistrationPageState
     }
   }
 
-  /// End of the electrician KYC wizard. Until this runs, landingRoute (and the
-  /// RoleGuard on every shell route) holds the provider on
-  /// /electrician/onboarding, so the last step must not be a dead end.
-  void _finish() {
+  /// End of the wizard: SUBMIT, then land wherever the server says.
+  ///
+  /// This used to set a local `providerOnboarded` flag and push the shell,
+  /// submitting nothing. Once the approval gate started reading server truth
+  /// that became a loop — the next launch found no profile and sent them back
+  /// here. Now the registration is written first, and the profile that comes
+  /// back decides the destination.
+  ///
+  /// REGISTERING IS NOT BEING APPROVED. An admin still has to approve, so a
+  /// successful submit usually lands on the awaiting-approval screen, not the
+  /// shell. `syncProviderAccess` re-reads and `landingRoute` routes.
+  Future<void> _finish() async {
+    final profile = await c.submit();
+    // Null means the submit failed and the controller has already surfaced
+    // why. Staying put is the point: navigating on would strand them in a
+    // shell their profile does not exist for.
+    if (profile == null) return;
+
     RoleController.to.completeProviderOnboarding();
-    Get.offAllNamed(AppLinks.electricianShell);
+    await RoleController.to.syncProviderAccess();
+    Get.offAllNamed(RoleController.to.landingRoute);
   }
 
   void _back() {
@@ -61,23 +107,29 @@ class _ServiceProviderRegistrationPageState
   @override
   void dispose() {
     _pageController.dispose();
-
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _locationCtrl.dispose();
     super.dispose();
   }
 
   // ── Services ──────────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _services = [
-    {'label': 'ECU Coding', 'icon': Icons.code},
-    {'label': 'Diagnostics', 'icon': Icons.search},
-    {'label': 'Wiring & Harness', 'icon': Icons.cable},
-    {'label': 'Battery Calibration', 'icon': Icons.battery_charging_full},
-    {'label': 'Infotainment Retrofit', 'icon': Icons.directions_car},
-    {'label': 'Performance Tuning', 'icon': Icons.speed},
-  ];
-  final Set<String> _selectedServices = {'ECU Coding'};
+  //
+  // FROM THE ENUM, not from six labels of its own. The step used to offer
+  // 'Wiring & Harness', 'Battery Calibration', 'Infotainment Retrofit' and
+  // similar, none of which are values BookingServiceType has — so nothing it
+  // collected could have been submitted, and none of it would have matched
+  // the chips a buyer filters the directory with. These are the buyer's own
+  // words for the same five callouts, which is the point of the field.
+  static const Map<BookingServiceType, IconData> _serviceIcons = {
+    BookingServiceType.diagnostic: Icons.search,
+    BookingServiceType.ecuCoding: Icons.code,
+    BookingServiceType.installation: Icons.directions_car,
+    BookingServiceType.repair: Icons.cable,
+    BookingServiceType.inspection: Icons.fact_check_outlined,
+  };
 
-  // ── Slider ─────────────────────────────────────────────────────────────────
-  double _experience = 12;
+
 
   // ── Brands ─────────────────────────────────────────────────────────────────
   final List<Map<String, String>> _brands = [
@@ -106,13 +158,8 @@ class _ServiceProviderRegistrationPageState
       'logo':
           'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR74zviXeAq7WMnx06zhZD-M6X95EdONNq9BA&s',
     },
-    {
-      'label': 'Others',
-      'logo':
-          'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR74zviXeAq7WMnx06zhZD-M6X95EdONNq9BA&s',
-    },
   ];
-  String _selectedBrand = 'BMW';
+
 
   @override
   Widget build(BuildContext context) {
@@ -133,15 +180,7 @@ class _ServiceProviderRegistrationPageState
         title: Column(
           children: [
             MyText(
-              text: _currentStep == 0
-                  ? 'Service Provider Registration'
-                  : (_currentStep == 1)
-                  ? 'Services'
-                  : (_currentStep == 2)
-                  ? "KYC"
-                  : (_currentStep == 3)
-                  ? "Availability"
-                  : "Access Tier",
+              text: _stepTitles[_currentStep],
               size: 18,
               weight: FontWeight.w700,
               color: kBlackColor,
@@ -160,13 +199,13 @@ class _ServiceProviderRegistrationPageState
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     MyText(
-                      text: "Step ${_currentStep + 1} of 5",
+                      text: "Step ${_currentStep + 1} of ${_stepTitles.length}",
                       size: 12,
                       weight: FontWeight.w700,
                       color: kSecondaryColor,
                     ),
                     MyText(
-                      text: "Basic Info",
+                      text: _stepTitles[_currentStep],
                       size: 12,
                       weight: FontWeight.w500,
                       color: kGreyTextColor,
@@ -176,7 +215,7 @@ class _ServiceProviderRegistrationPageState
                 SizedBox(height: 12),
 
                 Row(
-                  children: List.generate(5, (index) {
+                  children: List.generate(_stepTitles.length, (index) {
                     return Expanded(
                       child: Container(
                         height: 4,
@@ -203,8 +242,6 @@ class _ServiceProviderRegistrationPageState
           _buildStep1(),
           _buildStep2(),
           _buildStep3(),
-          _buildStep4(),
-          _buildStep5(),
         ],
       ),
     );
@@ -232,14 +269,40 @@ class _ServiceProviderRegistrationPageState
                   paddingTop: 24,
                 ),
 
-                MyTextField(labelText: 'Full Name', hintText: 'e.g. Elon Musk'),
+                // The hints were US: '+1 (555) 000-0000' and 'New York, NY' in
+                // a UK-only product. The region below is what the buyer's
+                // directory filter actually joins on, so a provider who skips
+                // it is invisible to a filtered search — worth asking for here
+                // rather than leaving them to wonder why nobody calls.
                 MyTextField(
-                  labelText: 'Phone Number',
-                  hintText: '+1 (555) 000-0000',
+                  controller: _nameCtrl,
+                  labelText: 'Full Name',
+                  hintText: 'e.g. Jack Brennan',
+                  onChanged: (v) => c.fullName.value = v,
                 ),
                 MyTextField(
+                  controller: _phoneCtrl,
+                  labelText: 'Phone Number',
+                  keyboardType: TextInputType.phone,
+                  hintText: '07700 900000',
+                  onChanged: (v) => c.phone.value = v,
+                ),
+                MyTextField(
+                  controller: _locationCtrl,
                   labelText: 'Location',
-                  hintText: 'e.g. New York, NY',
+                  hintText: 'e.g. Camden, London',
+                  onChanged: (v) => c.location.value = v,
+                ),
+                Obx(
+                  () => EnumSelectField<Region>(
+                    title: 'Region',
+                    hint: 'Select a region',
+                    value: c.region.value,
+                    options: [
+                      for (final r in Region.values) SelectOption(r, r.label),
+                    ],
+                    onChanged: (r) => c.region.value = r,
+                  ),
                 ),
 
                 const SizedBox(height: 12),
@@ -320,7 +383,7 @@ class _ServiceProviderRegistrationPageState
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _services.length,
+                  itemCount: BookingServiceType.values.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
@@ -328,17 +391,13 @@ class _ServiceProviderRegistrationPageState
                     childAspectRatio: 2.6,
                   ),
                   itemBuilder: (_, i) {
-                    final service = _services[i];
-                    final label = service['label'] as String;
-                    final isSelected = _selectedServices.contains(label);
+                    final service = BookingServiceType.values[i];
+                    final label = service.label;
+                    final isSelected = c.services.contains(service);
 
                     return MyRippleEffect(
                       radius: 10,
-                      onTap: () => setState(() {
-                        isSelected
-                            ? _selectedServices.remove(label)
-                            : _selectedServices.add(label);
-                      }),
+                      onTap: () => c.toggleService(service),
                       child: Container(
                         decoration: AppStyling().myDecoration(
                           color: isSelected
@@ -356,7 +415,7 @@ class _ServiceProviderRegistrationPageState
                         child: Row(
                           children: [
                             Icon(
-                              service['icon'] as IconData,
+                              _serviceIcons[service],
                               size: 20,
                               color: isSelected
                                   ? kSecondaryColor
@@ -428,11 +487,14 @@ class _ServiceProviderRegistrationPageState
                     final brand = _brands[i];
                     final label = brand['label']!;
                     final logo = brand['logo']!;
-                    final isSelected = _selectedBrand == label;
+                    // MULTI-SELECT: the column is a list and a provider
+                    // realistically services several marques. A single
+                    // choice could only ever have sent one.
+                    final isSelected = c.brands.contains(label);
 
                     return MyRippleEffect(
                       radius: 12,
-                      onTap: () => setState(() => _selectedBrand = label),
+                      onTap: () => c.toggleBrand(label),
                       child: Container(
                         decoration: AppStyling().myDecoration(
                           color: kPrimaryColor,
@@ -506,7 +568,7 @@ class _ServiceProviderRegistrationPageState
 
   // ── Experience slider ───
   Widget _buildExperienceSlider() {
-    return Column(
+    return Obx(() => Column(
       children: [
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
@@ -518,10 +580,12 @@ class _ServiceProviderRegistrationPageState
             trackHeight: 3,
           ),
           child: Slider(
-            value: _experience,
+            value: c.yearsExperience.value.toDouble(),
             min: 0,
             max: 25,
-            onChanged: (v) => setState(() => _experience = v),
+            divisions: 25,
+            label: '${c.yearsExperience.value} yrs',
+            onChanged: (v) => c.setExperience(v.round()),
           ),
         ),
         Padding(
@@ -530,212 +594,38 @@ class _ServiceProviderRegistrationPageState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               MyText(text: '0 YRS', size: 11, color: kGreyTextColor),
-              MyText(text: '12 YEARS', size: 11, color: kGreyTextColor),
+              // The middle label read a fixed '12 YEARS' while the thumb moved
+              // independently of it — it now says where the thumb actually is.
+              MyText(
+                text: '${c.yearsExperience.value} YEARS',
+                size: 11,
+                weight: FontWeight.w700,
+                color: kSecondaryColor,
+              ),
               MyText(text: '25+ YRS', size: 11, color: kGreyTextColor),
             ],
           ),
         ),
       ],
-    );
+    ));
   }
 
   // ───────────────────────────────────────────────
   // STEP 3 — Review & Send Request
   // ───────────────────────────────────────────────
-  Widget _buildStep3() {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MyText(
-                  text:
-                      "To ensure a secure environment for the AutoVolt Velocity network, please provide valid business documentation and personal identification.",
-                  size: 12,
-                  weight: FontWeight.w400,
-                  color: kGreyTextColor,
-                  paddingBottom: 24,
-                  paddingTop: 24,
-                ),
-                const SizedBox(height: 20),
-
-                // ── Identity Document (ID)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: AppStyling().myShadowStyle(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TitleRow(
-                        icon: Assets.imagesKycA,
-                        title: "Identity Document (ID)",
-                        subTitle: "Passport or National ID Card",
-                      ),
-                      SizedBox(height: 15),
-                      CommonImageView(svgPath: Assets.imagesFrontButton),
-                      SizedBox(height: 10),
-                      CommonImageView(svgPath: Assets.imagesBackButton),
-                      SizedBox(height: 10),
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        width: Get.width,
-                        decoration: AppStyling().myDecoration(
-                          color: kSecondaryColor.withValues(alpha: .1),
-                          borderColor: kTransperentColor,
-                          radius: 9,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.warning_amber_sharp,
-                              color: kSecondaryColor,
-                            ),
-
-                            SizedBox(width: 10),
-
-                            Expanded(
-                              child: MyText(
-                                text:
-                                    """Your data is encrypted and used solely for identity verification in our partner ecosystem.""",
-                                size: 12,
-                                weight: FontWeight.w400,
-                                color: kBlackColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: AppStyling().myShadowStyle(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TitleRow(
-                        icon: Assets.imagesKycB,
-                        title: "Business License / Proof",
-                        subTitle: "Tax certificate or Operating Permit",
-                      ),
-                      SizedBox(height: 15),
-                      CommonImageView(svgPath: Assets.imagesUploadDocButton),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                MyButton(
-                  fontWeight: FontWeight.w700,
-                  buttonText: 'Continue to Schedule',
-                  onTap: _next,
-                ),
-                const SizedBox(height: 10),
-                MyButton(
-                  fontWeight: FontWeight.w700,
-                  fontColor: kBlackColor,
-                  outlineColor: kSecondaryColor,
-                  backgroundColor: kWhiteColor,
-                  buttonText: 'Save for Later',
-                  onTap: _next,
-                ),
-
-                const SizedBox(height: 50),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // ───────────────────────────────────────────────
-  // STEP 4
+  // STEP 3 — Identity documents
   // ───────────────────────────────────────────────
-  Widget _buildStep4() {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MyText(
-                  text:
-                      "To ensure a secure environment for the AutoVolt Velocity network, please provide valid business documentation and personal identification.",
-                  size: 12,
-                  weight: FontWeight.w400,
-                  color: kGreyTextColor,
-                  paddingBottom: 24,
-                  paddingTop: 24,
-                ),
-
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: AppStyling().myShadowStyle(),
-                  child: _Availability(),
-                ),
-
-                const SizedBox(height: 30),
-                MyButton(
-                  fontWeight: FontWeight.w700,
-                  buttonText: 'Continue',
-                  onTap: _next,
-                ),
-
-                const SizedBox(height: 50),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ───────────────────────────────────────────────
-  // STEP 4
-  // ───────────────────────────────────────────────
-  Widget _buildStep5() {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MyText(
-                  text:
-                      "Configure how you'd like to receive leads and manage your service portfolio on the AutoVolt network.",
-                  size: 12,
-                  weight: FontWeight.w400,
-                  color: kGreyTextColor,
-                  paddingBottom: 24,
-                  paddingTop: 24,
-                ),
-
-                AccessTier(onPlanSelected: (_) => _finish()),
-
-                const SizedBox(height: 30),
-                MyButton(
-                  fontWeight: FontWeight.w700,
-                  buttonText: 'Skip for Now',
-                  onTap: _finish,
-                ),
-
-                const SizedBox(height: 50),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  //
+  // The SUPPLIER step widget, reused verbatim. The KYC routes are gated to
+  // SUPPLIER *and* ELECTRICIAN, and the flow is identical: three documents,
+  // each picked, uploaded to a presigned PUT and confirmed. Only the class
+  // name says supplier.
+  //
+  // What was here before drew three upload cards with no onTap at all, under
+  // copy about the "AutoVolt Velocity network" — a product that does not
+  // exist. Nothing could be uploaded and nothing was.
+  Widget _buildStep3() => SupplierKycStep(onNext: _finish);
 }
 
 class _TitleRow extends StatelessWidget {
@@ -791,691 +681,3 @@ class _BottomButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Usage in your main code:
-//   body: _Availability()
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Availability extends StatefulWidget {
-  const _Availability();
-
-  @override
-  State<_Availability> createState() => __AvailabilityState();
-}
-
-class __AvailabilityState extends State<_Availability> {
-  // ── Days ───────────────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _days = [
-    {'short': 'MON', 'date': 22},
-    {'short': 'TUE', 'date': 23},
-    {'short': 'WED', 'date': 24},
-    {'short': 'THU', 'date': 25},
-    {'short': 'FRI', 'date': 26},
-    {'short': 'SAT', 'date': 27},
-    {'short': 'SUN', 'date': 28},
-  ];
-
-  int _selectedDayIndex = 0;
-
-  // ── Time Slots — keyed by day index ───────────────────────────────────────
-  // Each slot: { 'start': '08:00', 'end': '12:00' }
-  final Map<int, List<Map<String, String>>> _timeSlots = {
-    0: [
-      {'start': '08:00', 'end': '12:00'},
-      {'start': '01:30', 'end': '06:00'},
-    ],
-  };
-
-  List<Map<String, String>> get _currentSlots =>
-      _timeSlots[_selectedDayIndex] ?? [];
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  void _addSlot() {
-    setState(() {
-      _timeSlots.putIfAbsent(_selectedDayIndex, () => []);
-      _timeSlots[_selectedDayIndex]!.add({'start': '09:00', 'end': '17:00'});
-    });
-  }
-
-  void _removeSlot(int slotIndex) {
-    setState(() {
-      _timeSlots[_selectedDayIndex]?.removeAt(slotIndex);
-    });
-  }
-
-  void _applyToAllWeekdays() {
-    final currentSlots = List<Map<String, String>>.from(
-      _currentSlots.map((s) => Map<String, String>.from(s)),
-    );
-    setState(() {
-      // Weekdays = MON(0) TUE(1) WED(2) THU(3) FRI(4)
-      for (int i = 0; i <= 4; i++) {
-        _timeSlots[i] = List<Map<String, String>>.from(
-          currentSlots.map((s) => Map<String, String>.from(s)),
-        );
-      }
-    });
-  }
-
-  Future<void> _pickTime(
-    BuildContext context,
-    int slotIndex,
-    bool isStart,
-  ) async {
-    final currentStr = isStart
-        ? _currentSlots[slotIndex]['start']!
-        : _currentSlots[slotIndex]['end']!;
-
-    final parts = currentStr.split(':');
-    final initial = TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
-
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: kSecondaryColor,
-            onPrimary: kWhiteColor,
-            onSurface: kBlackColor,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-
-    if (picked != null) {
-      setState(() {
-        final formatted =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-        if (isStart) {
-          _timeSlots[_selectedDayIndex]![slotIndex]['start'] = formatted;
-        } else {
-          _timeSlots[_selectedDayIndex]![slotIndex]['end'] = formatted;
-        }
-      });
-    }
-  }
-
-  // ── UI ─────────────────────────────────────────────────────────────────────
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Title ──────────────────────────────────────────────────────────
-          MyText(
-            text: 'Weekly Operation',
-            size: 18,
-            weight: FontWeight.w700,
-            color: kBlackColor,
-          ),
-
-          MyText(
-            text: 'Select a day and pick a slot',
-            size: 12,
-            weight: FontWeight.w400,
-            color: kGreyTextColor,
-          ),
-          const SizedBox(height: 20),
-
-          // ── Day Selector ───────────────────────────────────────────────────
-          _buildDaySelector(),
-          const SizedBox(height: 28),
-
-          // ── Active Time Slots Header ───────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              MyText(
-                text:
-                    'Active Time Slots (${_days[_selectedDayIndex]['short']}${_days[_selectedDayIndex]['short'] == 'MON'
-                        ? 'day'
-                        : _days[_selectedDayIndex]['short'] == 'TUE'
-                        ? 'sday'
-                        : _days[_selectedDayIndex]['short'] == 'WED'
-                        ? 'nesday'
-                        : _days[_selectedDayIndex]['short'] == 'THU'
-                        ? 'rsday'
-                        : _days[_selectedDayIndex]['short'] == 'FRI'
-                        ? 'day'
-                        : _days[_selectedDayIndex]['short'] == 'SAT'
-                        ? 'urday'
-                        : 'day'})',
-                size: 15,
-                weight: FontWeight.w700,
-                color: kBlackColor,
-              ),
-              MyRippleEffect(
-                onTap: _addSlot,
-                radius: 8,
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.add_circle_outline,
-                        color: kSecondaryColor,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 4),
-                      MyText(
-                        text: 'ADD SLOT',
-                        size: 12,
-                        weight: FontWeight.w700,
-                        color: kSecondaryColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ── Time Slot Cards ────────────────────────────────────────────────
-          if (_currentSlots.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: AppStyling().myDecoration(
-                color: kTertiaryColor,
-                borderColor: kTertiaryColor,
-              ),
-              child: MyText(
-                text: 'No slots added. Tap + ADD SLOT to add.',
-                size: 13,
-                color: kGreyTextColor,
-                textAlign: TextAlign.center,
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _currentSlots.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (_, i) => _buildTimeSlotCard(i),
-            ),
-
-          const SizedBox(height: 28),
-
-          // ── Apply to All Weekdays ──────────────────────────────────────────
-          MyButton(
-            buttonText: 'APPLY TO ALL WEEKDAYS',
-            backgroundColor: kPrimaryColor,
-            fontColor: kSecondaryColor,
-            outlineColor: kSecondaryColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            height: 48,
-            icon: 'assets/images/copy_icon.png', // replace with your asset
-            haveSvg: false,
-            onTap: _applyToAllWeekdays,
-          ),
-
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  // ── Day Selector Grid ──────────────────────────────────────────────────────
-  Widget _buildDaySelector() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1,
-      ),
-      itemCount: _days.length,
-      itemBuilder: (_, i) {
-        final day = _days[i];
-        final isSelected = _selectedDayIndex == i;
-        final hasSlots = _timeSlots.containsKey(i) && _timeSlots[i]!.isNotEmpty;
-
-        // Color logic
-        Color bgColor;
-        Color textColor;
-        Color borderColor;
-
-        if (isSelected) {
-          bgColor = kSecondaryColor;
-          textColor = kWhiteColor;
-          borderColor = kSecondaryColor;
-        } else if (hasSlots) {
-          bgColor = kLightOrangeColor;
-          textColor = kSecondaryColor;
-          borderColor = kLightOrangeColor;
-        } else {
-          bgColor = kTertiaryColor;
-          textColor = kGreyTextColor;
-          borderColor = kTertiaryColor;
-        }
-
-        return MyRippleEffect(
-          onTap: () => setState(() => _selectedDayIndex = i),
-          radius: 10,
-          child: Container(
-            decoration: AppStyling().myDecoration(
-              color: bgColor,
-              borderColor: borderColor,
-              radius: 10,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                MyText(
-                  text: day['short'],
-                  size: 11,
-                  weight: FontWeight.w600,
-                  color: textColor,
-                ),
-                const SizedBox(height: 4),
-                MyText(
-                  text: '${day['date']}',
-                  size: 22,
-                  weight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Time Slot Card ────────
-  Widget _buildTimeSlotCard(int slotIndex) {
-    final slot = _currentSlots[slotIndex];
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
-      decoration: AppStyling().myDecoration(
-        color: kTertiaryColor,
-        borderColor: kTertiaryColor,
-        radius: 12,
-      ),
-      child: Row(
-        children: [
-          // START TIME
-          Expanded(
-            child: _timeField(
-              label: 'START TIME',
-              value: slot['start']!,
-              onTap: () => _pickTime(context, slotIndex, true),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // END TIME
-          Expanded(
-            child: _timeField(
-              label: 'END TIME',
-              value: slot['end']!,
-              onTap: () => _pickTime(context, slotIndex, false),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // DELETE
-          MyRippleEffect(
-            onTap: () => _removeSlot(slotIndex),
-            radius: 8,
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: const Icon(
-                Icons.delete_outline,
-                color: kSecondaryColor,
-                size: 24,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _timeField({
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MyText(
-            text: label,
-            size: 10,
-            weight: FontWeight.w700,
-            color: kGreyTextColor,
-            paddingBottom: 6,
-          ),
-          Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: AppStyling().myDecoration(
-              color: kPrimaryColor,
-              borderColor: kTertiaryColor,
-              radius: 8,
-            ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: MyText(
-                text: value,
-                size: 15,
-                weight: FontWeight.w500,
-                color: kBlackColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Usage in your main code:
-//   body: AccessTier()
-// ─────────────────────────────────────────────────────────────────────────────
-
-class AccessTier extends StatelessWidget {
-  /// Fired when a plan is chosen. Optional so `AccessTier()` still compiles
-  /// wherever the widget is only being displayed (e.g. a pricing sheet).
-  final ValueChanged<String>? onPlanSelected;
-
-  const AccessTier({super.key, this.onPlanSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // ── Free Card ─────────────────────────────────────────────────────
-          _PricingCard(
-            tag: 'Entry',
-            tagColor: kGreyTextColor,
-            title: 'Free',
-            price: '\$0',
-            period: '/Lifetime',
-            features: const [
-              _Feature(label: 'Basic Company Profile', enabled: true),
-              _Feature(label: 'Public Listing In Directory', enabled: true),
-              _Feature(label: 'Standard Email Support', enabled: true),
-              _Feature(label: 'Direct Client Leads', enabled: false),
-            ],
-            buttonText: 'Choose Basic',
-            isHighlighted: false,
-            onTap: () => onPlanSelected?.call('FREE'),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Pro Card ──────────────────────────────────────────────────────
-          _PricingCard(
-            tag: 'Growth',
-            tagColor: kWhiteColor,
-            title: 'Pro (Monthly)',
-            price: '\$149',
-            period: '/Month',
-            features: const [
-              _Feature(label: 'Unlimited High-Intent Leads', enabled: true),
-              _Feature(label: 'Premium Badge & Verified Status', enabled: true),
-              _Feature(label: 'Advanced Analytics Dashboard', enabled: true),
-              _Feature(label: '24/7 Priority Concierge', enabled: true),
-            ],
-            buttonText: 'Start Pro Trial',
-            isHighlighted: true,
-            showBestValue: true,
-            onTap: () => onPlanSelected?.call('PRO'),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Pay-Per-Lead Card ─────────────────────────────────────────────
-          _PricingCard(
-            tag: 'Flexible',
-            tagColor: kSecondaryColor,
-            title: 'Pay-Per-Lead',
-            price: '\$12',
-            period: '/Per Lead',
-            features: const [
-              _Feature(label: 'Credit-Based System', enabled: true),
-              _Feature(label: 'No Fixed Monthly Fees', enabled: true),
-              _Feature(label: 'Select Leads Manually', enabled: true),
-              _Feature(label: 'Top-Up Credits Anytime', enabled: true),
-            ],
-            buttonText: 'Choose Credits',
-            isHighlighted: false,
-            onTap: () => onPlanSelected?.call('PAY_PER_LEAD'),
-          ),
-
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal feature model
-// ─────────────────────────────────────────────────────────────────────────────
-class _Feature {
-  final String label;
-  final bool enabled;
-  const _Feature({required this.label, required this.enabled});
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Reusable Pricing Card
-// ─────────────────────────────────────────────────────────────────────────────
-class _PricingCard extends StatelessWidget {
-  final String tag;
-  final Color tagColor;
-  final String title;
-  final String price;
-  final String period;
-  final List<_Feature> features;
-  final String buttonText;
-  final bool isHighlighted;
-  final bool showBestValue;
-  final VoidCallback onTap;
-
-  const _PricingCard({
-    required this.tag,
-    required this.tagColor,
-    required this.title,
-    required this.price,
-    required this.period,
-    required this.features,
-    required this.buttonText,
-    required this.isHighlighted,
-    required this.onTap,
-    this.showBestValue = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color cardBg = isHighlighted ? kSecondaryColor : kPrimaryColor;
-    final Color titleColor = isHighlighted ? kWhiteColor : kBlackColor;
-    final Color priceColor = isHighlighted ? kWhiteColor : kBlackColor;
-    final Color periodColor = isHighlighted
-        ? kWhiteColor.withOpacity(0.75)
-        : kGreyTextColor;
-    final Color featureColor = isHighlighted ? kWhiteColor : kBlackColor;
-    final Color iconColor = isHighlighted ? kWhiteColor : kSecondaryColor;
-    final Color disabledColor = isHighlighted
-        ? kWhiteColor.withOpacity(0.4)
-        : kGreyTextColor;
-
-    return Container(
-      decoration: AppStyling().myShadowDecoration(
-        color: cardBg,
-        radius: 16,
-        borderColor: kTransperentColor,
-      ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Tag ─────────────────────────────────────────────────────
-                MyText(
-                  text: tag,
-                  size: 12,
-                  weight: FontWeight.w500,
-                  color: tagColor,
-                  paddingBottom: 6,
-                ),
-
-                // ── Title ────────────────────────────────────────────────────
-                MyText(
-                  text: title,
-                  size: isHighlighted ? 26 : 22,
-                  weight: FontWeight.w800,
-                  color: titleColor,
-                  paddingBottom: 12,
-                ),
-
-                // ── Price row ────────────────────────────────────────────────
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    MyText(
-                      text: price,
-                      size: 36,
-                      weight: FontWeight.w800,
-                      color: priceColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: MyText(
-                        text: period,
-                        size: 14,
-                        weight: FontWeight.w400,
-                        color: periodColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // ── Features ─────────────────────────────────────────────────
-                ...features.map(
-                  (f) => _FeatureRow(
-                    label: f.label,
-                    enabled: f.enabled,
-                    enabledColor: iconColor,
-                    labelColor: f.enabled ? featureColor : disabledColor,
-                    isHighlighted: isHighlighted,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ── Button ───────────────────────────────────────────────────
-                MyButton(
-                  buttonText: buttonText,
-                  onTap: onTap,
-                  backgroundColor: isHighlighted
-                      ? kPrimaryColor
-                      : kSecondaryColor,
-                  fontColor: isHighlighted ? kSecondaryColor : kWhiteColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  height: 50,
-                  radius: 100,
-                ),
-              ],
-            ),
-          ),
-
-          // ── "Best Value" badge ───────────────────────────────────────────
-          if (showBestValue)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: const BoxDecoration(
-                  color: kPrimaryColor,
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                  ),
-                ),
-                child: MyText(
-                  text: 'Best Value',
-                  size: 12,
-                  weight: FontWeight.w700,
-                  color: kBlackColor,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Feature row with check / disabled icon
-// ─────────────────────────────────────────────────────────────────────────────
-class _FeatureRow extends StatelessWidget {
-  final String label;
-  final bool enabled;
-  final Color enabledColor;
-  final Color labelColor;
-  final bool isHighlighted;
-
-  const _FeatureRow({
-    required this.label,
-    required this.enabled,
-    required this.enabledColor,
-    required this.labelColor,
-    required this.isHighlighted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Icon(
-            enabled
-                ? Icons.check_circle_outline_rounded
-                : Icons.do_not_disturb_on_outlined,
-            size: 18,
-            color: enabled
-                ? enabledColor
-                : isHighlighted
-                ? kWhiteColor.withOpacity(0.35)
-                : kGreyTextColor.withOpacity(0.5),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: MyText(
-              text: label,
-              size: 14,
-              weight: FontWeight.w400,
-              color: labelColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

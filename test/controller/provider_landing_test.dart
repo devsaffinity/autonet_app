@@ -36,6 +36,11 @@ class _FakeProfileRepository implements ProfileRepository {
     SupplierBusinessDraft draft,
   ) async => throw UnimplementedError();
 
+  @override
+  Future<ApiResult<MeProfile>> registerElectrician(
+    ElectricianRegistrationDraft draft,
+  ) async => me();
+
   // The avatar endpoints are not exercised here; the seam requires them.
   @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>

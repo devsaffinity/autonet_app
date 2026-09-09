@@ -41,6 +41,18 @@ class ProfileApiRepository implements ProfileRepository {
   );
 
   @override
+  Future<ApiResult<MeProfile>> registerElectrician(
+    ElectricianRegistrationDraft draft,
+  ) => _c.send(
+    method: 'POST',
+    path: '/v1/electrician/registration',
+    body: draft.toBody(),
+    // The refreshed profile, so the wizard reads the resulting `approved`
+    // flag rather than assuming a successful registration means approved.
+    decode: (d) => MeProfile.fromJson((d as Map).cast<String, dynamic>()),
+  );
+
+  @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>
       _c.send(
         method: 'POST',

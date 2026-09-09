@@ -2,7 +2,12 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
+import 'package:autonect/controller/electrician/provider_dashboard_controller.dart';
+import 'package:autonect/data/models/provider_dashboard.dart';
+import 'package:autonect/domain/money_format.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibilty_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
@@ -23,8 +28,27 @@ import 'package:get/get.dart';
 // logout path.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ElectricianProfilePage extends StatelessWidget {
+class ElectricianProfilePage extends StatefulWidget {
   const ElectricianProfilePage({super.key});
+
+  @override
+  State<ElectricianProfilePage> createState() =>
+      _ElectricianProfilePageState();
+}
+
+class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
+  final ProfileController _profile = ProfileController.ensure();
+  final ProviderDashboardController _dashboard =
+      ProviderDashboardController.ensure();
+
+  @override
+  void initState() {
+    super.initState();
+    _profile.load();
+    // JOBS DONE comes from the same dashboard the earnings screen reads,
+    // rather than a second count that could disagree with it.
+    _dashboard.load();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,18 +86,33 @@ class ElectricianProfilePage extends StatelessWidget {
               label: 'My Bookings',
               onTap: () => Get.to(() => const ElectricianMyBookingsPage()),
             ),
-            ProfileMenuTile(
-              icon: Icons.account_balance_wallet_outlined,
-              label: 'Earnings',
-              trailingText: '\$1,240',
-              onTap: () => Get.to(() => const TotalBalancePage()),
-            ),
-            ProfileMenuTile(
-              icon: Icons.star_outline_rounded,
-              label: 'Reviews',
-              trailingText: '4.9',
-              onTap: () => Get.to(() => const ElectricianReviewPage()),
-            ),
+            // Both trailing values were literals, and the earnings one was in
+            // dollars in a GBP-only product. They now read the same sources
+            // the screens behind them do, so tapping through cannot show a
+            // different number from the one that led you there.
+            Obx(() {
+              final dash = _dashboard.state.value;
+              return ProfileMenuTile(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Earnings',
+                trailingText: dash is Data<ProviderDashboard>
+                    ? formatPence(dash.value.workCompletedPence)
+                    : null,
+                onTap: () => Get.to(() => const TotalBalancePage()),
+              );
+            }),
+            Obx(() {
+              final provider = _profile.me?.electricianProfile;
+              return ProfileMenuTile(
+                icon: Icons.star_outline_rounded,
+                label: 'Reviews',
+                // Omitted rather than '0.0' when nobody has reviewed them yet.
+                trailingText: (provider?.ratingCount ?? 0) == 0
+                    ? null
+                    : provider!.ratingAvg.toStringAsFixed(1),
+                onTap: () => Get.to(() => const ElectricianReviewPage()),
+              );
+            }),
             const SizedBox(height: 12),
             MyText(
               text: 'ACCOUNT',
@@ -128,47 +167,67 @@ class ElectricianProfilePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              MyText(
-                text: 'Alex Chen',
-                size: 20,
-                weight: FontWeight.w800,
-                color: kBlackColor,
-                paddingBottom: 4,
-              ),
-              MyText(
-                text: 'Electrician / Coder • London',
-                size: 12,
-                weight: FontWeight.w400,
-                color: kGreyTextColor,
-                paddingBottom: 8,
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: kLightOrangeColor,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              Obx(() {
+                final me = _profile.me;
+                final provider = me?.electricianProfile;
+                // The badge was UNCONDITIONAL — every provider read as
+                // "VERIFIED PROVIDER" whether an admin had approved them or
+                // not, including one still waiting. It now says which they are.
+                final approved = provider?.approved ?? false;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.verified_rounded,
-                      size: 11,
-                      color: kSecondaryColor,
-                    ),
-                    const SizedBox(width: 3),
                     MyText(
-                      text: 'VERIFIED PROVIDER',
-                      size: 10,
-                      weight: FontWeight.w700,
-                      color: kSecondaryColor,
+                      text: provider?.fullName ?? me?.name ?? 'Your profile',
+                      size: 20,
+                      weight: FontWeight.w800,
+                      color: kBlackColor,
+                      paddingBottom: 4,
+                    ),
+                    MyText(
+                      // Their own headline. 'Electrician / Coder • London' was
+                      // a literal, and the field that holds it is exactly what
+                      // the buyer's directory card renders.
+                      text: provider?.headline ?? 'No headline yet',
+                      size: 12,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                      paddingBottom: 8,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: approved ? kLightOrangeColor : kTertiaryColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            approved
+                                ? Icons.verified_rounded
+                                : Icons.hourglass_empty_rounded,
+                            size: 11,
+                            color: approved ? kSecondaryColor : kGreyTextColor,
+                          ),
+                          const SizedBox(width: 3),
+                          MyText(
+                            text: approved
+                                ? 'VERIFIED PROVIDER'
+                                : 'AWAITING APPROVAL',
+                            size: 10,
+                            weight: FontWeight.w700,
+                            color: approved ? kSecondaryColor : kGreyTextColor,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              ),
+                );
+              }),
             ],
           ),
         ),
@@ -181,15 +240,31 @@ class ElectricianProfilePage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: AppStyling().myShadowStyle(),
-      child: Row(
-        children: [
-          _stat('4.9', 'RATING'),
-          _divider(),
-          _stat('128', 'JOBS DONE'),
-          _divider(),
-          _stat('94%', 'ACCEPTANCE'),
-        ],
-      ),
+      child: Obx(() {
+        final provider = _profile.me?.electricianProfile;
+        final dash = _dashboard.state.value;
+        final completed = dash is Data<ProviderDashboard>
+            ? '${dash.value.completedCount}'
+            : '—';
+        // A provider with no reviews yet has no rating; '0.0' would read as a
+        // bad one, which is the opposite of the truth.
+        final rating = (provider?.ratingCount ?? 0) == 0
+            ? '—'
+            : provider!.ratingAvg.toStringAsFixed(1);
+        return Row(
+          children: [
+            _stat(rating, 'RATING'),
+            _divider(),
+            _stat(completed, 'JOBS DONE'),
+            _divider(),
+            // 'ACCEPTANCE 94%' is gone rather than replaced: nothing records a
+            // declined booking as declined — a provider cancels, which is not
+            // the same event — so there is no honest number to put here. The
+            // review count is real and is what a buyer actually weighs.
+            _stat('${provider?.ratingCount ?? 0}', 'REVIEWS'),
+          ],
+        );
+      }),
     );
   }
 

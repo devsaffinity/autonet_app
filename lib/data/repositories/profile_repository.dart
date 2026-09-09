@@ -1,4 +1,5 @@
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
@@ -57,7 +58,63 @@ class SupplierBusinessDraft {
   };
 }
 
-/// `GET /v1/me` and `POST /v1/supplier/business`.
+/// A provider describing themselves — `POST /v1/electrician/registration`.
+///
+/// [fullName] is the ONLY field the server requires. Everything else is
+/// optional and additive, so a provider who skips a step still registers
+/// rather than being trapped on it.
+///
+/// [services] and [skills] are different things and the wizard collects both:
+/// services are the callouts they TAKE (a fixed enum the buyer's filters use),
+/// skills are what they DO in their own words. Conflating them made the
+/// directory's chips unbuildable.
+class ElectricianRegistrationDraft {
+  const ElectricianRegistrationDraft({
+    required this.fullName,
+    this.phone,
+    this.location,
+    this.region,
+    this.yearsExperience,
+    this.brands = const [],
+    this.services = const [],
+    this.skills = const [],
+    this.headline,
+    this.bio,
+  });
+
+  final String fullName;
+  final String? phone;
+  final String? location;
+  final Region? region;
+  final int? yearsExperience;
+  final List<String> brands;
+  final List<BookingServiceType> services;
+  final List<String> skills;
+  final String? headline;
+  final String? bio;
+
+  bool get isComplete => fullName.trim().isNotEmpty;
+
+  Map<String, Object?> toBody() => {
+    'fullName': fullName.trim(),
+    // Each optional field is validated as `min(1).optional()` server-side, so
+    // an empty string is a 400 where an absent key is simply "not given".
+    if (phone case final v? when v.trim().isNotEmpty) 'phone': v.trim(),
+    if (location case final v? when v.trim().isNotEmpty) 'location': v.trim(),
+    if (region case final r?) 'region': r.wire,
+    if (yearsExperience case final y?) 'yearsExperience': y,
+    // Scalar lists are always sent, including empty: the column cannot be
+    // null, so "not sent" and "none selected" must land on the same value.
+    'brands': brands,
+    'services': [for (final s in services) s.wire],
+    'skills': skills,
+    if (headline case final v? when v.trim().isNotEmpty) 'headline': v.trim(),
+    if (bio case final v? when v.trim().isNotEmpty) 'bio': v.trim(),
+  };
+}
+
+/// `GET /v1/me`, `POST /v1/supplier/business` and
+/// `POST /v1/electrician/registration`.
 abstract class ProfileRepository {
   /// The fuller user record, and the ONLY source of a supplier's `approved`
   /// flag. Every gate on shell access must read this rather than local storage.
@@ -68,6 +125,14 @@ abstract class ProfileRepository {
   /// resulting KYC status.
   Future<ApiResult<MeProfile>> registerSupplierBusiness(
     SupplierBusinessDraft draft,
+  );
+
+  /// Creates or replaces the ELECTRICIAN's registration. Returns the refreshed
+  /// profile, whose `approved` flag decides where the wizard lands — a
+  /// provider is NOT approved by registering, and the wizard must not assume
+  /// otherwise.
+  Future<ApiResult<MeProfile>> registerElectrician(
+    ElectricianRegistrationDraft draft,
   );
 
   /// Step 1 of 3 for a new profile photo: a presigned PUT.
