@@ -5,7 +5,7 @@ import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
-import 'package:autonect/view/screens/chat/chat_home.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/technician_panel.dart';
@@ -90,7 +90,14 @@ class BookingConfirmedPage extends StatelessWidget {
             buttonText: 'Chat with $_firstName',
             iconData: Icons.chat_bubble_outline_rounded,
             radius: AppSizes.radiusMd,
-            onTap: () => Get.to(() => const ChatHomePage()),
+            // THIS booking's thread — see booking_detail.dart.
+            onTap: () => Get.to(
+                  () => ChatRoomPage(
+                    contextId: booking.id,
+                    myUserId: booking.buyerId,
+                    title: _providerName,
+                  ),
+                )
           ),
           const SizedBox(height: AppSizes.s12),
           MyButton(

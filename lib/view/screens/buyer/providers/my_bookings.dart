@@ -10,7 +10,7 @@ import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/review_context.dart';
 import 'package:autonect/view/screens/buyer/detail/review_page.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
-import 'package:autonect/view/screens/chat/chat_home.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -294,8 +294,15 @@ class _BookingCard extends StatelessWidget {
         // ellipsizes rather than overflowing if a very narrow phone or a
         // large text scale takes the third below what fits.
         Row(children: [
+          // THIS booking's thread, not the Messages tab.
           Expanded(child: _CardAction(label: 'Chat Now',
-              onTap: () => Get.to(() => const ChatHomePage()))),
+              onTap: () => Get.to(
+                    () => ChatRoomPage(
+                      contextId: booking.id,
+                      myUserId: booking.buyerId,
+                      title: _providerName,
+                    ),
+                  ))),
           const SizedBox(width: AppSizes.s8),
           Expanded(child: _CardAction(label: 'View Booking', onTap: onOpen)),
           const SizedBox(width: AppSizes.s8),

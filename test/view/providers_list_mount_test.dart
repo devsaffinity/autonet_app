@@ -4,7 +4,9 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/service_provider.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/controller/buyer/provider_detail_controller.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
@@ -288,6 +290,7 @@ void _actionTests() {
   });
 
   testWidgets('Message opens the Messages tab', (tester) async {
+    Get.put<ChatRepository>(FakeChatRepository()..inboxResult = const Ok(CursorPage<Conversation>([], null)));
     await mountList(tester);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
@@ -296,9 +299,9 @@ void _actionTests() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    // NOT this provider's thread — POST /v1/conversations accepts type OFFER
-    // only, so a booking has no conversation to open yet. The inbox is the
-    // honest destination until it does.
+    // The inbox, and correctly so: a thread is anchored to a BOOKING or an
+    // OFFER, and a provider you have not dealt with yet is neither. There is
+    // no context here to open a conversation against.
     expect(find.byType(ChatHomePage), findsOneWidget);
   });
 
@@ -308,6 +311,8 @@ void _actionTests() {
     final repo = FakeProvidersRepository()..byIdResult = Ok(_p());
     Get.put<ProvidersRepository>(repo);
     Get.put<BookingsRepository>(FakeBookingsRepository());
+    // The inbox this button lands on reads its own repository.
+    Get.put<ChatRepository>(FakeChatRepository()..inboxResult = const Ok(CursorPage<Conversation>([], null)));
     Get.put(ProviderDetailController(repo,
         reviews: FakeReviewsRepository(),
         toast: (_) {}, showBusy: () {}, hideBusy: () {}));

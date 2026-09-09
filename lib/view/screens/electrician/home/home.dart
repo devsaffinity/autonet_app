@@ -519,6 +519,8 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               time: formatClock(booking.scheduledAt.toLocal()),
               fee: fee,
               date: formatShortDate(booking.scheduledAt.toLocal()),
+              bookingId: booking.id,
+              myUserId: booking.electricianId,
             ),
           );
         },

@@ -11,6 +11,7 @@ import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/part_category.dart';
@@ -23,6 +24,7 @@ import 'package:autonect/data/models/vehicle.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
@@ -432,5 +434,70 @@ class FakeBookingsRepository implements BookingsRepository {
   }) async {
     calls.add('advance:$id:${status.wire}');
     return advanceResult ?? _none('bookings.advance');
+  }
+}
+
+/// Chat. Threads are anchored to a CONTEXT and the server derives the
+/// participants, so the fake records the context it was asked for rather than
+/// any recipient — there is no recipient to record.
+class FakeChatRepository implements ChatRepository {
+  final List<String> calls = [];
+  ApiResult<Conversation>? openResult;
+  ApiResult<CursorPage<Conversation>>? inboxResult;
+  ApiResult<CursorPage<ChatMessage>>? messagesResult;
+  ApiResult<ChatMessage>? sendResult;
+  ApiResult<int>? markReadResult;
+
+  /// Drained before [messagesResult], so a poll or a post-send re-read can
+  /// answer differently from the first read.
+  final List<ApiResult<CursorPage<ChatMessage>>> messagesQueue = [];
+
+  int get messageReads => calls.where((c) => c.startsWith('messages:')).length;
+
+  @override
+  Future<ApiResult<Conversation>> openForBooking(String bookingId) async {
+    calls.add('open:BOOKING:$bookingId');
+    return openResult ?? _none('chat.openForBooking');
+  }
+
+  @override
+  Future<ApiResult<Conversation>> openForOffer(String offerId) async {
+    calls.add('open:OFFER:$offerId');
+    return openResult ?? _none('chat.openForOffer');
+  }
+
+  @override
+  Future<ApiResult<CursorPage<Conversation>>> inbox({
+    String? cursor,
+    int limit = 30,
+  }) async {
+    calls.add('inbox:${cursor ?? '-'}:$limit');
+    return inboxResult ?? _none('chat.inbox');
+  }
+
+  @override
+  Future<ApiResult<CursorPage<ChatMessage>>> messages(
+    String conversationId, {
+    String? cursor,
+    int limit = 30,
+  }) async {
+    calls.add('messages:$conversationId:${cursor ?? '-'}');
+    if (messagesQueue.isNotEmpty) return messagesQueue.removeAt(0);
+    return messagesResult ?? _none('chat.messages');
+  }
+
+  @override
+  Future<ApiResult<ChatMessage>> send({
+    required String conversationId,
+    required String body,
+  }) async {
+    calls.add('send:$conversationId:$body');
+    return sendResult ?? _none('chat.send');
+  }
+
+  @override
+  Future<ApiResult<int>> markRead(String conversationId) async {
+    calls.add('read:$conversationId');
+    return markReadResult ?? const Ok(0);
   }
 }

@@ -5,7 +5,7 @@ import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
-import 'package:autonect/view/screens/chat/chat_home.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
@@ -71,9 +71,16 @@ class BookingDetailPage extends StatelessWidget {
             buttonText: 'Chat Now',
             iconData: Icons.chat_bubble_outline_rounded,
             radius: AppSizes.radiusMd,
-            // The Messages tab, not this booking's thread: POST
-            // /v1/conversations accepts type OFFER only. One call site.
-            onTap: () => Get.to(() => const ChatHomePage()),
+            // THIS booking's thread. It used to open the Messages tab,
+            // because POST /v1/conversations took type OFFER only; it now
+            // takes BOOKING, and opening is get-or-create.
+            onTap: () => Get.to(
+                  () => ChatRoomPage(
+                    contextId: booking.id,
+                    myUserId: booking.buyerId,
+                    title: _providerName,
+                  ),
+                )
           ),
           if (onReview case final review?
               when booking.status == BookingStatus.completed) ...[

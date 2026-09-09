@@ -28,6 +28,16 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
   final String bookingCount;
   final bool isPremiumClient;
 
+  /// The booking this page describes, when it came from a real one.
+  ///
+  /// Null while the page is still opened with placeholder strings; the Chat
+  /// button is hidden in that case rather than opening a thread for a
+  /// booking that does not exist.
+  final String? bookingId;
+
+  /// The signed-in provider, so their own messages sit on the right.
+  final String? myUserId;
+
   const ElectricianBookingDetailsPage({
     super.key,
     this.clientName = 'Marcus Thorne',
@@ -42,6 +52,8 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     this.vehicleYear = 'Model Year: 2023',
     this.bookingCount = '12 BOOKINGS',
     this.isPremiumClient = true,
+    this.bookingId,
+    this.myUserId,
   });
 
   @override
@@ -656,10 +668,13 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
           ),
           const SizedBox(width: 10),
 
-          // Chat button
+          // Chat button — only when there is a real booking behind it.
+          if (bookingId != null) ...[
           Expanded(
             child: MyRippleEffect(
-              onTap: () => Get.to(() => const ChatRoomPage()),
+              onTap: () => Get.to(
+                () => ChatRoomPage(contextId: bookingId!, myUserId: myUserId),
+              ),
               radius: 12,
               child: Container(
                 height: 44,
@@ -689,6 +704,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
+          ],
 
           // Mark as Completed button
           Expanded(

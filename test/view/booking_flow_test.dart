@@ -14,7 +14,8 @@ import 'package:autonect/view/screens/buyer/providers/booking_confirmed.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
-import 'package:autonect/view/screens/chat/chat_home.dart';
+import 'package:autonect/data/repositories/chat_repository.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/month_calendar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/slot_picker.dart';
@@ -261,16 +262,18 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('Chat opens the Messages tab', (tester) async {
+    testWidgets('Chat opens the thread for THIS booking', (tester) async {
+      final chat = FakeChatRepository();
+      Get.put<ChatRepository>(chat);
       await _pumpTall(tester, BookingConfirmedPage(booking: _booking()));
 
       await tester.tap(find.text('Chat with Jack'));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      // NOT this booking's thread — POST /v1/conversations accepts type
-      // OFFER only, so a booking has no conversation to open yet.
-      expect(find.byType(ChatHomePage), findsOneWidget);
+      expect(find.byType(ChatRoomPage), findsOneWidget);
+      // Opened by CONTEXT — the booking — never by naming a recipient.
+      expect(chat.calls.first, 'open:BOOKING:bk-1');
     });
 
     testWidgets('the schedule reads back the slot that was booked', (

@@ -5,6 +5,8 @@ import 'package:autonect/controller/buyer/review_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/conversation.dart';
+import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/part_request.dart';
@@ -85,6 +87,8 @@ void main() {
       orders = FakeOrdersRepository()..offersResult = Ok([_offer()]);
       Get.put<RequestsRepository>(requests);
       Get.put<NotificationsRepository>(FakeNotificationsRepository());
+      // The shell's Messages tab reads its own repository now.
+      Get.put<ChatRepository>(FakeChatRepository()..inboxResult = const Ok(CursorPage<Conversation>([], null)));
       // Home mounts the Service Providers strip, which resolves this seam.
       Get.put<ProvidersRepository>(FakeProvidersRepository());
       Get.put<ProfileRepository>(FakeProfileRepository());
@@ -145,6 +149,8 @@ void main() {
       Get.put<TokenStore>(InMemoryTokenStore());
       Get.put<RequestsRepository>(FakeRequestsRepository());
       Get.put<NotificationsRepository>(FakeNotificationsRepository());
+      // The shell's Messages tab reads its own repository now.
+      Get.put<ChatRepository>(FakeChatRepository()..inboxResult = const Ok(CursorPage<Conversation>([], null)));
       // Home mounts the Service Providers strip, which resolves this seam.
       Get.put<ProvidersRepository>(FakeProvidersRepository());
       Get.put<ProfileRepository>(FakeProfileRepository());

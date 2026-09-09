@@ -1,17 +1,47 @@
+import 'dart:async';
+
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/controller/chat/chat_room_controller.dart';
+import 'package:autonect/data/models/conversation.dart';
+import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Usage:
-//   body: ChatRoomPage()
-// ─────────────────────────────────────────────────────────────────────────────
-
+/// One thread.
+///
+/// Opened by CONTEXT — a booking or an offer — never by naming a person. The
+/// server derives who is in the thread from that context, so there is no
+/// recipient field here to get wrong or to tamper with.
+///
+/// Incoming messages are POLLED, not pushed. See ChatRoomController: it is a
+/// deliberate compromise so chat could ship without a socket dependency, and
+/// the send path is already the one the gateway uses.
 class ChatRoomPage extends StatefulWidget {
-  const ChatRoomPage({super.key});
+  const ChatRoomPage({
+    super.key,
+    required this.contextId,
+    this.type = ConversationType.booking,
+    this.myUserId,
+    this.title,
+  });
+
+  /// The booking or offer this thread belongs to.
+  final String contextId;
+  final ConversationType type;
+
+  /// Whose side is 'mine'. Without it every bubble renders as the peer's,
+  /// which is wrong in a way that looks like a layout bug.
+  final String? myUserId;
+
+  /// A name to show before the thread resolves — the caller usually knows it
+  /// already, and an empty app bar for a second reads as a broken screen.
+  final String? title;
 
   @override
   State<ChatRoomPage> createState() => _ChatRoomPageState();
@@ -20,144 +50,108 @@ class ChatRoomPage extends StatefulWidget {
 class _ChatRoomPageState extends State<ChatRoomPage> {
   final TextEditingController _msgCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
+  final ChatRoomController c = ChatRoomController.ensure();
 
-  // ── Message model ──────────────────────────────────────────────────────────
-  // isMine: true = right bubble (me), false = left bubble (them)
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'text': 'Hello!',
-      'time': '9:24',
-      'isMine': true,
-      'isRead': true,
-      'showAvatar': false,
-    },
-    {
-      'text':
-          'Thank you very mouch for your traveling, we really like the apartments. we will stay here for another 5 days...',
-      'time': '9:30',
-      'isMine': true,
-      'isRead': true,
-      'showAvatar': false,
-    },
-    {
-      'text': 'Hello!',
-      'time': '9:34',
-      'isMine': false,
-      'isRead': true,
-      'showAvatar': false,
-    },
-    {
-      'text': 'I\'m very glab you like it👍',
-      'time': '9:35',
-      'isMine': false,
-      'isRead': true,
-      'showAvatar': true,
-    },
-    {
-      'text': 'We are arriving today at 01:45, will someone be at home?',
-      'time': '9:37',
-      'isMine': false,
-      'isRead': true,
-      'showAvatar': true,
-    },
-    {
-      'text': 'I will be at home',
-      'time': '9:39',
-      'isMine': true,
-      'isRead': true,
-      'showAvatar': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    if (widget.type == ConversationType.booking) {
+      c.openForBooking(widget.contextId, asUserId: widget.myUserId);
+    } else {
+      c.openForOffer(widget.contextId, asUserId: widget.myUserId);
+    }
+  }
 
   @override
   void dispose() {
+    // The screen owns 'somebody is looking at this thread'. The controller is
+    // a Get singleton that outlives this route, so leaving the timer to its
+    // disposal polls a closed thread for the rest of the session.
+    c.stopPolling();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
 
-  void _sendMessage() {
+  Future<void> _send() async {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      _messages.add({
-        'text': text,
-        'time': _currentTime(),
-        'isMine': true,
-        'isRead': false,
-        'showAvatar': false,
-      });
-    });
+    // Cleared OPTIMISTICALLY, then put back if the send fails — retyping a
+    // message because the network blinked is the worst part of a bad chat.
     _msgCtrl.clear();
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    });
-  }
-
-  String _currentTime() {
-    final now = TimeOfDay.now();
-    final h = now.hour.toString().padLeft(2, '0');
-    final m = now.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    final sent = await c.send(text);
+    if (!sent && mounted) _msgCtrl.text = text;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(),
+      appBar: _appBar(),
       body: Column(
         children: [
-          // ── Message list ─────────────────────────────────────────────────
           Expanded(
-            child: ListView.builder(
-              controller: _scrollCtrl,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _messages.length + 1, // +1 for date header
-              itemBuilder: (_, i) {
-                if (i == 0) return _buildDateHeader('Today');
-                return _buildMessageBubble(_messages[i - 1]);
-              },
-            ),
+            // Every Rx read HERE — StateView.builder runs outside this closure
+            // and a read down there would subscribe to nothing.
+            child: Obx(() {
+              final state = c.state.value;
+              final me = c.myUserId.value;
+              // Falls back to the PEER when the caller did not say who I am:
+              // anything the peer did not send is mine. Exact, and it needs no
+              // second source of truth for the signed-in user's id.
+              final peerId = c.conversation.value?.peer?.id;
+              bool mine(ChatMessage m) => me != null
+                  ? m.senderId == me
+                  : peerId != null && m.senderId != peerId;
+              return StateView<List<ChatMessage>>(
+                state: state,
+                onRetry: c.refreshMessages,
+                emptyTitle: 'No messages yet',
+                emptyBody: 'Say hello.',
+                builder: (_, messages) => ListView.builder(
+                  controller: _scrollCtrl,
+                  // The server returns NEWEST FIRST and the list is reversed,
+                  // so index 0 is the newest and sits at the bottom. No sort,
+                  // no second ordering to disagree with the server's.
+                  reverse: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  itemCount: messages.length,
+                  itemBuilder: (_, i) =>
+                      _Bubble(message: messages[i], isMine: mine(messages[i])),
+                ),
+              );
+            }),
           ),
-
-          // ── Input bar ────────────────────────────────────────────────────
-          _buildInputBar(),
+          _inputBar(),
         ],
       ),
     );
   }
 
-  // ── AppBar ─────────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _appBar() {
     return AppBar(
       backgroundColor: kPrimaryColor,
       elevation: 0,
       centerTitle: true,
       leading: MyRippleEffect(
-        onTap: () => Navigator.pop(context),
+        onTap: () => Get.back<void>(),
         radius: 20,
         child: const Icon(Icons.close_rounded, color: kBlackColor, size: 22),
       ),
-      title: Column(
-        children: [
-          MyText(
-            text: 'Ahmed anjims',
-            size: 15,
-            weight: FontWeight.w700,
-            color: kBlackColor,
-          ),
-          MyText(
-            text: 'Active Now',
-            size: 12,
-            weight: FontWeight.w500,
-            color: const Color(0xff34C759),
-          ),
-        ],
-      ),
+      title: Obx(() {
+        final peer = c.conversation.value?.peer;
+        return MyText(
+          // 'Active Now' is gone: presence has an endpoint but nothing polls
+          // it, and a green 'Active Now' under every name is a claim about
+          // somebody being there that we cannot make.
+          text: peer?.displayName ?? widget.title ?? 'Conversation',
+          size: 15,
+          weight: FontWeight.w700,
+          color: kBlackColor,
+        );
+      }),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Divider(color: kTertiaryColor, height: 1),
@@ -165,34 +159,100 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
-  // ── Date Header ────────────────────────────────────────────────────────────
-  Widget _buildDateHeader(String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: kTertiaryColor,
-            borderRadius: BorderRadius.circular(20),
+  Widget _inputBar() {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 10,
+        bottom: MediaQuery.of(context).padding.bottom + 10,
+      ),
+      decoration: BoxDecoration(
+        color: kPrimaryColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
           ),
-          child: MyText(
-            text: label,
-            size: 12,
-            weight: FontWeight.w500,
-            color: kGreyTextColor,
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: kTertiaryColor,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: TextField(
+                controller: _msgCtrl,
+                textInputAction: TextInputAction.send,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: kBlackColor,
+                  fontWeight: FontWeight.w400,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'Type your message',
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: kGreyTextColor,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
+                ),
+                onSubmitted: (_) => _send(),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 10),
+          // The attachment paperclip and the mic are gone rather than dead:
+          // the server can take an image or a voice note, but nothing here
+          // records one or uploads it, and a button that does nothing is worse
+          // than its absence. The send arrow is what this bar can actually do.
+          Obx(() {
+            final sending = c.sending.value;
+            return MyRippleEffect(
+              // MyRippleEffect takes a plain VoidCallback, so the send is
+              // fired rather than awaited here. `sending` greys the button and
+              // the controller drops a re-entrant send regardless.
+              onTap: sending ? () {} : () => unawaited(_send()),
+              radius: 30,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: sending ? kGreyTextColor : kSecondaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.send_rounded,
+                  color: kWhiteColor,
+                  size: 20,
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
+}
 
-  // ── Message Bubble ─────────────────────────────────────────────────────────
-  Widget _buildMessageBubble(Map<String, dynamic> msg) {
-    final bool isMine = msg['isMine'] as bool;
-    final bool isRead = msg['isRead'] as bool;
-    final bool showAvatar = msg['showAvatar'] as bool;
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.message, required this.isMine});
 
+  final ChatMessage message;
+  final bool isMine;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -201,22 +261,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // ── Other user avatar ──────────────────────────────────────────
           if (!isMine)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: showAvatar
-                  ? CommonImageView(
-                      imagePath: Assets.imagesProfileImage,
-                      width: 32,
-                      height: 32,
-                      radius: 100,
-                      fit: BoxFit.cover,
-                    )
-                  : const SizedBox(width: 32),
+              child: CommonImageView(
+                imagePath: Assets.imagesProfileImage,
+                width: 32,
+                height: 32,
+                radius: 100,
+                fit: BoxFit.cover,
+              ),
             ),
-
-          // ── Bubble ────────────────────────────────────────────────────
           Flexible(
             child: Container(
               constraints: BoxConstraints(
@@ -236,37 +291,36 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Message text
                   Flexible(
                     child: MyText(
-                      text: msg['text'],
+                      // A media message has no body. Naming the kind is at
+                      // least true; rendering an empty bubble is not.
+                      text: message.body ?? _mediaLabel(message.type),
                       size: 14,
                       weight: FontWeight.w400,
                       color: kBlackColor,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Time + read tick
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      MyText(
-                        text: msg['time'],
-                        size: 10,
-                        weight: FontWeight.w400,
-                        color: kGreyTextColor,
-                      ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.done_all_rounded,
-                        size: 13,
-                        color: isRead
-                            ? const Color(0xff34C759)
-                            : kGreyTextColor,
-                      ),
-                    ],
+                  MyText(
+                    text: formatClock(message.createdAt.toLocal()),
+                    size: 10,
+                    weight: FontWeight.w400,
+                    color: kGreyTextColor,
                   ),
+                  // The tick is only ever shown on MY messages, and only means
+                  // what it says: the peer has read it. On a received message
+                  // it would be reporting my own read state back to me.
+                  if (isMine) ...[
+                    const SizedBox(width: 3),
+                    Icon(
+                      Icons.done_all_rounded,
+                      size: 13,
+                      color: message.readAt != null
+                          ? const Color(0xff34C759)
+                          : kGreyTextColor,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -276,100 +330,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
-  // ── Input Bar ──────────────────────────────────────────────────────────────
-  Widget _buildInputBar() {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10,
-        bottom: MediaQuery.of(context).padding.bottom + 10,
-      ),
-      decoration: BoxDecoration(
-        color: kPrimaryColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // ── Text field ───────────────────────────────────────────────────
-          Expanded(
-            child: Container(
-              height: 50,
-              decoration: BoxDecoration(
-                color: kTertiaryColor,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _msgCtrl,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: kBlackColor,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Type you message',
-                        hintStyle: const TextStyle(
-                          fontSize: 14,
-                          color: kGreyTextColor,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                  // Attachment icon
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: MyRippleEffect(
-                      onTap: () {},
-                      radius: 20,
-                      child: const Icon(
-                        Icons.attach_file_rounded,
-                        size: 20,
-                        color: kGreyTextColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // ── Mic / Send button ────────────────────────────────────────────
-          MyRippleEffect(
-            onTap: _sendMessage,
-            radius: 30,
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: kSecondaryColor,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.mic_rounded,
-                color: kWhiteColor,
-                size: 22,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  static String _mediaLabel(MessageType? type) => switch (type) {
+    MessageType.image => 'Photo',
+    MessageType.file => 'File',
+    MessageType.voice => 'Voice note',
+    _ => '',
+  };
 }

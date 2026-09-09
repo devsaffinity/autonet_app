@@ -1,94 +1,51 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/chat/chat_inbox_controller.dart';
+import 'package:autonect/data/models/conversation.dart';
+import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/screens/buyer/request/request_status_tracking.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
-import 'package:autonect/view/widget/general_appbar.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Usage:
-//   body: ChatHomePage()
-// ─────────────────────────────────────────────────────────────────────────────
-
+/// The inbox.
+///
+/// Threads are anchored to a deal, so this list can only ever contain people
+/// the signed-in user has actually done business with — there is no way to
+/// start a conversation from here, and that is by design rather than missing.
 class ChatHomePage extends StatefulWidget {
-  const ChatHomePage({super.key});
+  const ChatHomePage({super.key, this.myUserId});
+
+  /// Whose side is 'mine' in a thread this screen opens. Passed through so the
+  /// room does not have to re-derive it.
+  final String? myUserId;
 
   @override
   State<ChatHomePage> createState() => _ChatHomePageState();
 }
 
 class _ChatHomePageState extends State<ChatHomePage> {
-  // ── Inbox data ─────────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _chats = [
-    {
-      'name': 'Amed anjims',
-      'avatar': Assets.imagesProfileImage,
-      'lastMessage': 'Hi, John! 👋 How are you doing?',
-      'time': '09:46',
-      'isTyping': false,
-      'isRead': true,
-      'isDelivered': true,
-      'onlineColor': const Color(0xffFFD600), // yellow dot
-      'unread': 0,
-    },
-    {
-      'name': 'alem leain',
-      'avatar': Assets.imagesProfileImage,
-      'lastMessage': 'Typing...',
-      'time': '09:44',
-      'isTyping': true,
-      'isRead': true,
-      'isDelivered': true,
-      'onlineColor': const Color(0xff34C759), // green dot (online)
-      'unread': 0,
-    },
-    {
-      'name': 'Amed anjims',
-      'avatar': Assets.imagesProfileImage,
-      'lastMessage': 'Hi, John! 👋 How are you doing?',
-      'time': '09:45',
-      'isTyping': false,
-      'isRead': true,
-      'isDelivered': true,
-      'onlineColor': const Color(0xffFFD600),
-      'unread': 0,
-    },
-    {
-      'name': 'Amed anjims',
-      'avatar': Assets.imagesProfileImage,
-      'lastMessage': 'Hi, John! 👋 How are you doing?',
-      'time': '09:46',
-      'isTyping': false,
-      'isRead': true,
-      'isDelivered': true,
-      'onlineColor': const Color(0xffFFD600),
-      'unread': 0,
-    },
-    {
-      'name': 'Amed anjims',
-      'avatar': Assets.imagesProfileImage,
-      'lastMessage': 'Hi, John! 👋 How are you doing?',
-      'time': '09:46',
-      'isTyping': false,
-      'isRead': true,
-      'isDelivered': true,
-      'onlineColor': const Color(0xffFFD600),
-      'unread': 0,
-    },
-  ];
+  final ChatInboxController c = ChatInboxController.ensure();
+
+  @override
+  void initState() {
+    super.initState();
+    c.load();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: GeneralAppBar(title: "Messages", hasBackButton: false),
+      backgroundColor: kPrimaryColor,
+      appBar: GeneralAppBar(title: 'Messages', hasBackButton: false),
       body: Padding(
-        padding: AppSizes.DEFAULT,
+        padding: AppSizes.HORIZONTAL,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -99,16 +56,42 @@ class _ChatHomePageState extends State<ChatHomePage> {
               weight: FontWeight.w600,
               color: kBlackColor,
             ),
-
-            MySearchBar(),
-
-            // ── Chat list ──────────────────────────────────────────────────────
+            const MySearchBar(),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
-                itemCount: _chats.length,
-                itemBuilder: (_, i) => _buildChatRow(_chats[i]),
-              ),
+              // Every Rx read in the closure, not in itemBuilder.
+              child: Obx(() {
+                final state = c.state.value;
+                final filter = c.query.value;
+                return StateView<List<Conversation>>(
+                  state: state,
+                  onRetry: c.load,
+                  emptyTitle: 'No conversations yet',
+                  emptyBody:
+                      'A thread opens when you book a provider or take an '
+                      'offer.',
+                  builder: (_, all) {
+                    final rows = c.visible(all);
+                    if (rows.isEmpty) {
+                      return Center(
+                        child: MyText(
+                          text: 'Nothing matches "$filter".',
+                          size: 13,
+                          weight: FontWeight.w400,
+                          color: kGreyTextColor,
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.only(top: 8),
+                      itemCount: rows.length,
+                      itemBuilder: (_, i) => _ConversationRow(
+                        conversation: rows[i],
+                        onTap: () => _open(rows[i]),
+                      ),
+                    );
+                  },
+                );
+              }),
             ),
           ],
         ),
@@ -116,102 +99,105 @@ class _ChatHomePageState extends State<ChatHomePage> {
     );
   }
 
-  // ── Chat Row ───────────────────────────────────────────────────────────────
-  Widget _buildChatRow(Map<String, dynamic> chat) {
-    final bool isTyping = chat['isTyping'] as bool;
-    final bool isRead = chat['isRead'] as bool;
-    final Color dotColor = chat['onlineColor'] as Color;
+  void _open(Conversation conversation) {
+    Get.to(
+      () => ChatRoomPage(
+        contextId: conversation.contextId,
+        type: conversation.type ?? ConversationType.booking,
+        myUserId: widget.myUserId,
+        title: conversation.peer?.displayName,
+      ),
+      // Re-reads the inbox on the way back so an unread count the room just
+      // cleared does not sit there stale.
+    )?.then((_) => c.load());
+  }
+}
+
+class _ConversationRow extends StatelessWidget {
+  const _ConversationRow({required this.conversation, required this.onTap});
+
+  final Conversation conversation;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final peer = conversation.peer;
+    final last = conversation.lastMessage;
+    final unread = conversation.unreadCount;
 
     return MyRippleEffect(
-      onTap: () {
-        Get.to(() => ChatRoomPage());
-      },
+      onTap: onTap,
       radius: 0,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ── Avatar with online dot ─────────────────────────────────────
-            Stack(
-              children: [
-                CommonImageView(
-                  imagePath: chat['avatar'],
-                  width: 52,
-                  height: 52,
-                  radius: 100,
-                  fit: BoxFit.cover,
-                ),
-                Positioned(
-                  bottom: 2,
-                  right: 2,
-                  child: Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      color: dotColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: kPrimaryColor, width: 2),
-                    ),
-                  ),
-                ),
-              ],
+            CommonImageView(
+              // The peer's own avatar when they have one. The bundled asset is
+              // a neutral placeholder, not a stock photo of a person standing
+              // in for them.
+              url: peer?.avatarUrl,
+              imagePath: peer?.avatarUrl == null
+                  ? Assets.imagesProfileImage
+                  : null,
+              width: 52,
+              height: 52,
+              radius: 100,
+              fit: BoxFit.cover,
             ),
             const SizedBox(width: 14),
-
-            // ── Name + last message ────────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   MyText(
-                    text: chat['name'],
+                    text: peer?.displayName ?? 'Autonect user',
                     size: 15,
                     weight: FontWeight.w600,
                     color: kBlackColor,
                     paddingBottom: 3,
                   ),
-                  isTyping
-                      ? MyText(
-                          text: 'Typing...',
-                          size: 13,
-                          weight: FontWeight.w500,
-                          color: const Color(0xff34C759),
-                        )
-                      : MyText(
-                          text: chat['lastMessage'],
-                          size: 13,
-                          weight: FontWeight.w400,
-                          color: kGreyTextColor,
-                        ),
+                  MyText(
+                    // 'Typing…' is gone: it needs a live socket, and showing it
+                    // from a poll would be inventing somebody's activity.
+                    text: last?.body ?? 'No messages yet',
+                    size: 13,
+                    weight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
+                    color: unread > 0 ? kBlackColor : kGreyTextColor,
+                    maxLines: 1,
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 10),
-
-            // ── Time + read tick ───────────────────────────────────────────
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.done_all_rounded,
-                      size: 14,
-                      color: isTyping
-                          ? const Color(0xff34C759)
-                          : kGreyTextColor,
-                    ),
-                    const SizedBox(width: 3),
-                    MyText(
-                      text: chat['time'],
-                      size: 12,
-                      weight: FontWeight.w400,
-                      color: kGreyTextColor,
-                    ),
-                  ],
+                MyText(
+                  text: formatClock(conversation.lastMessageAt.toLocal()),
+                  size: 12,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
                 ),
+                if (unread > 0) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: kSecondaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: MyText(
+                      text: '$unread',
+                      size: 11,
+                      weight: FontWeight.w700,
+                      color: kWhiteColor,
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
