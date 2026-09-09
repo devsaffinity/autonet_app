@@ -13,7 +13,9 @@ import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_confirmed.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
+import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/widget/month_calendar.dart';
+import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/slot_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -220,6 +222,57 @@ void main() {
       // the screen overstating what happened.
       expect(find.textContaining('requested'), findsOneWidget);
       expect(find.text('ECU Tuning'), findsOneWidget);
+    });
+
+    testWidgets("the comp's three actions, and only two of them live", (
+      tester,
+    ) async {
+      await _pumpTall(tester, BookingConfirmedPage(booking: _booking()));
+
+      // FIRST name, which is what a person would say.
+      expect(find.text('Chat with Jack'), findsOneWidget);
+      expect(find.text('View my Bookings'), findsOneWidget);
+      expect(find.text('Download Receipt'), findsOneWidget);
+
+      // Nothing receipts a booking: quotedPence and finalPence are null on
+      // everything this screen can be reached with, and no payment is ever
+      // recorded against one. The control says so rather than fabricating a
+      // document for a price nobody has named.
+      final receipt = tester.widget<MyButton>(
+          find.widgetWithText(MyButton, 'Download Receipt'));
+      expect(receipt.enabled, isFalse);
+      expect(find.textContaining('once your provider has quoted'),
+          findsOneWidget);
+    });
+
+    testWidgets('Chat opens the Messages tab', (tester) async {
+      await _pumpTall(tester, BookingConfirmedPage(booking: _booking()));
+
+      await tester.tap(find.text('Chat with Jack'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // NOT this booking's thread — POST /v1/conversations accepts type
+      // OFFER only, so a booking has no conversation to open yet.
+      expect(find.byType(ChatHomePage), findsOneWidget);
+    });
+
+    testWidgets('the schedule reads back the slot that was booked', (
+      tester,
+    ) async {
+      await _pumpTall(tester, BookingConfirmedPage(booking: _booking()));
+
+      // Both in the DEVICE zone, computed the same way the screen does —
+      // hard-coding the strings would pin the test to whatever zone the
+      // machine running it happens to be in.
+      final at = DateTime.parse('2026-09-10T08:00:00.000Z').toLocal();
+      expect(find.text(formatShortDate(at)), findsOneWidget);
+      // 24-hour, matching the slot chip the buyer actually tapped. The
+      // comp's '11:30 AM' would make one booking read two ways in one flow.
+      expect(find.text(formatClock(at)), findsOneWidget);
+
+      // The provider's own headline, not the comp's generic job title.
+      expect(find.text('ECU Specialist'), findsOneWidget);
     });
   });
 

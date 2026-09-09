@@ -1,4 +1,5 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -21,6 +22,7 @@ class MyButton extends StatefulWidget {
     this.outlineColor = kTransperentColor,
     this.radius = 100,
     this.icon,
+    this.iconData,
     this.svgIconColor,
     this.haveSvg = false,
     this.isGradient = false,
@@ -42,6 +44,17 @@ class MyButton extends StatefulWidget {
   final Color backgroundColor, fontColor;
   final Color? svgIconColor;
   final String? icon;
+
+  /// A MATERIAL glyph before the label, as an alternative to [icon] plus
+  /// [haveSvg], which take an SVG asset path.
+  ///
+  /// Both slots exist because both sources do: the buttons carrying a brand
+  /// mark point at an asset, and the ones carrying a plain affordance —
+  /// chat, calendar, download — have no asset drawn for them and should not
+  /// need one commissioned. It takes [fontColor], so an outlined button's
+  /// glyph and its label can never drift apart.
+  final IconData? iconData;
+
   final bool haveSvg;
   final bool isGradient;
   final double? iconSize;
@@ -123,6 +136,12 @@ class _MyButtonState extends State<MyButton> {
                         svgPath: widget.icon,
                         width: widget.iconSize,
                       ),
+                    if (widget.iconData case final glyph?) ...[
+                      Icon(glyph,
+                          size: widget.iconSize ?? AppSizes.s20,
+                          color: widget.fontColor),
+                      const SizedBox(width: AppSizes.s8),
+                    ],
                     MyText(
                       paddingLeft: (widget.haveSvg == true) ? 10 : 0,
                       text: widget.buttonText,

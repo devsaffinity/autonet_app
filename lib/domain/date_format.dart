@@ -41,3 +41,16 @@ const List<String> kMonthNames = [
 /// and 'October 9' have to mean the same day on the same screen.
 String formatLongDate(DateTime d) =>
     '${d.day} ${kMonthNames[d.month - 1]} ${d.year}';
+
+/// '11 Sep' — the short form, for the confirmation screen's headline date.
+///
+/// Sliced from [kMonthNames] rather than kept as a second list of twelve
+/// abbreviations: every one of them is the first three letters of the name
+/// above, so a separate list would only be somewhere for the two to disagree.
+///
+/// NO YEAR, as the comp draws it. Safe here and only here: this screen renders
+/// a booking the buyer chose seconds ago off a calendar that showed them the
+/// month. Anywhere the date is read cold — a list, a history — is
+/// [formatDayMonthYear]'s job, which carries the year.
+String formatShortDate(DateTime d) =>
+    '${d.day} ${kMonthNames[d.month - 1].substring(0, 3)}';
