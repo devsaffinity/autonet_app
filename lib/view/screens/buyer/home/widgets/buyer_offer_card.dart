@@ -27,15 +27,18 @@ const double _kThumbWidth = 96, _kThumbHeight = 52;
 /// for most plates, and `offer.request` is null on the per-request route this
 /// same model also serves.
 ///
-/// WHAT THE COMP SHOWS AND THIS CANNOT: a photograph of the part, per offer.
-/// There is nowhere for one to come from. `model Offer` in schema.prisma has no
-/// image relation and no image column, `createOfferBodySchema` takes no keys,
-/// and the buyer-offers projection selects none — a supplier cannot attach a
-/// photo to a quote anywhere in the system. The slot is filled with the same
-/// static car the requests list uses, which is decoration and reads as
-/// decoration. Making it real is a backend feature (an OfferImage table, an
-/// upload ticket, signed reads, and the supplier client to post them), not a
-/// change to this file.
+/// THE THUMBNAIL IS THE BUYER'S OWN PHOTO, not the supplier's. There is no
+/// supplier one to show: `model Offer` has no image relation and no image
+/// column and `createOfferBodySchema` accepts no keys, so a quote cannot carry
+/// a picture anywhere in the system. What the buyer attached to the REQUEST
+/// can, and is the more useful image on this card anyway — it is the part they
+/// asked about.
+///
+/// It renders as soon as `buyer-offers.service.ts` selects and signs
+/// `request.images`, exactly as `withSignedImages` already does for
+/// requestsService. Until then that projection sends no images key at all, the
+/// list decodes empty, and the slot falls back to the same static car the
+/// requests list uses — decoration that reads as decoration.
 class BuyerOfferCard extends StatelessWidget {
   const BuyerOfferCard({super.key, required this.offer, this.onTap});
 
@@ -126,15 +129,30 @@ class BuyerOfferCard extends StatelessWidget {
                   color: kSecondaryColor,
                 ),
                 const SizedBox(height: AppSizes.s8),
-                CommonImageView(imagePath: Assets.imagesCar1,
-                    width: _kThumbWidth, height: _kThumbHeight,
-                    fit: BoxFit.contain),
+                _thumb(),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// The buyer's first request photo, or the placeholder.
+  ///
+  /// `url` is a SHORT-LIVED presign, so the decoded image is cached against the
+  /// stable S3 key: keying on the url re-downloads on every read and serves a
+  /// 403 from anything holding an expired one. Same rule as the active-request
+  /// card, and the reason [RequestImage] keeps both fields.
+  Widget _thumb() {
+    final first = offer.request?.images.firstOrNull;
+    if (first != null && first.isRenderable) {
+      return CommonImageView(url: first.url, cacheKey: first.s3Key,
+          width: _kThumbWidth, height: _kThumbHeight,
+          radius: AppSizes.radiusSm, fit: BoxFit.cover);
+    }
+    return CommonImageView(imagePath: Assets.imagesCar1,
+        width: _kThumbWidth, height: _kThumbHeight, fit: BoxFit.contain);
   }
 
   Widget _meta(String asset, String label) => Row(

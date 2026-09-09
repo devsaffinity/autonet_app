@@ -93,6 +93,52 @@ void main() {
       expect(second.condition, PartCondition.used);
       expect(second.deliveryOption, DeliveryOption.localPickup);
     });
+
+    test("the joined request's buyer photos decode, keys and urls both", () {
+      final r = OfferRequestRef.fromJson(const {
+        'id': 'req_1',
+        'partName': 'Front brake discs',
+        'regNumber': 'LM19XYZ',
+        'images': [
+          {'s3Key': 'requests/req_1/a.jpg', 'url': 'https://signed/a'},
+        ],
+      });
+
+      expect(r.images.single.s3Key, 'requests/req_1/a.jpg');
+      // The KEY is what a cache must key on — the url is a short presign that
+      // changes on every read — so both survive the decode.
+      expect(r.images.single.url, 'https://signed/a');
+      expect(r.images.single.isRenderable, isTrue);
+    });
+
+    test('an offer feed with no images key decodes to empty, never null', () {
+      // buyer-offers.service.ts does not select request images yet, so THIS is
+      // the shape in production today. The card falls back to its placeholder
+      // on an empty list; a null here would throw on the first home paint.
+      final r = OfferRequestRef.fromJson(const {
+        'id': 'req_1',
+        'partName': 'Front brake discs',
+        'regNumber': 'LM19XYZ',
+      });
+
+      expect(r.images, isEmpty);
+    });
+
+    test('a key with no url is not renderable — an old server sends bare keys',
+        () {
+      final r = OfferRequestRef.fromJson(const {
+        'id': 'req_1',
+        'partName': 'Front brake discs',
+        'regNumber': 'LM19XYZ',
+        'images': [
+          {'s3Key': 'requests/req_1/a.jpg'},
+        ],
+      });
+
+      // The bucket is private, so an unsigned key is unfetchable. Rendering it
+      // would be a broken image where the placeholder is a clean one.
+      expect(r.images.single.isRenderable, isFalse);
+    });
   });
 
   group('Order', () {

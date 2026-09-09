@@ -1,5 +1,6 @@
 import 'package:autonect/data/models/auth_user.dart' show jsonString;
 import 'package:autonect/data/models/order_enums.dart';
+import 'package:autonect/data/models/part_request.dart' show RequestImage;
 import 'package:autonect/data/models/request_enums.dart';
 
 /// The supplier projection on an offer: offers are included with
@@ -55,6 +56,7 @@ class OfferRequestRef {
     this.make,
     this.model,
     this.categoryName,
+    this.images = const <RequestImage>[],
   });
 
   final String id;
@@ -67,9 +69,20 @@ class OfferRequestRef {
   final String? model;
   final String? categoryName;
 
+  /// The BUYER's own photos of the part they asked for, newest projection
+  /// first. Empty rather than null, and empty is the normal case twice over: a
+  /// request may genuinely carry no photos, and a server that has not yet added
+  /// images to the buyer-offers projection sends the key at all — which is why
+  /// nothing downstream may assume a first element.
+  ///
+  /// Reuses [RequestImage] rather than a second two-field class, so the
+  /// url-is-a-short-presign / cache-against-the-KEY rule is documented once.
+  final List<RequestImage> images;
+
   factory OfferRequestRef.fromJson(Map<String, dynamic> j) {
     final vehicle = j['vehicle'];
     final category = j['category'];
+    final images = j['images'];
     return OfferRequestRef(
       id: jsonString(j, 'id'),
       partName: jsonString(j, 'partName'),
@@ -78,6 +91,12 @@ class OfferRequestRef {
       make: vehicle is Map ? vehicle['make'] as String? : null,
       model: vehicle is Map ? vehicle['model'] as String? : null,
       categoryName: category is Map ? category['name'] as String? : null,
+      images: images is List
+          ? images
+                .map((e) =>
+                    RequestImage.fromJson((e as Map).cast<String, dynamic>()))
+                .toList(growable: false)
+          : const <RequestImage>[],
     );
   }
 }
