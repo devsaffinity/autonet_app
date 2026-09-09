@@ -19,6 +19,8 @@ import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/orders_api_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/data/repositories/profile_api_repository.dart';
+import 'package:autonect/data/repositories/providers_api_repository.dart';
+import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/requests_api_repository.dart';
 import 'package:autonect/data/repositories/requests_repository.dart';
@@ -78,6 +80,10 @@ void main() async {
   );
   Get.put<OrdersRepository>(
     OrdersApiRepository(client, tokens),
+    permanent: true,
+  );
+  Get.put<ProvidersRepository>(
+    ProvidersApiRepository(client, tokens),
     permanent: true,
   );
   Get.put<ReviewsRepository>(

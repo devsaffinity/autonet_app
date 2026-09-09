@@ -5,15 +5,20 @@ import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/buyer_home_controller.dart';
 import 'package:autonect/controller/buyer/buyer_offers_controller.dart';
 import 'package:autonect/controller/buyer/notifications_controller.dart';
+import 'package:autonect/controller/buyer/service_providers_controller.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/part_request.dart';
+import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
 import 'package:autonect/view/screens/buyer/request/request_detail.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/active_request_card.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/buyer_offer_card.dart';
+import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.dart';
+import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
+import 'package:autonect/view/screens/buyer/providers/providers_list.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
@@ -30,10 +35,13 @@ import 'package:get/get.dart';
 /// Stateful because BuyerNavBar mounts it as a `const` screen: nothing upstream
 /// can fetch on its behalf, so it owns its own load.
 ///
-/// PHASE 4: there is no Service Providers section. The backend exposes no
-/// electrician or provider listing route anywhere — only
-/// `POST /electrician/registration`, a write — so the fixture card deck that
-/// used to sit here could never have been filled from the API.
+/// The three sections are backed by three independent controllers, so one
+/// failing read degrades its own strip and leaves the other two alone.
+///
+/// Service Providers is real as of `GET /v1/providers`. It spent phase 4 out
+/// of the design precisely because no provider listing route existed — only
+/// `POST /electrician/registration`, a write — and a fixture card deck would
+/// have been furniture, not a feature.
 class BuyerHomePage extends StatefulWidget {
   const BuyerHomePage({super.key});
 
@@ -44,6 +52,7 @@ class BuyerHomePage extends StatefulWidget {
 class _BuyerHomePageState extends State<BuyerHomePage> {
   late final BuyerHomeController _c;
   late final BuyerOffersController _offers;
+  late final ServiceProvidersController _providers;
   // Permanent, so the badge is already correct the moment Home builds rather
   // than only after the list screen has been visited once.
   final NotificationsController _notifications =
@@ -57,6 +66,8 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
     _c.load();
     _offers = BuyerOffersController.ensure();
     _offers.load();
+    _providers = ServiceProvidersController.ensure();
+    _providers.load();
     // Badge only — a one-row read, not the whole list. Home should not pay for
     // a page the buyer may never open.
     _notifications.refreshUnread();
@@ -93,7 +104,8 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   /// separate controllers precisely so a failure in one does not blank the
   /// other, and `wait` — not `then` — is what keeps that true here: the
   /// spinner stays until both have answered, whichever of them failed.
-  Future<void> _refresh() => Future.wait([_c.load(), _offers.load()]);
+  Future<void> _refresh() =>
+      Future.wait([_c.load(), _offers.load(), _providers.load()]);
 
   /// Comparison, not the offer on its own: accepting is a decision between
   /// offers, and ComparisonPage is the screen that can make it. It needs the
@@ -104,6 +116,8 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
     if (id == null) return;
     Get.to(() => BuyerRequestDetailPage(requestId: id));
   }
+
+  void _openProviders() => Get.to(() => const ProvidersListPage());
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -166,6 +180,34 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                   ],
                 ],
               ),
+              )),
+            ),
+            const SizedBox(height: AppSizes.s24),
+            // Service Providers — the approved electrician directory.
+            //
+            // This section could not exist until now: the backend had no
+            // provider listing at all, only POST /electrician/registration,
+            // which is a write. GET /v1/providers is what made it real.
+            SectionHeader(title: 'Service Providers', onAction: _openProviders),
+            SizedBox(
+              // Scales with the system font — the card's three text lines grow
+              // where its avatar and button do not.
+              height: serviceProviderCardHeight(context),
+              child: Obx(() => StateView<List<ServiceProvider>>(
+                state: _providers.providers.value,
+                onRetry: _providers.load,
+                emptyTitle: 'No providers yet',
+                builder: (_, items) => ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: AppSizes.s12),
+                  itemBuilder: (_, i) => ServiceProviderCard(
+                    provider: items[i],
+                    onTap: () => Get.to(
+                        () => ProviderDetailPage(providerId: items[i].id)),
+                  ),
+                ),
               )),
             ),
             const SizedBox(height: AppSizes.s24),

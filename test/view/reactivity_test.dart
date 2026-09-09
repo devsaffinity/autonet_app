@@ -11,6 +11,7 @@ import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
+import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/requests_repository.dart';
 import 'package:autonect/services/session_store.dart';
@@ -84,6 +85,8 @@ void main() {
       orders = FakeOrdersRepository()..offersResult = Ok([_offer()]);
       Get.put<RequestsRepository>(requests);
       Get.put<NotificationsRepository>(FakeNotificationsRepository());
+      // Home mounts the Service Providers strip, which resolves this seam.
+      Get.put<ProvidersRepository>(FakeProvidersRepository());
       Get.put<ProfileRepository>(FakeProfileRepository());
       Get.put<OrdersRepository>(orders);
       Get.put(RequestDetailController(requests, orders,
@@ -142,6 +145,8 @@ void main() {
       Get.put<TokenStore>(InMemoryTokenStore());
       Get.put<RequestsRepository>(FakeRequestsRepository());
       Get.put<NotificationsRepository>(FakeNotificationsRepository());
+      // Home mounts the Service Providers strip, which resolves this seam.
+      Get.put<ProvidersRepository>(FakeProvidersRepository());
       Get.put<ProfileRepository>(FakeProfileRepository());
       Get.put<OrdersRepository>(FakeOrdersRepository()
         ..listResult = const Err(ApiError.network()));

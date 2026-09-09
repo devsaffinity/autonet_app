@@ -17,6 +17,8 @@ import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/vehicle.dart';
+import 'package:autonect/data/models/service_provider.dart';
+import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/data/repositories/requests_repository.dart';
@@ -266,4 +268,33 @@ class FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<ApiResult<MeProfile>> setAvatar(String avatarKey) async => me();
+}
+
+class FakeProvidersRepository implements ProvidersRepository {
+  final List<String> calls = [];
+  ApiResult<Paged<ServiceProvider>>? listResult;
+  ApiResult<ServiceProvider>? byIdResult;
+
+  @override
+  Future<ApiResult<Paged<ServiceProvider>>> list({
+    int page = 1,
+    int limit = 20,
+    Region? region,
+    String? brand,
+    String? q,
+  }) async {
+    // Blank filters are logged as absent, because the api repository omits
+    // them — recording ':q=' would assert a query string it never sends.
+    final query = q?.trim() ?? '';
+    calls.add('providers:$page:$limit:${region?.wire}'
+        '${brand == null ? '' : ':brand=$brand'}'
+        '${query.isEmpty ? '' : ':q=$query'}');
+    return listResult ?? _none('providers.list');
+  }
+
+  @override
+  Future<ApiResult<ServiceProvider>> byId(String id) async {
+    calls.add('provider:$id');
+    return byIdResult ?? _none('providers.byId');
+  }
 }
