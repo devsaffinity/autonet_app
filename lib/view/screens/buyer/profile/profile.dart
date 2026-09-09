@@ -5,7 +5,7 @@ import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
-import 'package:autonect/view/screens/buyer/services/my_booking.dart';
+import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
