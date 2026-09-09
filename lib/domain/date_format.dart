@@ -54,3 +54,29 @@ String formatLongDate(DateTime d) =>
 /// [formatDayMonthYear]'s job, which carries the year.
 String formatShortDate(DateTime d) =>
     '${d.day} ${kMonthNames[d.month - 1].substring(0, 3)}';
+
+/// Weekday names indexed by `DateTime.weekday - 1`, so Monday is first.
+///
+/// Monday-first because that is what `DateTime.weekday` and the server's
+/// schedule both count from; a Sunday-first list would need a remap at every
+/// call site, which is exactly where an off-by-one hides.
+const List<String> kWeekdayNames = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
+/// 'Monday' for `DateTime.weekday == 1`.
+String weekdayName(int weekday) => kWeekdayNames[weekday - 1];
+
+/// 'MON' — the week strip's column heading.
+String weekdayAbbrev(int weekday) =>
+    kWeekdayNames[weekday - 1].substring(0, 3).toUpperCase();
+
+/// 'September 2026'. Reuses [kMonthNames] for the same reason everything else
+/// here does: two lists of month names are two things that can disagree.
+String monthYearOf(DateTime d) => '${kMonthNames[d.month - 1]} ${d.year}';

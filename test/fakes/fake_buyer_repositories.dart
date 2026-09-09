@@ -11,6 +11,7 @@ import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
@@ -325,6 +326,8 @@ class FakeBookingsRepository implements BookingsRepository {
   ApiResult<Booking>? cancelResult;
   ApiResult<Booking>? advanceResult;
   ApiResult<Booking>? quoteResult;
+  ApiResult<ProviderSchedule>? scheduleResult;
+  ApiResult<ProviderSchedule>? setScheduleResult;
 
   @override
   Future<ApiResult<Booking>> create({
@@ -351,6 +354,28 @@ class FakeBookingsRepository implements BookingsRepository {
   }) async {
     calls.add('availability:$providerId:$date');
     return availabilityResult ?? _none('bookings.availability');
+  }
+
+  @override
+  Future<ApiResult<ProviderSchedule>> schedule() async {
+    calls.add('schedule:get');
+    return scheduleResult ?? _none('bookings.schedule');
+  }
+
+  @override
+  Future<ApiResult<ProviderSchedule>> setSchedule(
+    Map<int, Set<AvailabilityBand>> byWeekday,
+  ) async {
+    // Logged in weekday order with bands in enum order, so an assertion reads
+    // the same whatever order the screen happened to touch the days in.
+    final days = (byWeekday.keys.toList()..sort())
+        .map(
+          (w) =>
+              '$w=${AvailabilityBand.values.where(byWeekday[w]!.contains).map((b) => b.wire).join('+')}',
+        )
+        .join(',');
+    calls.add('schedule:put:$days');
+    return setScheduleResult ?? _none('bookings.setSchedule');
   }
 
   @override

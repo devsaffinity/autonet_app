@@ -4,6 +4,7 @@ import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 
@@ -66,6 +67,43 @@ class BookingsApiRepository implements BookingsRepository {
     path: '/v1/bookings/availability/$providerId',
     query: {'date': date},
     decode: (d) => DayAvailability.fromJson((d as Map).cast<String, dynamic>()),
+  );
+
+  static ProviderSchedule _schedule(Object? d) =>
+      ProviderSchedule.fromJson((d as Map).cast<String, dynamic>());
+
+  @override
+  Future<ApiResult<ProviderSchedule>> schedule() =>
+      _c.send(method: 'GET', path: '/v1/bookings/schedule', decode: _schedule);
+
+  @override
+  Future<ApiResult<ProviderSchedule>> setSchedule(
+    Map<int, Set<AvailabilityBand>> byWeekday,
+  ) => _c.send(
+    method: 'PUT',
+    path: '/v1/bookings/schedule',
+    body: {
+      // A weekday with NO bands is sent as an empty list rather than dropped,
+      // and both mean the same thing to the server — but sending it keeps the
+      // request a readable statement of the whole week rather than a set of
+      // survivors, which is what makes a bad diff obvious in a log.
+      //
+      // Sorted so two identical schedules serialise identically; a Map's order
+      // is insertion order, and a request that differs only in key order is a
+      // needless difference to debug.
+      'days': (byWeekday.keys.toList()..sort())
+          .map(
+            (weekday) => {
+              'weekday': weekday,
+              'bands': AvailabilityBand.values
+                  .where((b) => byWeekday[weekday]!.contains(b))
+                  .map((b) => b.wire)
+                  .toList(),
+            },
+          )
+          .toList(),
+    },
+    decode: _schedule,
   );
 
   @override

@@ -2,6 +2,7 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/request_enums.dart';
 
 /// `/v1/bookings`, for BOTH sides.
@@ -37,6 +38,25 @@ abstract class BookingsRepository {
     required String providerId,
     required String date,
   });
+
+  /// PROVIDER ONLY — the caller's own weekly working pattern. A buyer gets 403;
+  /// they see its effect through [availability] and never the pattern itself.
+  Future<ApiResult<ProviderSchedule>> schedule();
+
+  /// PROVIDER ONLY — replace the whole week.
+  ///
+  /// SENT WHOLE, never patched a day at a time: a schedule is one statement,
+  /// and a partial update invites a client that adds Monday morning without
+  /// noticing it never removed Tuesday's. An omitted weekday means 'not
+  /// working that day'.
+  ///
+  /// Sending nothing at all is 'I work nothing', which the server stores as no
+  /// rows — and no rows is how it records 'never set', so the provider reads
+  /// as fully available again rather than fully closed. Offer that as clearing
+  /// the schedule, not as blocking the week.
+  Future<ApiResult<ProviderSchedule>> setSchedule(
+    Map<int, Set<AvailabilityBand>> byWeekday,
+  );
 
   Future<ApiResult<Paged<Booking>>> listMine({
     int page = 1,
