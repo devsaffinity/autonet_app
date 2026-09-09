@@ -39,6 +39,23 @@ class _RequestListState extends State<RequestStatusTrackingPage> {
     c.refreshFirst();
   }
 
+  /// Deliberately OUTSIDE [PagedListView], for the same reason as [_filters]:
+  /// its header slot renders only in the Data arm, so a search that matched
+  /// nothing would take the box away and leave the buyer no way to clear it.
+  ///
+  /// Not wrapped in Obx and not given the query as its `controller` text: this
+  /// field OWNS what is typed in it, and feeding the debounced value back would
+  /// fight the cursor mid-word.
+  Widget get _search => Padding(
+    padding: const EdgeInsets.fromLTRB(
+        AppSizes.s20, AppSizes.s8, AppSizes.s20, 0),
+    child: SearchField(
+      hint: 'Search part, number or reg',
+      marginBottom: 0,
+      onChanged: c.setQuery,
+    ),
+  );
+
   /// Deliberately OUTSIDE [PagedListView]: its header slot renders only in the
   /// Data arm, which would strand a buyer whose chosen filter came back empty.
   Widget get _filters => Obx(() {
@@ -89,7 +106,7 @@ class _RequestListState extends State<RequestStatusTrackingPage> {
         const SizedBox(width: AppSizes.s12),
       ],
     ),
-    body: Column(children: [_filters, Expanded(child: _list)]),
+    body: Column(children: [_search, _filters, Expanded(child: _list)]),
   );
 }
 

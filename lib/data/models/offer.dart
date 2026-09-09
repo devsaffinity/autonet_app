@@ -8,18 +8,76 @@ import 'package:autonect/data/models/request_enums.dart';
 /// nullable. There is no `displayName` getter here — choosing which name to
 /// show is presentation and lives in the widget layer (DRY rule 5).
 class OfferSupplier {
-  const OfferSupplier({required this.id, this.name, this.businessName});
+  const OfferSupplier({
+    required this.id,
+    this.name,
+    this.businessName,
+    this.ratingAvg,
+    this.ratingCount,
+  });
 
   final String id;
   final String? name;
   final String? businessName;
 
+  /// Only `GET /v1/buyer/offers` selects these; the per-request route projects
+  /// `{businessName}` alone. Both null therefore means "this route did not ask
+  /// for a rating", NOT "this supplier is unrated" — a card must omit the
+  /// rating rather than render a zero.
+  final double? ratingAvg;
+  final int? ratingCount;
+
   factory OfferSupplier.fromJson(Map<String, dynamic> j) {
     final profile = j['supplierProfile'];
+    final p = profile is Map ? profile : const {};
     return OfferSupplier(
       id: jsonString(j, 'id'),
       name: j['name'] as String?,
-      businessName: profile is Map ? profile['businessName'] as String? : null,
+      businessName: p['businessName'] as String?,
+      ratingAvg: (p['ratingAvg'] as num?)?.toDouble(),
+      ratingCount: (p['ratingCount'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// The request an offer answers, as projected by `GET /v1/buyer/offers`.
+///
+/// A cross-request feed needs it: an offer on its own carries a price and
+/// nothing a buyer could match to a car or a part. Not the full [PartRequest]
+/// — the route selects six fields and inventing the rest would mean a model
+/// whose required fields the server never sends.
+class OfferRequestRef {
+  const OfferRequestRef({
+    required this.id,
+    required this.partName,
+    required this.regNumber,
+    this.status,
+    this.make,
+    this.model,
+    this.categoryName,
+  });
+
+  final String id;
+  final String partName;
+  final String regNumber;
+  final RequestStatus? status;
+
+  /// Both nullable, and the vehicle itself is absent on a manual-reg request.
+  final String? make;
+  final String? model;
+  final String? categoryName;
+
+  factory OfferRequestRef.fromJson(Map<String, dynamic> j) {
+    final vehicle = j['vehicle'];
+    final category = j['category'];
+    return OfferRequestRef(
+      id: jsonString(j, 'id'),
+      partName: jsonString(j, 'partName'),
+      regNumber: jsonString(j, 'regNumber'),
+      status: RequestStatus.fromWire(j['status'] as String?),
+      make: vehicle is Map ? vehicle['make'] as String? : null,
+      model: vehicle is Map ? vehicle['model'] as String? : null,
+      categoryName: category is Map ? category['name'] as String? : null,
     );
   }
 }
@@ -38,6 +96,7 @@ class Offer {
     required this.createdAt,
     required this.updatedAt,
     required this.supplier,
+    this.request,
     this.condition,
     this.warrantyMonths,
     this.deliveryOption,
@@ -63,6 +122,11 @@ class Offer {
   final DateTime updatedAt;
   final OfferSupplier supplier;
 
+  /// Present ONLY on the cross-request feed. Null from
+  /// `GET /v1/requests/:id/offers`, where the caller already holds the request
+  /// it asked about.
+  final OfferRequestRef? request;
+
   factory Offer.fromJson(Map<String, dynamic> j) => Offer(
     id: jsonString(j, 'id'),
     requestId: jsonString(j, 'requestId'),
@@ -81,5 +145,8 @@ class Offer {
     supplier: OfferSupplier.fromJson(
       (j['supplier'] as Map).cast<String, dynamic>(),
     ),
+    request: j['request'] is Map
+        ? OfferRequestRef.fromJson((j['request'] as Map).cast<String, dynamic>())
+        : null,
   );
 }

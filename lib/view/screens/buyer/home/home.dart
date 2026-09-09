@@ -3,18 +3,22 @@ import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/buyer_home_controller.dart';
+import 'package:autonect/controller/buyer/buyer_offers_controller.dart';
 import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
+import 'package:autonect/view/screens/buyer/request/request_detail.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/active_request_card.dart';
-import 'package:autonect/view/screens/buyer/home/widgets/offer_style_request_card.dart';
+import 'package:autonect/view/screens/buyer/home/widgets/buyer_offer_card.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/search_field.dart';
 import 'package:autonect/view/widget/section_header.dart';
 import 'package:autonect/view/widget/role_shell.dart';
 import 'package:autonect/view/widget/state_view.dart';
@@ -39,6 +43,7 @@ class BuyerHomePage extends StatefulWidget {
 
 class _BuyerHomePageState extends State<BuyerHomePage> {
   late final BuyerHomeController _c;
+  late final BuyerOffersController _offers;
   // Permanent, so the badge is already correct the moment Home builds rather
   // than only after the list screen has been visited once.
   final NotificationsController _notifications =
@@ -50,6 +55,8 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
     super.initState();
     _c = BuyerHomeController.ensure();
     _c.load();
+    _offers = BuyerOffersController.ensure();
+    _offers.load();
     // Badge only — a one-row read, not the whole list. Home should not pay for
     // a page the buyer may never open.
     _notifications.refreshUnread();
@@ -82,29 +89,45 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
     ));
   }
 
-  List<PartRequest> _withOffers(ViewState<List<PartRequest>> s) =>
-      switch (s) {
-        Data<List<PartRequest>>(:final value) => [
-          for (final r in value)
-            if (r.offerCount > 0) r,
-        ],
-        _ => const [],
-      };
+  /// Both sections, together, so one pull refreshes the whole screen. They are
+  /// separate controllers precisely so a failure in one does not blank the
+  /// other, and `wait` — not `then` — is what keeps that true here: the
+  /// spinner stays until both have answered, whichever of them failed.
+  Future<void> _refresh() => Future.wait([_c.load(), _offers.load()]);
+
+  /// Comparison, not the offer on its own: accepting is a decision between
+  /// offers, and ComparisonPage is the screen that can make it. It needs the
+  /// whole [PartRequest] and the feed carries only the six-field projection, so
+  /// this routes to the request detail, which fetches it and can push onward.
+  void _openOffer(Offer o) {
+    final id = o.request?.id;
+    if (id == null) return;
+    Get.to(() => BuyerRequestDetailPage(requestId: id));
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: RefreshIndicator(
-        onRefresh: _c.load,
+        onRefresh: _refresh,
         child: ListView(
           padding: AppSizes.DEFAULT,
           children: [
             _header(),
             const SizedBox(height: AppSizes.s24),
-            // No 'Request a Part' button and no search bar. The wizard is the
-            // nav bar's centre FAB — one entry point, not two — and a search
-            // field would promise a filter no route accepts, which is the
-            // exact reason the last one was deleted.
+            // The search bar is back, and real: `GET /v1/requests` now takes a
+            // `q` over partName / partNumber / regNumber, which is why the last
+            // one was deleted and this one is not a decoration. It filters the
+            // carousel below, server-side, across every open request — not just
+            // the five on screen.
+            //
+            // Still no 'Request a Part' button: the wizard is the nav bar's
+            // centre FAB, one entry point rather than two.
+            SearchField(
+              hint: 'Search your requests',
+              marginBottom: AppSizes.s16,
+              onChanged: _c.setQuery,
+            ),
             SectionHeader(title: 'Active Requests', onAction: _openRequests),
             SizedBox(
               height: kActiveRequestCardHeight,
@@ -116,34 +139,35 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               )),
             ),
             const SizedBox(height: AppSizes.s24),
-            // NOT an offers feed: there is no cross-request buyer offers
-            // endpoint, so this is driven by the offerCount already on each
-            // request — zero extra calls, and the label says what it shows.
-            SectionHeader(
-              title: 'Requests with offers',
-              onAction: _openRequests,
-            ),
-            Obx(() {
-              final items = _withOffers(_c.activeRequests.value);
-              if (items.isEmpty) {
-                return MyText(text: 'No offers yet — suppliers reply here.',
-                    size: AppTextScale.body, color: kGreyTextColor);
-              }
-              // A short vertical list, not a carousel: these are the requests
-              // needing the buyer's attention, and a horizontal strip hides how
-              // many there are behind a swipe.
-              return Column(
+            // A REAL offers feed now: `GET /v1/buyer/offers` returns every live
+            // offer across all of this buyer's requests with the request and
+            // supplier joined in, so these cards carry the comp's price instead
+            // of the offer COUNT the old derived-from-offerCount list showed.
+            SectionHeader(title: 'Offers', onAction: _openRequests),
+            // minHeight, not height: the loading spinner and the empty panel
+            // both shrink-wrap in an unbounded ListView slot, so without a
+            // floor the section is a few pixels tall while it loads and the
+            // page jumps when the cards land. A Data arm taller than the floor
+            // simply ignores it.
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 120),
+              child: Obx(() => StateView<List<Offer>>(
+              state: _offers.offers.value,
+              onRetry: _offers.load,
+              emptyTitle: 'No offers yet',
+              // A short vertical list, not a carousel: these need the buyer's
+              // attention, and a horizontal strip hides how many there are
+              // behind a swipe.
+              builder: (_, items) => Column(
                 children: [
-                  for (final r in items) ...[
-                    OfferStyleRequestCard(
-                      request: r,
-                      onTap: () => Get.to(() => ComparisonPage(request: r)),
-                    ),
+                  for (final o in items) ...[
+                    BuyerOfferCard(offer: o, onTap: () => _openOffer(o)),
                     const SizedBox(height: AppSizes.s12),
                   ],
                 ],
-              );
-            }),
+              ),
+              )),
+            ),
             const SizedBox(height: AppSizes.s24),
           ],
         ),

@@ -84,7 +84,7 @@ class _GatedRequests extends FakeRequestsRepository {
 
   @override
   Future<ApiResult<Paged<PartRequest>>> listMine(
-      {int page = 1, int limit = 20, RequestStatus? status}) {
+      {int page = 1, int limit = 20, RequestStatus? status, String? q}) {
     calls.add('listMine:$page:$limit:${status?.wire}');
     final c = Completer<ApiResult<Paged<PartRequest>>>();
     pending.add(c);

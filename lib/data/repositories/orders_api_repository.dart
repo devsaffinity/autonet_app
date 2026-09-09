@@ -32,6 +32,22 @@ class OrdersApiRepository implements OrdersRepository {
         .toList(growable: false),
   );
 
+  /// No `status` filter is sent even though `listOrdersQuerySchema` allows one:
+  /// its enum is the ORDER statuses, and an offer's status is a different enum
+  /// entirely, so any value here would 400. The service already excludes
+  /// WITHDRAWN server-side, which is the only exclusion a buyer needs.
+  @override
+  Future<ApiResult<Paged<Offer>>> buyerOffers({int page = 1, int limit = 20}) =>
+      _c.sendEnvelope(
+        method: 'GET',
+        path: '/v1/buyer/offers',
+        query: {
+          'page': '${page < 1 ? 1 : page}',
+          'limit': '${limit.clamp(1, _maxLimit)}',
+        },
+        decode: Paged.decoder(Offer.fromJson),
+      );
+
   /// `{}` is a valid body; `{'deliveryLocation': ''}` is not — the schema is
   /// `z.string().min(1).max(300).optional()`, so a blank field must be omitted
   /// rather than sent empty.

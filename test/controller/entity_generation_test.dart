@@ -99,7 +99,7 @@ class _GatedRequests extends FakeRequestsRepository {
 
   @override
   Future<ApiResult<Paged<PartRequest>>> listMine(
-      {int page = 1, int limit = 20, RequestStatus? status}) {
+      {int page = 1, int limit = 20, RequestStatus? status, String? q}) {
     calls.add('listMine:$page');
     return listGate.open();
   }

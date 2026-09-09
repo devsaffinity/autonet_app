@@ -52,6 +52,7 @@ class RequestsApiRepository implements RequestsRepository {
     int page = 1,
     int limit = 20,
     RequestStatus? status,
+    String? q,
   }) => _c.sendEnvelope(
     method: 'GET',
     path: '/v1/requests',
@@ -59,6 +60,10 @@ class RequestsApiRepository implements RequestsRepository {
       'page': '${page < 1 ? 1 : page}',
       'limit': '${limit.clamp(1, _maxLimit)}',
       if (status != null) 'status': status.wire,
+      // Same rule as status: OMITTED when empty rather than sent blank. The
+      // server preprocesses it with blankToUndefined so an empty value is
+      // tolerated, but not sending it at all is unambiguous.
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
     },
     decode: Paged.decoder(PartRequest.fromJson),
   );

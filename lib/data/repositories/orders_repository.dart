@@ -12,6 +12,15 @@ abstract class OrdersRepository {
   /// `hasNextPage:false` the server never said.
   Future<ApiResult<List<Offer>>> offersForRequest(String requestId);
 
+  /// Every live offer across ALL of this buyer's requests, newest first —
+  /// `GET /v1/buyer/offers`. Paged, unlike [offersForRequest], and each row
+  /// carries `offer.request` so a card can say which car it is about.
+  ///
+  /// Mounted at /buyer/offers rather than /offers because `GET /v1/offers` is
+  /// the SUPPLIER's own list and is role-gated to SUPPLIER — a buyer calling it
+  /// gets a 403, not an empty list.
+  Future<ApiResult<Paged<Offer>>> buyerOffers({int page = 1, int limit = 20});
+
   /// [deliveryLocation] is omitted when null or blank — `{}` is a valid body,
   /// but `""` fails the server's `min(1)` and 400s.
   Future<ApiResult<Order>> acceptOffer({

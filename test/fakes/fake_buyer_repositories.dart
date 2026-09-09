@@ -63,8 +63,17 @@ class FakeRequestsRepository implements RequestsRepository {
   }
 
   @override
-  Future<ApiResult<Paged<PartRequest>>> listMine({int page = 1, int limit = 20, RequestStatus? status}) async {
-    calls.add('listMine:$page:$limit:${status?.wire}');
+  Future<ApiResult<Paged<PartRequest>>> listMine({
+    int page = 1,
+    int limit = 20,
+    RequestStatus? status,
+    String? q,
+  }) async {
+    // Blank is logged as absent, because the api repository OMITS the key
+    // when it is blank — a fake that recorded ':q=' would assert a query string
+    // the real one never sends.
+    final query = q?.trim() ?? '';
+    calls.add('listMine:$page:$limit:${status?.wire}${query.isEmpty ? '' : ':q=$query'}');
     if (listQueue.isNotEmpty) return listQueue.removeAt(0);
     return listResult ?? _none('listMine');
   }
@@ -85,6 +94,7 @@ class FakeRequestsRepository implements RequestsRepository {
 class FakeOrdersRepository implements OrdersRepository {
   final List<String> calls = [];
   ApiResult<List<Offer>>? offersResult;
+  ApiResult<Paged<Offer>>? buyerOffersResult;
   ApiResult<Order>? acceptResult;
   ApiResult<Paged<Order>>? listResult;
   ApiResult<Order>? byIdResult;
@@ -99,6 +109,12 @@ class FakeOrdersRepository implements OrdersRepository {
   Future<ApiResult<List<Offer>>> offersForRequest(String requestId) async {
     calls.add('offers:$requestId');
     return offersResult ?? _none('offersForRequest');
+  }
+
+  @override
+  Future<ApiResult<Paged<Offer>>> buyerOffers({int page = 1, int limit = 20}) async {
+    calls.add('buyerOffers:$page:$limit');
+    return buyerOffersResult ?? _none('buyerOffers');
   }
 
   @override

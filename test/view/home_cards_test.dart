@@ -1,7 +1,9 @@
+import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
+import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/active_request_card.dart';
-import 'package:autonect/view/screens/buyer/home/widgets/offer_style_request_card.dart';
+import 'package:autonect/view/screens/buyer/home/widgets/buyer_offer_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,6 +43,51 @@ PartRequest _request({
   'images': [
     for (var i = 0; i < imageCount; i++) {'id': 'img$i', 's3Key': 'k$i'},
   ],
+});
+
+/// The `GET /v1/buyer/offers` row shape. Every joined field is optional on
+/// that projection except the price, the date and the registration, so each
+/// argument here defaults to ABSENT — that is the case the card has to survive.
+Offer _offer({
+  String? make,
+  String? model,
+  String partName = 'Alternator',
+  int pricePence = 18500,
+  String? businessName,
+  String? supplierName,
+  num? ratingAvg,
+  int? ratingCount,
+  String? categoryName = 'Engine',
+  DateTime? createdAt,
+  bool withRequest = true,
+}) => Offer.fromJson({
+  'id': 'offer-1',
+  'requestId': 'req-1',
+  'supplierId': 'sup-1',
+  'pricePence': pricePence,
+  'condition': 'NEW',
+  'quantity': 1,
+  'createdAt': (createdAt ?? DateTime(2026, 8, 12)).toIso8601String(),
+  'updatedAt': (createdAt ?? DateTime(2026, 8, 12)).toIso8601String(),
+  'supplier': {
+    'id': 'sup-1',
+    'name': supplierName,
+    'supplierProfile': {
+      'businessName': businessName,
+      'ratingAvg': ratingAvg,
+      'ratingCount': ratingCount,
+    },
+  },
+  if (withRequest)
+    'request': {
+      'id': 'req-1',
+      'partName': partName,
+      'regNumber': 'AB12CDE',
+      'status': 'OPEN',
+      if (make != null || model != null)
+        'vehicle': {'make': make, 'model': model},
+      if (categoryName != null) 'category': {'id': 'cat-1', 'name': categoryName},
+    },
 });
 
 Widget _host(Widget child, {double width = 360, TextScaler? scaler}) =>
@@ -175,61 +222,98 @@ void main() {
     });
   });
 
-  group('OfferStyleRequestCard', () {
-    testWidgets('shows the part the buyer asked for, not just the car', (
-      tester,
-    ) async {
-      // Two requests on the same vehicle are indistinguishable without this.
+  group('BuyerOfferCard', () {
+    testWidgets('shows the part, the car and the price', (tester) async {
       await tester.pumpWidget(
-        _host(
-          OfferStyleRequestCard(
-            request: _request(make: 'TOYOTA', partName: 'Alternator'),
-          ),
-        ),
+        _host(BuyerOfferCard(offer: _offer(make: 'TOYOTA', partName: 'Alternator'))),
       );
 
       expect(find.text('Alternator'), findsOneWidget);
+      // Upper-cased in the card, not in the fixture.
       expect(find.text('TOYOTA'), findsOneWidget);
+      expect(find.text('£185.00'), findsOneWidget);
     });
 
-    testWidgets('omits the make line when DVLA gave us none', (tester) async {
-      await tester.pumpWidget(
-        _host(OfferStyleRequestCard(request: _request(offerCount: 2))),
-      );
+    testWidgets('falls back to the registration when DVLA gave no make', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(BuyerOfferCard(offer: _offer())));
 
-      expect(find.text('Alternator'), findsOneWidget);
+      expect(find.text('AB12CDE'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('offer count is singular at one', (tester) async {
+    testWidgets('renders the offer date in UK order', (tester) async {
       await tester.pumpWidget(
-        _host(OfferStyleRequestCard(request: _request(offerCount: 1))),
-      );
-
-      expect(find.text('1'), findsOneWidget);
-      expect(find.text('offer'), findsOneWidget);
-      expect(find.text('offers'), findsNothing);
-    });
-
-    testWidgets('renders the created date in UK order', (tester) async {
-      await tester.pumpWidget(
-        _host(
-          OfferStyleRequestCard(
-            request: _request(createdAt: DateTime(2026, 8, 12)),
-          ),
-        ),
+        _host(BuyerOfferCard(offer: _offer(createdAt: DateTime(2026, 8, 12)))),
       );
 
       expect(find.text('12/08/2026'), findsOneWidget);
+    });
+
+    testWidgets('prefers the trading name over the account name', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(BuyerOfferCard(offer: _offer(
+          businessName: 'Halewood Motor Factors',
+          supplierName: 'A Person',
+        ))),
+      );
+
+      expect(find.text('Halewood Motor Factors'), findsOneWidget);
+      expect(find.text('A Person'), findsNothing);
+    });
+
+    testWidgets('an unrated supplier shows no rating, not a zero', (
+      tester,
+    ) async {
+      // Both fields null means "this route did not select a rating" - only
+      // /v1/buyer/offers does - so a 0.0 here would be an invented claim.
+      await tester.pumpWidget(_host(BuyerOfferCard(offer: _offer())));
+
+      expect(find.textContaining('0.0'), findsNothing);
+    });
+
+    testWidgets('a rating with no reviews behind it is not shown', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(BuyerOfferCard(offer: _offer(ratingAvg: 0, ratingCount: 0))),
+      );
+
+      expect(find.textContaining('(0)'), findsNothing);
+    });
+
+    testWidgets('a real rating shows the average and the count', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(BuyerOfferCard(offer: _offer(ratingAvg: 4.6, ratingCount: 128))),
+      );
+
+      expect(find.text('4.6 (128)'), findsOneWidget);
+    });
+
+    testWidgets('survives a row with no request joined in', (tester) async {
+      // Offer.request is null on GET /v1/requests/:id/offers, which shares this
+      // model - the card must degrade rather than throw.
+      await tester.pumpWidget(_host(BuyerOfferCard(offer: _offer(withRequest: false))));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('£185.00'), findsOneWidget);
     });
 
     testWidgets('no overflow at 320dp with 200% font', (tester) async {
       // The metadata pairs are a Wrap, not a Row, for exactly this case.
       await tester.pumpWidget(
         _host(
-          OfferStyleRequestCard(
-            request: _request(make: 'MERCEDES-BENZ', partName: 'Transmission'),
-          ),
+          BuyerOfferCard(offer: _offer(
+            make: 'MERCEDES-BENZ',
+            model: 'C-Class',
+            partName: 'Transmission',
+            businessName: 'Halewood Motor Factors',
+          )),
           width: 320,
           scaler: const TextScaler.linear(2.0),
         ),
