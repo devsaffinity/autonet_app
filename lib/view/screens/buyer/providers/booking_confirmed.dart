@@ -6,9 +6,9 @@ import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
-import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/technician_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -152,40 +152,8 @@ class BookingConfirmedPage extends StatelessWidget {
             lineHeight: 1.5),
       ],
       const SizedBox(height: AppSizes.s12),
-      _technician(),
-    ]),
-  );
-
-  /// The comp's tinted panel inside the service card.
-  ///
-  /// 'Professional Technician' is the FALLBACK, not the label: the provider's
-  /// own headline goes here when they wrote one, because 'Senior Automotive
-  /// Electrician' tells a buyer something and a job title shared by everybody
-  /// on the platform does not.
-  Widget _technician() => Container(
-    padding: const EdgeInsets.all(AppSizes.s8),
-    decoration: BoxDecoration(
-      color: kLightOrangeColor,
-      borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-    ),
-    child: Row(children: [
-      InitialsAvatar(name: _providerName, size: 36,
-          radius: AppSizes.radiusPill),
-      const SizedBox(width: AppSizes.s8),
-      Expanded(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MyText(
-            text: booking.provider?.headline ?? 'Professional Technician',
-            size: AppTextScale.caption, color: kGreyTextColor,
-            maxLines: 1, textOverflow: TextOverflow.ellipsis,
-          ),
-          MyText(text: _providerName, size: AppTextScale.body,
-              weight: AppWeights.semibold, color: kSecondaryColor,
-              maxLines: 1, textOverflow: TextOverflow.ellipsis),
-        ],
-      )),
+      TechnicianPanel(name: _providerName,
+          headline: booking.provider?.headline),
     ]),
   );
 

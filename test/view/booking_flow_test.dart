@@ -11,6 +11,7 @@ import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_confirmed.dart';
+import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
@@ -327,6 +328,99 @@ void main() {
       // COMPLETED is the only state the server accepts a review from, and it
       // is what finally lets an electrician earn a rating at all.
       expect(find.text('Rate this provider'), findsOneWidget);
+    });
+
+    testWidgets("the comp's card actions, and the filter that left the page",
+        (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      expect(find.text('Chat Now'), findsOneWidget);
+      expect(find.text('View Booking'), findsOneWidget);
+      expect(find.text('Save Receipt'), findsOneWidget);
+
+      // The five chips came off the page: All / Pending / Confirmed /
+      // Completed / Cancelled does not fit on one line at any phone width,
+      // so 'Cancelled' wrapped onto a row of its own. The filter itself
+      // survives as one glyph, because the repository takes `status` and a
+      // buyer with a year of callouts needs it.
+      expect(find.text('Pending'), findsNothing);
+      expect(find.byTooltip('Filter by status'), findsOneWidget);
+    });
+
+    testWidgets('the funnel filters, and All clears it', (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      final c = Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      await tester.tap(find.byTooltip('Filter by status'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Completed').last);
+      await tester.pumpAndSettle();
+      expect(c.filter.value, BookingStatus.completed);
+
+      await tester.tap(find.byTooltip('Filter by status'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All').last);
+      await tester.pumpAndSettle();
+      // The menu is keyed by INDEX. Keyed by the status itself, 'All' would
+      // carry a null value, PopupMenuButton would read that as a DISMISSED
+      // menu, and the filter would silently stay on Completed.
+      expect(c.filter.value, isNull);
+    });
+
+    testWidgets('Save Receipt is drawn but not offered', (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>(
+            [_booking(status: 'COMPLETED', quotedPence: 12500)], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      // Even on a COMPLETED, QUOTED booking. Nothing in this product
+      // receipts a callout — no payment is ever recorded against one — so
+      // the control carries its reason rather than a tap target.
+      // Matched on the PREFIX rather than the whole sentence: the copy is
+      // the screen's to reword, the fact that a reason is attached is not.
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is Tooltip && (w.message ?? '').startsWith('Receipts arrive')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('View Booking opens the detail, with what the row holds',
+        (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+      await tester.tap(find.text('View Booking'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(BookingDetailPage), findsOneWidget);
+      // NO SECOND FETCH: the list already holds the whole booking, so the
+      // detail renders the row it was handed.
+      expect(repo.calls.where((x) => x.startsWith('booking:')), isEmpty);
+      // The buyer can still cancel from here, using the LIST's handler —
+      // a second copy of the reason dialog is how the two screens would
+      // end up disagreeing about what is still cancellable.
+      expect(find.text('Cancel booking'), findsOneWidget);
     });
 
     testWidgets('a PENDING booking offers no review', (tester) async {

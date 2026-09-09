@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
@@ -38,6 +39,18 @@ Color orderStatusColor(OrderStatus? s) => switch (s) {
   OrderStatus.outForDelivery => kInfoColor,
   OrderStatus.delivered => kSuccessColor,
   OrderStatus.cancelled => kRedColor,
+  null => kGreyTextColor,
+};
+
+/// Promoted out of my_bookings.dart when the booking DETAIL screen wanted
+/// the same map. Two copies of a status colour is how one screen starts
+/// calling CONFIRMED blue while the other calls it green.
+Color bookingStatusColor(BookingStatus? s) => switch (s) {
+  BookingStatus.pending => kWarningColor,
+  BookingStatus.confirmed => kInfoColor,
+  BookingStatus.inProgress => kInfoColor,
+  BookingStatus.completed => kSuccessColor,
+  BookingStatus.cancelled => kRedColor,
   null => kGreyTextColor,
 };
 
