@@ -10,7 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-/// Where a registered but unapproved supplier lives.
+/// Where a registered but unapproved PROVIDER lives — supplier or electrician.
+///
+/// The class keeps its name because `routes.dart` and `RoleGuard` reference
+/// it, and renaming it is churn the other agent would feel mid-edit. Its copy
+/// and the field it reads are role-neutral.
 ///
 /// A full screen rather than the design's dismissible sheet: an unapproved
 /// supplier has nowhere to be dismissed TO. Every route in their shell answers
@@ -25,7 +29,12 @@ class SupplierAwaitingApprovalPage extends StatelessWidget {
 
   final MeProfile? profile;
 
-  KycStatus? get _status => profile?.supplierProfile?.kycStatus;
+  /// Whichever provider profile this account has.
+  ///
+  /// This screen serves BOTH provider roles now. It reads supplier-specific
+  /// before; an electrician sent here saw the not-submitted copy regardless of
+  /// their real KYC state, because the field it read was always null for them.
+  KycStatus? get _status => profile?.providerKycStatus;
 
   bool get _rejected => _status == KycStatus.rejected;
 
@@ -80,7 +89,7 @@ class SupplierAwaitingApprovalPage extends StatelessWidget {
                       ? 'Your submission was reviewed and could not be '
                             'approved. Update your documents and submit them '
                             'again.'
-                      : 'Your supplier profile is currently being reviewed by '
+                      : 'Your provider profile is currently being reviewed by '
                             'our quality assurance team to ensure authenticity '
                             'and operational standards.',
                   size: AppTextScale.body,

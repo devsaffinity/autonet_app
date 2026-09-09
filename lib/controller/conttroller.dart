@@ -135,36 +135,54 @@ class RoleController extends GetxController {
       }
       return AppLinks.homeFor(r);
     }
-    if (r == AppRole.electrician && !providerOnboarded.value) {
-      return AppLinks.electricianOnboarding;
+    if (r == AppRole.electrician) {
+      // THREE destinations here too, for the same reason as the supplier.
+      //
+      // This used to be two: an electrician who had filled in the wizard went
+      // straight into the shell on a LOCAL flag, with no server-side approval
+      // check anywhere. An unapproved provider could browse the app and be
+      // handed work, while every route that mattered would have refused them.
+      if (!providerOnboarded.value) return AppLinks.electricianOnboarding;
+      if (providerApproved.value != true) {
+        return AppLinks.supplierAwaitingApproval;
+      }
+      return AppLinks.homeFor(r);
     }
     return AppLinks.homeFor(r);
   }
 
   /// Refreshes [providerOnboarded] and [providerApproved] from `GET /v1/me`.
   ///
-  /// MUST be awaited before routing a supplier anywhere, because both flags
-  /// otherwise come from SharedPreferences — which knows only whether THIS
-  /// install completed the wizard. `_localTeardown` clears the flag on every
-  /// sign-out, so without this a supplier who registered and was approved
+  /// MUST be awaited before routing EITHER provider role anywhere, because both
+  /// flags otherwise come from SharedPreferences — which knows only whether
+  /// THIS install completed the wizard. `_localTeardown` clears the flag on
+  /// every sign-out, so without this a provider who registered and was approved
   /// months ago is sent back through the wizard on their next login, and
   /// RoleGuard bounces them there again if they try to leave.
   ///
+  /// COVERS ELECTRICIANS TOO. It was gated to `supplier` alone, which meant an
+  /// electrician's access was decided entirely by a local boolean — the wizard
+  /// wrote it without ever calling the server, so finishing the form was
+  /// self-approval.
+  ///
   /// A failed read leaves both flags untouched and returns false, so a network
-  /// blip falls back to the local answer rather than stranding a supplier at a
+  /// blip falls back to the local answer rather than stranding a provider at a
   /// screen they cannot leave.
   Future<bool> syncProviderAccess() async {
-    if (role.value != AppRole.supplier) return false;
+    if (role.value != AppRole.supplier && role.value != AppRole.electrician) {
+      return false;
+    }
     switch (await Get.find<ProfileRepository>().me()) {
       case Err():
         return false;
       case Ok(:final value):
-        final profile = value.supplierProfile;
-        // A profile existing is what "onboarded" actually means. The local flag
-        // only ever recorded that the wizard was filled in on this device.
-        providerOnboarded.value = profile != null;
-        SessionStore.providerOnboarded = profile != null;
-        providerApproved.value = profile?.canEnterShell ?? false;
+        // Whichever profile this account has. A row EXISTING is what
+        // "onboarded" actually means; the local flag only ever recorded that
+        // the wizard was filled in on this device.
+        final onboarded = value.hasProviderProfile;
+        providerOnboarded.value = onboarded;
+        SessionStore.providerOnboarded = onboarded;
+        providerApproved.value = value.providerApproved ?? false;
         return true;
     }
   }

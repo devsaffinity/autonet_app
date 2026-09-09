@@ -88,6 +88,53 @@ class SupplierProfile {
   }
 }
 
+/// The electrician's side of `GET /v1/me`.
+///
+/// A SEPARATE class from [SupplierProfile] rather than a shared one: they
+/// answer the same question — may this provider work — from different columns,
+/// and a merged type would carry `businessName` and `categories` that an
+/// electrician never has.
+///
+/// Only the fields the client actually gates or renders on are decoded. The
+/// server returns more; adding them here is cheap when something needs them.
+class ElectricianProfile {
+  const ElectricianProfile({
+    required this.fullName,
+    required this.approved,
+    this.kycStatus,
+    this.headline,
+    this.ratingAvg = 0,
+    this.ratingCount = 0,
+  });
+
+  final String fullName;
+
+  /// The ONLY field that grants shell access, exactly as on the supplier side.
+  /// `kycStatus == APPROVED` is not a substitute: an admin can revoke
+  /// `approved` without moving the status.
+  final bool approved;
+
+  /// Null when the server sent a value this build does not know. Treated as
+  /// not-approved everywhere, never as approved.
+  final KycStatus? kycStatus;
+
+  final String? headline;
+  final double ratingAvg;
+  final int ratingCount;
+
+  bool get canEnterShell => approved;
+
+  factory ElectricianProfile.fromJson(Map<String, dynamic> j) =>
+      ElectricianProfile(
+        fullName: jsonString(j, 'fullName'),
+        approved: j['approved'] == true,
+        kycStatus: KycStatus.fromWire(j['kycStatus'] as String?),
+        headline: j['headline'] as String?,
+        ratingAvg: (j['ratingAvg'] as num?)?.toDouble() ?? 0,
+        ratingCount: (j['ratingCount'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// `GET /v1/me`.
 ///
 /// Distinct from [AuthUser], which is decoded from the LOGIN payload and is
@@ -103,6 +150,7 @@ class MeProfile {
     this.location,
     this.avatarUrl,
     this.supplierProfile,
+    this.electricianProfile,
   });
 
   final String id;
@@ -125,6 +173,27 @@ class MeProfile {
   /// business yet.
   final SupplierProfile? supplierProfile;
 
+  /// The server has always returned this; the client simply never decoded it,
+  /// which is why an electrician entered the app on a LOCAL flag with no
+  /// server-side approval check at all.
+  final ElectricianProfile? electricianProfile;
+
+  /// Whichever provider profile this account has, or null for a buyer.
+  ///
+  /// Exists so the routing and the awaiting-approval screen ask 'may this
+  /// provider work' once, rather than branching on role at every call site.
+  bool? get providerApproved =>
+      supplierProfile?.canEnterShell ?? electricianProfile?.canEnterShell;
+
+  /// True when a provider profile row exists at all — which is what
+  /// 'onboarded' actually means, as against a local wizard-completed flag.
+  bool get hasProviderProfile =>
+      supplierProfile != null || electricianProfile != null;
+
+  /// The KYC status of whichever provider profile exists.
+  KycStatus? get providerKycStatus =>
+      supplierProfile?.kycStatus ?? electricianProfile?.kycStatus;
+
   factory MeProfile.fromJson(Map<String, dynamic> j) {
     final supplier = j['supplierProfile'];
     return MeProfile(
@@ -137,6 +206,10 @@ class MeProfile {
       avatarUrl: j['avatarUrl'] as String?,
       supplierProfile: supplier is Map
           ? SupplierProfile.fromJson(supplier.cast<String, dynamic>())
+          : null,
+      electricianProfile: j['electricianProfile'] is Map
+          ? ElectricianProfile.fromJson(
+              (j['electricianProfile'] as Map).cast<String, dynamic>())
           : null,
     );
   }
