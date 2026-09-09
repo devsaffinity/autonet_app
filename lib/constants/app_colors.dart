@@ -29,3 +29,14 @@ const kSuccessColor = Color(0xff1E9E5A);
 const kWarningColor = Color(0xffE0A008);
 const kInfoColor = Color(0xff1482F3);
 const kMutedSurfaceColor = Color(0xffF7F7F8);
+
+// FORM COLORS
+/// The one border every form control on a light surface draws.
+///
+/// It replaces two different hand-rolled greys that had drifted apart —
+/// MyTextField outlined at `kBlackColor.withValues(alpha: .3)` while
+/// EnumSelectField and the category row used `.5`, so a text field and the
+/// dropdown under it never matched. Opt in via the `borderColor` argument on
+/// those widgets; their defaults still paint the old values, so a screen
+/// adopts this only when its design has actually been reconciled.
+const kFieldBorderColor = Color(0xffE2E2E2);

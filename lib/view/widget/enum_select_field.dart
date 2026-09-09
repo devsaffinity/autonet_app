@@ -21,7 +21,8 @@ class EnumSelectField<T> extends StatelessWidget {
   const EnumSelectField({
     super.key, required this.options, required this.value,
     required this.onChanged, this.title, this.hint = 'Select',
-    this.errorText, this.bottomPadding = AppSizes.s16,
+    this.errorText, this.bottomPadding = AppSizes.s16, this.borderColor,
+    this.titleSize,
   });
 
   final List<SelectOption<T>> options;
@@ -29,6 +30,15 @@ class EnumSelectField<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final String? title, hint, errorText;
   final double bottomPadding;
+
+  /// The resting outline. Null keeps the historical grey; a screen reconciled
+  /// against the design passes [kFieldBorderColor]. An error still overrides it
+  /// — a red field outranks any per-screen styling.
+  final Color? borderColor;
+
+  /// Null keeps [AppTextScale.subtitle], so the supplier registration step that
+  /// also uses this widget does not move.
+  final double? titleSize;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +52,7 @@ class EnumSelectField<T> extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null)
-            MyText(text: title!, size: AppTextScale.subtitle,
+            MyText(text: title!, size: titleSize ?? AppTextScale.subtitle,
                 weight: AppWeights.semibold, color: kBlackColor,
                 paddingBottom: AppSizes.s4),
           DropdownButton2<T>(
@@ -80,7 +90,7 @@ class EnumSelectField<T> extends StatelessWidget {
                 color: kWhiteColor,
                 border: Border.all(
                   color: errorText == null
-                      ? kBlackColor.withValues(alpha: .5)
+                      ? (borderColor ?? kBlackColor.withValues(alpha: .5))
                       : kRedColor,
                 ),
                 borderRadius: BorderRadius.circular(AppSizes.radiusSm),

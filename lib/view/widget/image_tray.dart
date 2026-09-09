@@ -4,13 +4,18 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/constants/loading_animation.dart';
-import 'package:autonect/data/models/request_enums.dart' show kMaxRequestImages;
+import 'package:autonect/data/models/request_enums.dart'
+    show kMaxImageBytes, kMaxRequestImages;
 import 'package:autonect/domain/pending_image.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
 const double _tile = 88;
+
+/// The pale disc behind the upload glyph.
+const double _badge = 48;
 
 /// The wizard's photo strip. Callbacks only — it holds no repository, does no
 /// upload and knows nothing about S3; the controller owns all of that and
@@ -37,15 +42,76 @@ class ImageTray extends StatelessWidget {
   final ValueChanged<String> onRemove, onRetry;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: AppSizes.s8,
-    runSpacing: AppSizes.s8,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      for (final image in images)
-        _Tile(image: image, onRemove: onRemove, onRetry: onRetry),
-      if (images.length < kMaxRequestImages)
-        _AddTile(onTap: onAdd, remaining: kMaxRequestImages - images.length),
+      // Absent entirely at 5 rather than greyed: the backend rejects a sixth
+      // image, and a disabled drop zone still reads as an available action.
+      if (images.length < kMaxRequestImages) _UploadZone(onTap: onAdd),
+      if (images.isNotEmpty) ...[
+        const SizedBox(height: AppSizes.s12),
+        Wrap(
+          spacing: AppSizes.s8,
+          runSpacing: AppSizes.s8,
+          children: [
+            for (final image in images)
+              _Tile(image: image, onRemove: onRemove, onRetry: onRetry),
+          ],
+        ),
+      ],
     ],
+  );
+}
+
+/// The comp's upload affordance: one full-width card, not a grid of add tiles.
+///
+/// The comp draws only the empty state, so picked photos keep their own tiles
+/// BELOW this card rather than inside it — a tile is the only place the
+/// per-photo upload spinner, the Retry target and the remove X can live, and
+/// none of those has anywhere to go in a single card.
+class _UploadZone extends StatelessWidget {
+  const _UploadZone({required this.onTap});
+
+  final VoidCallback onTap;
+
+  /// Read off the constant the picker actually enforces, so the promise on the
+  /// card cannot drift from the rule that rejects the file.
+  static final String _limit = '${kMaxImageBytes ~/ (1024 * 1024)}MB';
+
+  @override
+  Widget build(BuildContext context) => MyRippleEffect(
+    radius: AppSizes.radiusSm,
+    onTap: onTap,
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+          vertical: AppSizes.s24, horizontal: AppSizes.s16),
+      decoration: BoxDecoration(
+        color: kWhiteColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+        border: Border.all(color: kFieldBorderColor),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: _badge,
+            height: _badge,
+            decoration: const BoxDecoration(
+                color: kLightOrangeColor, shape: BoxShape.circle),
+            child: const Icon(Icons.file_upload_outlined,
+                color: kSecondaryColor, size: AppSizes.s20),
+          ),
+          MyText(text: 'Click to Upload', size: AppTextScale.body,
+              color: kGreyTextColor, paddingTop: AppSizes.s12),
+          MyText(text: 'Upload images of the part or problem area',
+              size: AppTextScale.label, color: kGreyTextColor,
+              textAlign: TextAlign.center, paddingTop: AppSizes.s4),
+          MyText(text: '(PNG, JPG up to $_limit)', size: AppTextScale.label,
+              color: kGreyTextColor, textAlign: TextAlign.center),
+        ],
+      ),
+    ),
   );
 }
 
@@ -125,38 +191,6 @@ class _Tile extends StatelessWidget {
           ),
         ),
       ],
-    ),
-  );
-}
-
-/// Absent entirely at 5 rather than greyed: the backend rejects a sixth image,
-/// and a disabled tile still reads as an available action.
-class _AddTile extends StatelessWidget {
-  const _AddTile({required this.onTap, required this.remaining});
-
-  final VoidCallback onTap;
-  final int remaining;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: _tile,
-      height: _tile,
-      decoration: BoxDecoration(
-        color: kMutedSurfaceColor,
-        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-        border: Border.all(color: kTertiaryColor, width: 2),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.add_a_photo_outlined, color: kGreyTextColor,
-              size: AppSizes.s20),
-          MyText(text: '$remaining left', size: AppTextScale.caption,
-              color: kGreyTextColor, paddingTop: AppSizes.s4),
-        ],
-      ),
     ),
   );
 }

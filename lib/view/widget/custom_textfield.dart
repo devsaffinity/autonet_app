@@ -29,6 +29,7 @@ class MyTextField extends StatefulWidget {
     this.textCapitalization = TextCapitalization.sentences,
     this.textInputAction = TextInputAction.next,
     this.inputFormatters,
+    this.borderColor,
   }) : super(key: key);
 
   TextInputType? keyboardType;
@@ -55,6 +56,13 @@ class MyTextField extends StatefulWidget {
   final TextCapitalization textCapitalization;
   final TextInputAction textInputAction;
   final List<TextInputFormatter>? inputFormatters;
+
+  /// The unfocused outline. Null keeps the historical grey, so none of the
+  /// twelve existing call sites move; a screen reconciled against the design
+  /// passes [kFieldBorderColor]. The FOCUSED outline is deliberately NOT
+  /// overridable — orange-on-focus is the app's focus signal, not a per-screen
+  /// choice.
+  final Color? borderColor;
 
   @override
   State<MyTextField> createState() => _MyTextFieldState();
@@ -152,7 +160,8 @@ class _MyTextFieldState extends State<MyTextField> {
                     borderSide: BorderSide(
                       color: isFocused
                           ? kSecondaryColor
-                          : kBlackColor.withValues(alpha: .3),
+                          : (widget.borderColor ??
+                                kBlackColor.withValues(alpha: .3)),
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(widget.radius!),
@@ -161,7 +170,8 @@ class _MyTextFieldState extends State<MyTextField> {
                     borderSide: BorderSide(
                       color: isFocused
                           ? kSecondaryColor
-                          : kBlackColor.withValues(alpha: .3),
+                          : (widget.borderColor ??
+                                kBlackColor.withValues(alpha: .3)),
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(widget.radius!),

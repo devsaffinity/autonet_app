@@ -30,8 +30,23 @@ final List<SelectOption<PartCondition>> _conditions = [
   for (final c in PartCondition.values) SelectOption(c, c.label),
 ];
 
+/// The field treatment the comp specifies for this step — a rounded rectangle
+/// with one light outline, and a label a size down from the app's 16. Named
+/// once here so the seven controls on the screen cannot drift apart, and held
+/// LOCAL to this file because it is the only screen reconciled against the
+/// comp so far; the widgets themselves still default to the old styling.
+const double _kFieldRadius = AppSizes.radiusSm;
+const double _kLabelSize = AppTextScale.body;
+
 /// Step 2 — the part itself. Stateful because the draft is a plain object: a
 /// chip tap changes no observable, so the repaint has to be asked for.
+///
+/// FIELD ORDER follows the comp — name, number, then the two selects, the
+/// description and the upload card. Category and Region sit between them
+/// because the comp omits both and neither can be dropped: `validate()` fails
+/// on `categoryId` and `region`, `toBody()` throws without them, and region is
+/// half the supplier-matching key. Removing them here would strand the buyer
+/// on step 3 behind two errors with no field to fix them in.
 class PartDetailsStepView extends StatefulWidget {
   const PartDetailsStepView({
     super.key, required this.controller, required this.partName,
@@ -77,70 +92,90 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
   @override
   Widget build(BuildContext context) {
     final d = _c.draft;
-    return Obx(() => Column(children: [
-      Expanded(child: SingleChildScrollView(
-        padding: AppSizes.DEFAULT,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          CountedTextField(controller: widget.partName, maxLength: 150,
-              labelText: 'Part name', hintText: 'Front brake discs',
-              errorText: _c.fieldErrorFor('partName'),
-              onChanged: (v) { d.partName = v; _edited('partName'); }),
-          _label('Category'),
-          _PickerRow(value: d.categoryName, hint: 'Choose a part category',
-              errorText: _c.fieldErrorFor('categoryId'), onTap: _pickCategory),
-          CountedTextField(controller: widget.partNumber, maxLength: 80,
-              labelText: 'Part number (optional)',
-              errorText: _c.fieldErrorFor('partNumber'),
-              onChanged: (v) { d.partNumber = v; _edited('partNumber'); }),
-          // Required, and half the supplier-matching key. Pre-selected from the
-          // buyer's last successful create, never silently defaulted: the User
-          // table has no region column to read one from.
-          _label('Region'),
-          ChoiceChipsField<Region>(options: _regions, selected: d.region,
-              onSelect: (r) { d.region = r; _edited('region'); }),
-          if (_c.fieldErrorFor('region') case final e?)
-            MyText(text: e, size: AppTextScale.label, color: kRedColor,
-                paddingTop: AppSizes.s4, paddingLeft: AppSizes.s8),
-          const SizedBox(height: AppSizes.s16),
-          EnumSelectField<RequestUrgency>(title: 'Urgency',
-              hint: 'How soon do you need it?', options: _urgencies,
-              value: d.urgency, errorText: _c.fieldErrorFor('urgency'),
-              onChanged: (u) { d.urgency = u; _edited('urgency'); }),
-          EnumSelectField<PartCondition>(title: 'Condition',
-              hint: 'New, used or either', options: _conditions,
-              value: d.condition, errorText: _c.fieldErrorFor('condition'),
-              onChanged: (v) { d.condition = v; _edited('condition'); }),
-          CountedTextField(controller: widget.description, maxLength: 2000,
-              maxLines: 4, labelText: 'Description',
-              hintText: 'Describe the part',
-              errorText: _c.fieldErrorFor('description'),
-              onChanged: (v) { d.description = v; _edited('description'); }),
-          _label('Photos (up to $kMaxRequestImages)'),
-          // `toList()` INSIDE this closure IS the subscription: RxList registers
-          // against Obx's observer proxy from its `value` getter, which every
-          // read path (length, [], iterator, toList) goes through. Passed BARE
-          // the list was first read in ImageTray.build — outside the tracking
-          // zone — so this Obx subscribed to nothing, and a second photo, an X
-          // and every transition `slots.refresh()` announced repainted nothing.
-          // The snapshot also denies the child a live RxList to re-lose it on.
-          ImageTray(images: _c.images.slots.toList(growable: false),
-              onAdd: _addPhotos, onRemove: _c.images.remove,
-              onRetry: _c.images.retry),
-          if (_c.images.rejectionMessage.value case final m?)
-            MyText(text: m, size: AppTextScale.label, color: kRedColor,
-                paddingTop: AppSizes.s8),
-          if (_c.fieldErrorFor('imageKeys') case final e?)
-            MyText(text: e, size: AppTextScale.label, color: kRedColor,
-                paddingTop: AppSizes.s8),
-        ]),
-      )),
-      WizardBottomBar(child: MyButton(buttonText: 'Next', onTap: widget.onNext)),
-    ]));
+    return Obx(() {
+      // `toList()` INSIDE this closure IS the subscription: RxList registers
+      // against Obx's observer proxy from its `value` getter, which every read
+      // path (length, [], iterator, toList) goes through. Read BARE in
+      // ImageTray.build — outside the tracking zone — this Obx subscribed to
+      // nothing, and a second photo, an X and every transition
+      // `slots.refresh()` announced repainted nothing. The snapshot also denies
+      // the child a live RxList to re-lose it on, and gives the counter below
+      // a length taken from the same read.
+      final photos = _c.images.slots.toList(growable: false);
+      return Column(children: [
+        Expanded(child: SingleChildScrollView(
+          padding: AppSizes.DEFAULT,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+            CountedTextField(controller: widget.partName, maxLength: 150,
+                labelText: 'Part Name', hintText: 'Front brake discs',
+                errorText: _c.fieldErrorFor('partName'),
+                radius: _kFieldRadius, borderColor: kFieldBorderColor,
+                labelSize: _kLabelSize, quietCounter: true,
+                onChanged: (v) { d.partName = v; _edited('partName'); }),
+            CountedTextField(controller: widget.partNumber, maxLength: 80,
+                labelText: 'Part Number',
+                errorText: _c.fieldErrorFor('partNumber'),
+                radius: _kFieldRadius, borderColor: kFieldBorderColor,
+                labelSize: _kLabelSize, quietCounter: true,
+                onChanged: (v) { d.partNumber = v; _edited('partNumber'); }),
+            _label('Category'),
+            _PickerRow(value: d.categoryName, hint: 'Choose a part category',
+                errorText: _c.fieldErrorFor('categoryId'), onTap: _pickCategory),
+            // Required, and half the supplier-matching key. Pre-selected from
+            // the buyer's last successful create, never silently defaulted: the
+            // User table has no region column to read one from.
+            _label('Region'),
+            ChoiceChipsField<Region>(options: _regions, selected: d.region,
+                onSelect: (r) { d.region = r; _edited('region'); }),
+            if (_c.fieldErrorFor('region') case final e?)
+              MyText(text: e, size: AppTextScale.label, color: kRedColor,
+                  paddingTop: AppSizes.s4, paddingLeft: AppSizes.s8),
+            const SizedBox(height: AppSizes.s16),
+            EnumSelectField<RequestUrgency>(title: 'Set Urgency',
+                hint: 'How soon do you need it?', options: _urgencies,
+                value: d.urgency, errorText: _c.fieldErrorFor('urgency'),
+                borderColor: kFieldBorderColor, titleSize: _kLabelSize,
+                onChanged: (u) { d.urgency = u; _edited('urgency'); }),
+            EnumSelectField<PartCondition>(title: 'Condition',
+                hint: 'New, used or either', options: _conditions,
+                value: d.condition, errorText: _c.fieldErrorFor('condition'),
+                borderColor: kFieldBorderColor, titleSize: _kLabelSize,
+                onChanged: (v) { d.condition = v; _edited('condition'); }),
+            CountedTextField(controller: widget.description, maxLength: 2000,
+                maxLines: 4, labelText: 'Description',
+                hintText: 'Describe part details',
+                errorText: _c.fieldErrorFor('description'),
+                radius: _kFieldRadius, borderColor: kFieldBorderColor,
+                labelSize: _kLabelSize, quietCounter: true,
+                onChanged: (v) { d.description = v; _edited('description'); }),
+            // The comp's card carries no count, but five is a hard server-side
+            // cap and the buyer is owed it somewhere — so it rides the label
+            // row and leaves the card exactly as drawn.
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              _label('Upload Photo'),
+              MyText(text: '${kMaxRequestImages - photos.length} left',
+                  size: AppTextScale.label, color: kGreyTextColor,
+                  paddingBottom: AppSizes.s8),
+            ]),
+            ImageTray(images: photos, onAdd: _addPhotos,
+                onRemove: _c.images.remove, onRetry: _c.images.retry),
+            if (_c.images.rejectionMessage.value case final m?)
+              MyText(text: m, size: AppTextScale.label, color: kRedColor,
+                  paddingTop: AppSizes.s8),
+            if (_c.fieldErrorFor('imageKeys') case final e?)
+              MyText(text: e, size: AppTextScale.label, color: kRedColor,
+                  paddingTop: AppSizes.s8),
+          ]),
+        )),
+        WizardBottomBar(child: MyButton(buttonText: 'Next', onTap: widget.onNext)),
+      ]);
+    });
   }
 
-  Widget _label(String text) => MyText(text: text,
-      size: AppTextScale.subtitle, weight: AppWeights.semibold,
-      color: kBlackColor, paddingBottom: AppSizes.s8);
+  Widget _label(String text) => MyText(text: text, size: _kLabelSize,
+      weight: AppWeights.semibold, color: kBlackColor,
+      paddingBottom: AppSizes.s8);
 }
 
 /// A read-only row that opens a sheet. Not a dropdown: the category list is
@@ -158,14 +193,13 @@ class _PickerRow extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       MyRippleEffect(
-        radius: AppSizes.radiusSm, onTap: onTap,
+        radius: _kFieldRadius, onTap: onTap,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(AppSizes.s16),
           decoration: AppStyling().myDecoration(color: kPrimaryColor,
-              radius: AppSizes.radiusSm,
-              borderColor: errorText == null
-                  ? kBlackColor.withValues(alpha: .5) : kRedColor),
+              radius: _kFieldRadius,
+              borderColor: errorText == null ? kFieldBorderColor : kRedColor),
           child: Row(children: [
             Expanded(child: MyText(text: value ?? hint, maxLines: 1,
                 size: AppTextScale.body, textOverflow: TextOverflow.ellipsis,

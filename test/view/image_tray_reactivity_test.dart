@@ -144,9 +144,11 @@ void main() {
     await t.pump(const Duration(milliseconds: 600));
   }
 
-  /// The add tile's own affordance, which is also the control the buyer taps.
+  /// The upload card's own glyph, which is also the control the buyer taps.
+  /// Only the finder moved when the tray was rebuilt to the comp — every
+  /// assertion below still holds the SCREEN to the same repaints.
   Future<void> tapAdd(WidgetTester t) async {
-    final add = find.byIcon(Icons.add_a_photo_outlined);
+    final add = find.byIcon(Icons.file_upload_outlined);
     await t.ensureVisible(add);
     await t.pump();
     await t.tap(add);
