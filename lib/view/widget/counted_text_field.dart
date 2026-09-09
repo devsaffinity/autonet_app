@@ -24,7 +24,7 @@ class CountedTextField extends StatefulWidget {
     this.labelText, this.hintText, this.errorText, this.maxLines = 1,
     this.onChanged, this.textCapitalization = TextCapitalization.sentences,
     this.marginBottom = AppSizes.s16, this.radius, this.borderColor,
-    this.labelSize, this.quietCounter = false,
+    this.labelSize, this.quietCounter = false, this.isRequired = false,
   });
 
   final TextEditingController controller;
@@ -43,6 +43,9 @@ class CountedTextField extends StatefulWidget {
 
   /// Forwarded to [MyTextField.labelSize]; null keeps that widget's own 16.
   final double? labelSize;
+
+  /// Forwarded to [MyTextField.isRequired] — draws the label's asterisk.
+  final bool isRequired;
 
   /// Suppress the counter until the text is within [_kCounterRevealFraction] of
   /// the cap.
@@ -89,7 +92,7 @@ class _CountedTextFieldState extends State<CountedTextField> {
           hintText: widget.hintText, errorText: widget.errorText,
           maxLines: widget.maxLines, onChanged: widget.onChanged,
           textCapitalization: widget.textCapitalization,
-          labelSize: widget.labelSize,
+          labelSize: widget.labelSize, isRequired: widget.isRequired,
           textInputAction:
               multiline ? TextInputAction.newline : TextInputAction.next,
           // Never null: MyTextField force-unwraps radius. radiusPill == its default.

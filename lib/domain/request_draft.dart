@@ -46,6 +46,25 @@ class RequestDraft {
   bool isRestorableAt(DateTime now) =>
       now.difference(updatedAt) < maxRestoreAge;
 
+  /// The draft keys each wizard step is answerable for.
+  ///
+  /// [validate] checks the WHOLE draft, which is right at submit and wrong at a
+  /// step gate: step 2 must not refuse to advance over a registration typed on
+  /// step 1, and step 1 must not refuse over a category the buyer has not been
+  /// shown yet. Together these two sets are every key [validate] can emit — a
+  /// key in neither would be unreachable at any gate and still fail at submit.
+  static const Set<String> vehicleStepKeys = {'regNumber', 'vehicleModel'};
+  static const Set<String> partStepKeys = {
+    'partName', 'partNumber', 'categoryId', 'region', 'condition', 'urgency',
+    'description',
+  };
+
+  /// The subset of [validate] belonging to [keys] — the gate for one step.
+  Map<String, String> validateStep(Set<String> keys) => {
+    for (final e in validate().entries)
+      if (keys.contains(e.key)) e.key: e.value,
+  };
+
   /// Errors keyed by THE SERVER'S OWN path strings, so a local error and a
   /// `details[]` error land in one map that one form renders.
   Map<String, String> validate() {

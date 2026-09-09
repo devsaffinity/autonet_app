@@ -4,11 +4,13 @@ import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/new_request_controller.dart';
 import 'package:autonect/data/models/request_enums.dart';
+import 'package:autonect/domain/request_draft.dart';
 import 'package:autonect/domain/select_option.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/widgets/category_picker_sheet.dart';
 import 'package:autonect/view/widget/counted_text_field.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/image_tray.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -103,6 +105,10 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
       // the child a live RxList to re-lose it on, and gives the counter below
       // a length taken from the same read.
       final photos = _c.images.slots.toList(growable: false);
+      // Only THIS step's keys: a registration typed on step 1 is step 1's
+      // business, and blocking Next over it would strand the buyer on a screen
+      // that cannot show them the field to fix.
+      final missing = d.validateStep(RequestDraft.partStepKeys);
       return Column(children: [
         Expanded(child: SingleChildScrollView(
           padding: AppSizes.DEFAULT,
@@ -110,6 +116,7 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
               children: [
             CountedTextField(controller: widget.partName, maxLength: 150,
                 labelText: 'Part Name', hintText: 'Front brake discs',
+                isRequired: true,
                 errorText: _c.fieldErrorFor('partName'),
                 radius: _kFieldRadius, borderColor: kFieldBorderColor,
                 labelSize: _kLabelSize, quietCounter: true,
@@ -120,23 +127,25 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
                 radius: _kFieldRadius, borderColor: kFieldBorderColor,
                 labelSize: _kLabelSize, quietCounter: true,
                 onChanged: (v) { d.partNumber = v; _edited('partNumber'); }),
-            _label('Category'),
+            _label('Category', isRequired: true),
             _PickerRow(value: d.categoryName, hint: 'Choose a part category',
                 errorText: _c.fieldErrorFor('categoryId'), onTap: _pickCategory),
             // Required, and half the supplier-matching key. Pre-selected from
             // the buyer's last successful create, never silently defaulted: the
             // User table has no region column to read one from.
-            EnumSelectField<Region>(title: 'Region',
+            EnumSelectField<Region>(title: 'Region', isRequired: true,
                 hint: 'Choose your region', options: _regions,
                 value: d.region, errorText: _c.fieldErrorFor('region'),
                 borderColor: kFieldBorderColor, titleSize: _kLabelSize,
                 onChanged: (r) { d.region = r; _edited('region'); }),
             EnumSelectField<RequestUrgency>(title: 'Set Urgency',
+                isRequired: true,
                 hint: 'How soon do you need it?', options: _urgencies,
                 value: d.urgency, errorText: _c.fieldErrorFor('urgency'),
                 borderColor: kFieldBorderColor, titleSize: _kLabelSize,
                 onChanged: (u) { d.urgency = u; _edited('urgency'); }),
             EnumSelectField<PartCondition>(title: 'Condition',
+                isRequired: true,
                 hint: 'New, used or either', options: _conditions,
                 value: d.condition, errorText: _c.fieldErrorFor('condition'),
                 borderColor: kFieldBorderColor, titleSize: _kLabelSize,
@@ -167,14 +176,50 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
                   paddingTop: AppSizes.s8),
           ]),
         )),
-        WizardBottomBar(child: MyButton(buttonText: 'Next', onTap: widget.onNext)),
+        WizardBottomBar(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // A disabled CTA with nothing beside it is a dead end — the buyer
+            // cannot tap it to find out what is wrong. This is the same pairing
+            // the confirm step uses for Send Request.
+            if (missing.isNotEmpty)
+              MyText(text: 'Still needed: ${_missingLabels(missing)}',
+                  size: AppTextScale.label, color: kGreyTextColor,
+                  maxLines: 2, textOverflow: TextOverflow.ellipsis,
+                  paddingBottom: AppSizes.s8),
+            MyButton(buttonText: 'Next', enabled: missing.isEmpty,
+                onTap: widget.onNext),
+          ],
+        )),
       ]);
     });
   }
 
-  Widget _label(String text) => MyText(text: text, size: _kLabelSize,
+  Widget _label(String text, {bool isRequired = false}) => FieldLabel(
+      text: text, isRequired: isRequired, size: _kLabelSize,
       weight: AppWeights.semibold, color: kBlackColor,
       paddingBottom: AppSizes.s8);
+
+  /// The screen's own labels, in the order the fields appear, NOT validate()'s
+  /// sentences. 'Part name must be at least 2 characters' is exactly right on
+  /// the field and wrong concatenated five deep into a bottom bar. Keyed by the
+  /// SERVER path, so this map and the controls above cannot drift apart without
+  /// a missing key showing up verbatim in the summary.
+  static const Map<String, String> _fieldLabels = {
+    'partName': 'Part Name',
+    'partNumber': 'Part Number',
+    'categoryId': 'Category',
+    'region': 'Region',
+    'urgency': 'Set Urgency',
+    'condition': 'Condition',
+    'description': 'Description',
+  };
+
+  String _missingLabels(Map<String, String> missing) => [
+    for (final e in _fieldLabels.entries)
+      if (missing.containsKey(e.key)) e.value,
+  ].join(', ');
 }
 
 /// A read-only row that opens a sheet. Not a dropdown: the category list is

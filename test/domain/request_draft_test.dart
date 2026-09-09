@@ -24,6 +24,47 @@ PendingImage image(String id, ImageUploadStatus status, {String? key}) =>
     );
 
 void main() {
+  group('validateStep', () {
+    test('the part step ignores what step 1 owns, and the reverse', () {
+      // An empty draft: every rule fails at once, which is the only state where
+      // a gate can be caught checking someone else's fields.
+      final d = RequestDraft();
+      expect(d.validateStep(RequestDraft.partStepKeys).keys,
+          isNot(contains('regNumber')));
+      expect(d.validateStep(RequestDraft.vehicleStepKeys).keys,
+          isNot(contains('categoryId')));
+    });
+
+    test('the part step reports every required field it owns', () {
+      expect(RequestDraft().validateStep(RequestDraft.partStepKeys).keys.toSet(),
+          {'partName', 'categoryId', 'region', 'condition', 'urgency'});
+    });
+
+    test('a complete draft blocks neither step', () {
+      final d = validDraft();
+      expect(d.validateStep(RequestDraft.partStepKeys), isEmpty);
+      expect(d.validateStep(RequestDraft.vehicleStepKeys), isEmpty);
+    });
+
+    test('the two steps between them own EVERY key validate can emit', () {
+      // A key in neither set is unreachable at any gate: the buyer would be
+      // waved through both steps and then find Send Request dead on step 3,
+      // with no field on screen to explain it.
+      final covered = {
+        ...RequestDraft.vehicleStepKeys,
+        ...RequestDraft.partStepKeys,
+      };
+      final everyKey = RequestDraft(
+        regNumber: 'x',
+        partNumber: 'p' * 81,
+        description: 'd' * 2001,
+        manualModelRequired: true,
+      ).validate().keys.toSet();
+      expect(everyKey.difference(covered), isEmpty,
+          reason: 'unreachable at every step gate');
+    });
+  });
+
   group('validate', () {
     test('a complete draft has no errors', () {
       expect(validDraft().validate(), isEmpty);

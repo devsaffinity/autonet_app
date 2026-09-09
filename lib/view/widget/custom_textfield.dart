@@ -1,6 +1,7 @@
 // ignore: must_be_immutable
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_fonts.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class MyTextField extends StatefulWidget {
     this.textInputAction = TextInputAction.next,
     this.inputFormatters,
     this.borderColor,
+    this.isRequired = false,
   }) : super(key: key);
 
   TextInputType? keyboardType;
@@ -64,6 +66,11 @@ class MyTextField extends StatefulWidget {
   /// choice.
   final Color? borderColor;
 
+  /// Draws the asterisk on this field's label. Label-only: the CHECK stays with
+  /// the draft's own validate(), because a widget flag that gated submission
+  /// would put half the rule on the screen and half on the model.
+  final bool isRequired;
+
   @override
   State<MyTextField> createState() => _MyTextFieldState();
 }
@@ -83,8 +90,9 @@ class _MyTextFieldState extends State<MyTextField> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.labelText != null)
-            MyText(
+            FieldLabel(
               text: widget.labelText?.tr ?? '',
+              isRequired: widget.isRequired,
               size: widget.labelSize ?? 16,
               paddingBottom: 6,
               weight: FontWeight.w600,

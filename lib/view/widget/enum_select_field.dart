@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/domain/select_option.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +23,7 @@ class EnumSelectField<T> extends StatelessWidget {
     super.key, required this.options, required this.value,
     required this.onChanged, this.title, this.hint = 'Select',
     this.errorText, this.bottomPadding = AppSizes.s16, this.borderColor,
-    this.titleSize,
+    this.titleSize, this.isRequired = false,
   });
 
   final List<SelectOption<T>> options;
@@ -40,6 +41,10 @@ class EnumSelectField<T> extends StatelessWidget {
   /// also uses this widget does not move.
   final double? titleSize;
 
+  /// Draws the asterisk on [title]. Label-only, same as [MyTextField]: the rule
+  /// that actually blocks submission lives on the draft.
+  final bool isRequired;
+
   @override
   Widget build(BuildContext context) {
     // A value with no matching option would trip DropdownButton2's own
@@ -52,7 +57,8 @@ class EnumSelectField<T> extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null)
-            MyText(text: title!, size: titleSize ?? AppTextScale.subtitle,
+            FieldLabel(text: title!, isRequired: isRequired,
+                size: titleSize ?? AppTextScale.subtitle,
                 weight: AppWeights.semibold, color: kBlackColor,
                 paddingBottom: AppSizes.s4),
           DropdownButton2<T>(

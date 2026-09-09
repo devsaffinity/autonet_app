@@ -123,6 +123,64 @@ void main() {
     expect(c.draft.condition?.wire, 'EITHER');
   });
 
+  testWidgets('Next is blocked until every required field is answered',
+      (t) async {
+    await pumpStep2(t);
+    MyButton next() =>
+        t.widget<MyButton>(find.widgetWithText(MyButton, 'Next'));
+
+    expect(next().enabled, isFalse);
+    // And the bar SAYS why, in the order the fields appear on screen. A
+    // disabled CTA on its own cannot be tapped to find that out.
+    expect(
+      find.text('Still needed: Part Name, Category, Region, Set Urgency, '
+          'Condition'),
+      findsOneWidget,
+    );
+
+    c.draft
+      ..partName = 'Front brake discs'
+      ..categoryId = 'cat_brakes'
+      ..categoryName = 'Brakes'
+      ..region = Region.london
+      ..urgency = RequestUrgency.standard
+      ..condition = PartCondition.either;
+    await pumpStep2(t);
+
+    expect(next().enabled, isTrue);
+    expect(find.textContaining('Still needed'), findsNothing);
+  });
+
+  testWidgets('a step-1 field never blocks step 2', (t) async {
+    // The registration belongs to the previous screen. Gating Next on it would
+    // strand the buyer here with no field to fix and no way back but the
+    // system gesture.
+    c.draft
+      ..regNumber = ''
+      ..partName = 'Front brake discs'
+      ..categoryId = 'cat_brakes'
+      ..region = Region.london
+      ..urgency = RequestUrgency.standard
+      ..condition = PartCondition.either;
+    await pumpStep2(t);
+
+    expect(c.draft.validate().keys, contains('regNumber'));
+    expect(
+      t.widget<MyButton>(find.widgetWithText(MyButton, 'Next')).enabled,
+      isTrue,
+    );
+  });
+
+  testWidgets('every required field is marked, and no optional one is',
+      (t) async {
+    await pumpStep2(t);
+    // Part Name, Category, Region, Set Urgency and Condition carry the marker.
+    // Part Number, Description and Upload Photo must not: the API accepts a
+    // request without any of the three, and an asterisk on an optional field is
+    // the same lie as a missing one on a required field.
+    expect(find.text(' *'), findsNWidgets(5));
+  });
+
   testWidgets('the submit CTA is disabled while validate() is non-empty',
       (t) async {
     await t.pumpWidget(host(ConfirmStepView(controller: c)));

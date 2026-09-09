@@ -41,12 +41,16 @@ class RegPlateField extends StatelessWidget {
     this.errorText,
     this.onChanged,
     this.marginBottom = AppSizes.s16,
+    this.isRequired = false,
   });
 
   final TextEditingController controller;
   final String? labelText, hintText, errorText;
   final ValueChanged<String>? onChanged;
   final double marginBottom;
+
+  /// Forwarded to [MyTextField.isRequired] — draws the label's asterisk.
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) => MyTextField(
@@ -56,6 +60,7 @@ class RegPlateField extends StatelessWidget {
     errorText: errorText,
     onChanged: onChanged,
     marginBottom: marginBottom,
+    isRequired: isRequired,
     textCapitalization: TextCapitalization.characters,
     textInputAction: TextInputAction.done,
     inputFormatters: const [_RegPlateFormatter()],

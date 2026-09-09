@@ -87,7 +87,7 @@ class _VehicleStepViewState extends State<VehicleStepView> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             MyText(text: 'Enter your registration', size: AppTextScale.subtitle,
                 weight: AppWeights.semibold, paddingBottom: AppSizes.s12),
-            RegPlateField(controller: widget.reg,
+            RegPlateField(controller: widget.reg, isRequired: true,
                 errorText: c.fieldErrorFor('regNumber'),
                 onChanged: (v) =>
                     _edited('regNumber', (c) => c.draft.regNumber = v)),
@@ -147,7 +147,7 @@ class _VehicleStepViewState extends State<VehicleStepView> {
 
   Widget _modelField(NewRequestController c, {required bool editable}) =>
       MyTextField(controller: widget.model, isReadOnly: !editable,
-          labelText: editable ? 'Model (required)' : 'Model',
+          labelText: 'Model', isRequired: editable,
           radius: AppSizes.radiusSm,
           errorText: c.fieldErrorFor('vehicleModel'),
           onChanged: editable
