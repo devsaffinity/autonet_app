@@ -55,5 +55,19 @@ class NotificationsApiRepository implements NotificationsRepository {
     decode: (d) => _int((d as Map?)?['read']),
   );
 
+  @override
+  Future<ApiResult<int>> remove(String id) => _c.send(
+    method: 'DELETE',
+    path: '/v1/notifications/$id',
+    decode: (d) => _int((d as Map?)?['deleted']),
+  );
+
+  @override
+  Future<ApiResult<int>> removeAll() => _c.send(
+    method: 'DELETE',
+    path: '/v1/notifications',
+    decode: (d) => _int((d as Map?)?['deleted']),
+  );
+
   static int _int(Object? v) => v is int ? v : int.tryParse('$v') ?? 0;
 }

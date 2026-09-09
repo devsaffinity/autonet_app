@@ -128,6 +128,58 @@ class NotificationsController extends ApiController {
     }
   }
 
+  /// Whether there is anything to clear.
+  ///
+  /// The Clear all action hides when this is false, for the same reason Mark
+  /// all read hides at zero unread: a visible action that does nothing invites
+  /// the tap that proves it does nothing.
+  bool get hasAny =>
+      state.value is Data<List<AppNotification>> && _current.isNotEmpty;
+
+  /// Asks the SERVER to delete one, and reports whether the row may leave.
+  ///
+  /// Split from [forget] because it is a Dismissible's confirmDismiss: the row
+  /// must only animate away if the server agreed, and this must NOT touch the
+  /// list while doing it. Removing here would rebuild the list without the
+  /// row and dispose the very Dismissible still waiting on this future.
+  ///
+  /// A 0 is still a yes. It means the row was already gone — cleared on
+  /// another device, most likely — and springing it back would restore
+  /// something that no longer exists.
+  Future<bool> confirmRemove(AppNotification n) async {
+    switch (await _repo.remove(n.id)) {
+      case Ok():
+        return true;
+      case Err(:final error):
+        absorb(error);
+        return false;
+    }
+  }
+
+  /// Drops the row and its share of the badge, AFTER the dismissal animation.
+  void forget(AppNotification n) {
+    state.value = Data<List<AppNotification>>([
+      for (final item in _current)
+        if (item.id != n.id) item,
+    ]);
+    // Only an UNREAD row was ever counted, or the badge drifts below the truth
+    // and the bell under-reports for the rest of the session.
+    if (!n.read && unread.value > 0) unread.value -= 1;
+  }
+
+  /// Clears everything. Reloads rather than emptying locally: the server is
+  /// authoritative on both the list and the count, and a page-two row this
+  /// controller never held would otherwise survive in the total.
+  Future<void> removeAll() async {
+    switch (await _repo.removeAll()) {
+      case Ok():
+        unread.value = 0;
+        await load();
+      case Err(:final error):
+        absorb(error);
+    }
+  }
+
   Future<void> markAllRead() async {
     if (unread.value == 0) return;
     switch (await _repo.markAllRead()) {

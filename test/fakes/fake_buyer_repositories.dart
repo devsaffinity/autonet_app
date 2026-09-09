@@ -241,6 +241,12 @@ class FakeNotificationsRepository implements NotificationsRepository {
 
   @override
   Future<ApiResult<int>> markAllRead() async => Ok(unread);
+
+  @override
+  Future<ApiResult<int>> remove(String id) async => const Ok(1);
+
+  @override
+  Future<ApiResult<int>> removeAll() async => Ok(items.length);
 }
 
 class FakeProfileRepository implements ProfileRepository {

@@ -5,6 +5,7 @@ import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/data/models/app_notification.dart';
 import 'package:autonect/view/screens/buyer/detail/order_status.dart';
 import 'package:autonect/view/screens/buyer/request/request_detail.dart';
+import 'package:autonect/view/widget/confirm_dialog.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
@@ -14,8 +15,10 @@ import 'package:get/get.dart';
 /// The notification centre.
 ///
 /// Everything here is a READ of something that already happened elsewhere, so
-/// there is no create/edit path and no double-submit hazard — the only writes
-/// are marking rows read.
+/// there is no create/edit path and no double-submit hazard. The only writes
+/// are marking rows read and deleting them — and deletion is the one thing on
+/// this screen that cannot be undone, which is why the bulk form asks first
+/// and the per-row form is a deliberate swipe rather than a tappable target.
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -71,6 +74,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   weight: AppWeights.semibold,
                 ),
               )),
+        // An icon, not a second text button: 'Mark all read' plus 'Clear all'
+        // beside a back button and a title overruns the bar at 320dp, and the
+        // label that would be truncated is the one on the destructive action.
+        Obx(() => !_c.hasAny
+            ? const SizedBox.shrink()
+            : IconButton(
+                onPressed: _clearAll,
+                tooltip: 'Clear all notifications',
+                icon: const Icon(Icons.delete_sweep_outlined,
+                    color: kGreyTextColor, size: AppSizes.s24),
+              )),
       ],
     ),
     body: RefreshIndicator(
@@ -87,16 +101,52 @@ class _NotificationsPageState extends State<NotificationsPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           itemCount: items.length + 1,
           separatorBuilder: (_, _) => const SizedBox(height: AppSizes.s8),
-          itemBuilder: (_, i) => i == items.length
-              ? _footer()
-              : _NotificationTile(
-                  notification: items[i],
-                  onTap: () => _open(items[i]),
-                ),
+          itemBuilder: (_, i) =>
+              i == items.length ? _footer() : _dismissible(items[i]),
         ),
       )),
     ),
   );
+
+  /// Swipe-to-delete, one direction only.
+  ///
+  /// endToStart alone because startToEnd is the platform back gesture on iOS,
+  /// and a row that deletes itself when someone tries to leave the screen is
+  /// the worst possible home for an irreversible action.
+  ///
+  /// confirmDismiss does the server call and onDismissed does the local
+  /// removal, deliberately in that order: removing from the list inside
+  /// confirmDismiss would rebuild without the row and dispose the very
+  /// Dismissible still awaiting the answer.
+  Widget _dismissible(AppNotification n) => Dismissible(
+    key: ValueKey<String>(n.id),
+    direction: DismissDirection.endToStart,
+    background: Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: AppSizes.s20),
+      decoration: BoxDecoration(
+        color: kRedColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      ),
+      child: const Icon(Icons.delete_outline_rounded, color: kWhiteColor),
+    ),
+    confirmDismiss: (_) => _c.confirmRemove(n),
+    onDismissed: (_) => _c.forget(n),
+    child: _NotificationTile(notification: n, onTap: () => _open(n)),
+  );
+
+  /// Clearing every notification is irreversible and one tap from the app bar,
+  /// so it asks first — the same dialog the request-cancel flow uses, whose
+  /// buttons each fire at most once.
+  Future<void> _clearAll() async {
+    final confirmed = await Get.dialog<bool>(const ConfirmDialog(
+      verb: 'Clear all',
+      warning: 'Every notification will be removed from this account. '
+          'This cannot be undone.',
+      keepLabel: 'Keep them',
+    ));
+    if (confirmed == true) await _c.removeAll();
+  }
 
   Widget _footer() => Obx(() {
     if (_c.loadingMore.value) {

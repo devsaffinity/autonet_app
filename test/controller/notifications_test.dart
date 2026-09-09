@@ -25,6 +25,8 @@ class _FakeRepo implements NotificationsRepository {
   List<List<AppNotification>> pages = const [];
   ApiResult<NotificationPage>? listOverride;
   ApiResult<int> markReadResult = const Ok(1);
+  ApiResult<int> removeResult = const Ok(1);
+  ApiResult<int> removeAllResult = const Ok(2);
   final calls = <String>[];
 
   @override
@@ -51,6 +53,18 @@ class _FakeRepo implements NotificationsRepository {
   Future<ApiResult<int>> markAllRead() async {
     calls.add('markAllRead');
     return Ok(unread);
+  }
+
+  @override
+  Future<ApiResult<int>> remove(String id) async {
+    calls.add('remove:$id');
+    return removeResult;
+  }
+
+  @override
+  Future<ApiResult<int>> removeAll() async {
+    calls.add('removeAll');
+    return removeAllResult;
   }
 }
 
@@ -90,6 +104,103 @@ void main() {
         ];
       await c.load();
       expect(c.unread.value, 40);
+    });
+  });
+
+  group('delete', () {
+    test('confirmRemove asks the server and leaves the list alone', () async {
+      repo
+        ..unread = 2
+        ..pages = [
+          [_n('a'), _n('b')],
+        ];
+      await c.load();
+
+      expect(await c.confirmRemove(_n('a')), isTrue);
+      expect(repo.calls, contains('remove:a'));
+      // The SPLIT is the point. Removing here would rebuild the list without
+      // the row and dispose the Dismissible still awaiting this future.
+      final items = (c.state.value as Data<List<AppNotification>>).value;
+      expect(items, hasLength(2));
+      expect(c.unread.value, 2);
+    });
+
+    test('a 0 is still a yes — the row is gone either way', () async {
+      // Already deleted elsewhere. Springing the row back would restore
+      // something that does not exist.
+      repo
+        ..removeResult = const Ok(0)
+        ..pages = [
+          [_n('a')],
+        ];
+      await c.load();
+
+      expect(await c.confirmRemove(_n('a')), isTrue);
+      expect(repo.calls, contains('remove:a'));
+    });
+
+    test('a failure refuses the dismissal, so the row springs back', () async {
+      repo
+        ..removeResult = const Err(ApiError.network('offline'))
+        ..pages = [
+          [_n('a')],
+        ];
+      await c.load();
+
+      expect(await c.confirmRemove(_n('a')), isFalse);
+      expect((c.state.value as Data<List<AppNotification>>).value, hasLength(1));
+    });
+
+    test('forget drops the row and the badge with it', () async {
+      repo
+        ..unread = 2
+        ..pages = [
+          [_n('a'), _n('b')],
+        ];
+      await c.load();
+
+      c.forget(_n('a'));
+
+      final items = (c.state.value as Data<List<AppNotification>>).value;
+      expect(items.map((n) => n.id), ['b']);
+      expect(c.unread.value, 1);
+    });
+
+    test('forgetting a READ row leaves the badge alone', () async {
+      // It was never counted. Decrementing here makes the bell under-report
+      // every unread row for the rest of the session.
+      repo
+        ..unread = 2
+        ..pages = [
+          [_n('a', read: true), _n('b')],
+        ];
+      await c.load();
+
+      c.forget(_n('a', read: true));
+
+      expect(c.unread.value, 2);
+    });
+
+    test('removeAll zeroes the badge and re-reads from the server', () async {
+      repo
+        ..unread = 5
+        ..pages = [
+          [_n('a'), _n('b')],
+        ];
+      await c.load();
+      repo
+        ..calls.clear()
+        ..unread = 0
+        ..pages = const [];
+
+      await c.removeAll();
+
+      expect(repo.calls, contains('removeAll'));
+      // Reloaded, not emptied locally: a page-two row this controller never
+      // held would otherwise survive in the total.
+      expect(repo.calls.where((call) => call.startsWith('list:')), isNotEmpty);
+      expect(c.unread.value, 0);
+      expect(c.state.value, isA<Empty<List<AppNotification>>>());
     });
   });
 

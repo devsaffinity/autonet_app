@@ -16,4 +16,13 @@ abstract class NotificationsRepository {
   Future<ApiResult<int>> markRead(String id);
 
   Future<ApiResult<int>> markAllRead();
+
+  /// Deletes one. Returns how many rows went — 0 when it was already gone, or
+  /// when it was never this account's, which the server does not distinguish
+  /// on purpose: both mean "it is not there", and telling them apart would
+  /// confirm that someone else's uuid exists.
+  Future<ApiResult<int>> remove(String id);
+
+  /// Clears the whole centre. Returns how many rows went.
+  Future<ApiResult<int>> removeAll();
 }
