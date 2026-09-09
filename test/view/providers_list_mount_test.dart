@@ -226,7 +226,7 @@ void _detailTests() {
 /// icon that is drawn but wired to nothing is exactly the defect these are
 /// here to catch, and only the destination can tell the two apart.
 void _actionTests() {
-  Future<void> _mountList(WidgetTester tester) async {
+  Future<void> mountList(WidgetTester tester) async {
     final providers = FakeProvidersRepository()
       ..listResult = Ok(Paged<ServiceProvider>(
         [_p()],
@@ -248,7 +248,7 @@ void _actionTests() {
   }
 
   testWidgets("the app bar's calendar opens My Bookings", (tester) async {
-    await _mountList(tester);
+    await mountList(tester);
 
     // By TOOLTIP, which is also the semantics label — an app bar glyph with
     // neither is unreadable to a screen reader.
@@ -262,7 +262,7 @@ void _actionTests() {
   testWidgets("the row's kebab offers profile, booking and messages", (
     tester,
   ) async {
-    await _mountList(tester);
+    await mountList(tester);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
@@ -274,7 +274,7 @@ void _actionTests() {
 
   testWidgets('Book a callout goes straight to the booking form, seeded',
       (tester) async {
-    await _mountList(tester);
+    await mountList(tester);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
@@ -288,7 +288,7 @@ void _actionTests() {
   });
 
   testWidgets('Message opens the Messages tab', (tester) async {
-    await _mountList(tester);
+    await mountList(tester);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();

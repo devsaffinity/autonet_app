@@ -259,6 +259,36 @@ void main() {
       expect(find.text('£125.00'), findsOneWidget);
     });
 
+    testWidgets('a COMPLETED booking offers a review; nothing else does', (
+      tester,
+    ) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>(
+            [_booking(status: 'COMPLETED', quotedPence: 12500)], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      // COMPLETED is the only state the server accepts a review from, and it
+      // is what finally lets an electrician earn a rating at all.
+      expect(find.text('Rate this provider'), findsOneWidget);
+    });
+
+    testWidgets('a PENDING booking offers no review', (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      // Reviewing work that has not happened would only earn a 409.
+      expect(find.text('Rate this provider'), findsNothing);
+    });
+
     testWidgets('renders the empty state', (tester) async {
       final repo = FakeBookingsRepository()
         ..listResult = Ok(Paged<Booking>(const [], _meta(0)));

@@ -1,3 +1,4 @@
+import 'package:autonect/domain/review_context.dart';
 import 'dart:convert';
 
 import 'package:autonect/data/core/api_client.dart';
@@ -34,14 +35,14 @@ void main() {
   group('create', () {
     test('omits text when blank — "" fails the server min(1)', () async {
       t.on('POST', '/v1/reviews', body: createdBody);
-      final r = await repo.create(orderId: 'ord_1', rating: 5, text: '  ');
+      final r = await repo.create(context: const OrderReview('ord_1'), rating: 5, text: '  ');
       expect(bodyOf('POST', '/v1/reviews'), {'orderId': 'ord_1', 'rating': 5});
       expect(r.valueOrNull!.id, 'rev_9');
     });
 
     test('trims and sends real text', () async {
       t.on('POST', '/v1/reviews', body: createdBody);
-      await repo.create(orderId: 'ord_1', rating: 4, text: '  Great  ');
+      await repo.create(context: const OrderReview('ord_1'), rating: 4, text: '  Great  ');
       expect(bodyOf('POST', '/v1/reviews'), {
         'orderId': 'ord_1',
         'rating': 4,
@@ -65,8 +66,8 @@ void main() {
         status: 409,
         body: errorBody('CONFLICT', 'You can review only after delivery'),
       );
-      final first = await repo.create(orderId: 'ord_1', rating: 5);
-      final second = await repo.create(orderId: 'ord_1', rating: 5);
+      final first = await repo.create(context: const OrderReview('ord_1'), rating: 5);
+      final second = await repo.create(context: const OrderReview('ord_1'), rating: 5);
 
       expect(first.errorOrNull!.code, ApiErrorCode.conflict);
       expect(second.errorOrNull!.code, ApiErrorCode.conflict);

@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/controller/buyer/review_controller.dart';
+import 'package:autonect/domain/review_context.dart';
 import 'package:autonect/view/widget/counted_text_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
@@ -12,16 +13,39 @@ import 'package:autonect/view/widget/star_rating_input.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// `POST /v1/reviews` — one review per DELIVERED order, and there is no edit
-/// and no delete endpoint behind it, so the copy says so before submitting.
+/// `POST /v1/reviews` — one review per DELIVERED order or COMPLETED booking,
+/// and there is no edit and no delete endpoint behind it, so the copy says so
+/// before submitting.
+///
+/// [context] decides which: the same screen reviews a supplier and an
+/// electrician, because to a buyer it is the same act and the server takes
+/// the same body but for one key.
 class ReviewPage extends StatefulWidget {
   const ReviewPage({
     super.key,
-    required this.orderId,
+    required this.context,
     required this.supplierName,
+    this.onDone,
   });
 
-  final String orderId, supplierName;
+  /// Convenience for the order journey, which is every existing call site.
+  ReviewPage.forOrder({
+    super.key,
+    required String orderId,
+    required this.supplierName,
+    this.onDone,
+  }) : context = OrderReview(orderId);
+
+  final ReviewContext context;
+  final String supplierName;
+
+  /// What to do once it is published.
+  ///
+  /// Null keeps the ORDER journey's behaviour — clearing the stack back to
+  /// the shell, because reviewing is the end of that road. A booking is
+  /// reviewed from a list the buyer is still standing in, so that screen
+  /// passes a plain pop instead.
+  final VoidCallback? onDone;
 
   @override
   State<ReviewPage> createState() => _ReviewPageState();
@@ -52,7 +76,7 @@ class _ReviewPageState extends State<ReviewPage> {
     FocusScope.of(context).unfocus();
     final text = _text.text.trim();
     final ok = await c.submit(
-      orderId: widget.orderId,
+      context: widget.context,
       rating: c.rating.value,
       // Omitted when blank: `""` fails the server's min(1) and 400s.
       text: text.isEmpty ? null : text,
@@ -60,8 +84,13 @@ class _ReviewPageState extends State<ReviewPage> {
     if (!mounted || !ok) return;
     // There is no edit and no delete endpoint, so the confirmation says so.
     displayToast(msg: 'Thanks — your review is published and is now final.');
-    // The end of the order journey clears the stack, so per the routing rule it
-    // is a NAMED navigation.
+    final onDone = widget.onDone;
+    if (onDone != null) {
+      onDone();
+      return;
+    }
+    // The end of the ORDER journey clears the stack, so per the routing rule
+    // it is a NAMED navigation.
     Get.offAllNamed(AppLinks.buyerShell);
   }
 

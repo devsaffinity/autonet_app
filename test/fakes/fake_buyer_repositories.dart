@@ -15,6 +15,7 @@ import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/review.dart';
+import 'package:autonect/domain/review_context.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/vehicle.dart';
 import 'package:autonect/data/models/booking.dart';
@@ -155,8 +156,13 @@ class FakeReviewsRepository implements ReviewsRepository {
   ApiResult<ReviewsPage>? forTargetResult;
 
   @override
-  Future<ApiResult<Review>> create({required String orderId, required int rating, String? text}) async {
-    calls.add('review:$orderId:$rating');
+  Future<ApiResult<Review>> create({
+    required ReviewContext context,
+    required int rating,
+    String? text,
+  }) async {
+    final entry = context.bodyEntry;
+    calls.add('review:${entry.key}=${entry.value}:$rating');
     return createResult ?? _none('create');
   }
 

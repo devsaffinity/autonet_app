@@ -65,7 +65,7 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
     }
   }
 
-  void _review() => Get.to(() => ReviewPage(orderId: widget.orderId,
+  void _review() => Get.to(() => ReviewPage.forOrder(orderId: widget.orderId,
       supplierName: widget.supplierName ?? 'this supplier'));
 
   Widget _header(Order order) {

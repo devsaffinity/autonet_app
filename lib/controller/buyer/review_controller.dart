@@ -5,6 +5,7 @@ import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/repositories/reviews_repository.dart';
 import 'package:autonect/domain/conflict_kind.dart';
 import 'package:autonect/domain/failure_copy.dart';
+import 'package:autonect/domain/review_context.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:get/get.dart';
 
@@ -39,7 +40,7 @@ class ReviewController extends ApiController {
   }
 
   Future<bool> submit({
-    required String orderId,
+    required ReviewContext context,
     required int rating,
     String? text,
   }) {
@@ -50,7 +51,7 @@ class ReviewController extends ApiController {
     }
     return run<Review, bool>(
       null,
-      () => _repo.create(orderId: orderId, rating: rating, text: text),
+      () => _repo.create(context: context, rating: rating, text: text),
       (r) {
         switch (r) {
           case Ok(:final value):

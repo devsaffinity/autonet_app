@@ -2,6 +2,7 @@ import 'package:autonect/data/core/api_client.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/review.dart';
+import 'package:autonect/domain/review_context.dart';
 import 'package:autonect/data/repositories/reviews_repository.dart';
 
 class ReviewsApiRepository implements ReviewsRepository {
@@ -17,14 +18,17 @@ class ReviewsApiRepository implements ReviewsRepository {
   /// empty string is a 400 where an absent key is "no written review".
   @override
   Future<ApiResult<Review>> create({
-    required String orderId,
+    required ReviewContext context,
     required int rating,
     String? text,
   }) => _c.send(
     method: 'POST',
     path: '/v1/reviews',
     body: {
-      'orderId': orderId,
+      // Exactly one key, chosen by the context type. The server's zod refine
+      // rejects both-set and neither-set, and its CHECK constraint rejects
+      // them again at the row.
+      context.bodyEntry.key: context.bodyEntry.value,
       'rating': rating,
       if (text != null && text.trim().isNotEmpty) 'text': text.trim(),
     },

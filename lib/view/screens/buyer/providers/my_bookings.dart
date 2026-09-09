@@ -7,6 +7,8 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/domain/money_format.dart';
+import 'package:autonect/domain/review_context.dart';
+import 'package:autonect/view/screens/buyer/detail/review_page.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/choice_chips_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -74,11 +76,30 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           itemBuilder: (_, b) => _BookingCard(
             booking: b,
             onCancel: () => _confirmCancel(b),
+            onReview: () => _review(b),
           ),
         );
       })),
     ]),
   );
+
+  /// A completed callout can be rated — the thing that finally lets an
+  /// electrician earn a rating at all, since a Review needed an Order until
+  /// bookingId existed.
+  ///
+  /// Pops back to this list rather than clearing the stack the way the order
+  /// journey does: the buyer is standing in a list they may want to keep
+  /// reading, not at the end of a road.
+  void _review(Booking booking) => Get.to(() => ReviewPage(
+    context: BookingReview(booking.id),
+    supplierName: booking.provider?.fullName ??
+        booking.provider?.name ??
+        'your provider',
+    onDone: () {
+      Get.back();
+      c.refreshFirst();
+    },
+  ));
 
   /// Cancelling demands a REASON — the server requires one, so asking for it
   /// here is not ceremony, it is the request body.
@@ -125,10 +146,15 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 }
 
 class _BookingCard extends StatelessWidget {
-  const _BookingCard({required this.booking, required this.onCancel});
+  const _BookingCard({
+    required this.booking,
+    required this.onCancel,
+    required this.onReview,
+  });
 
   final Booking booking;
   final VoidCallback onCancel;
+  final VoidCallback onReview;
 
   String get _providerName =>
       booking.provider?.fullName ?? booking.provider?.name ?? 'Provider';
@@ -184,6 +210,19 @@ class _BookingCard extends StatelessWidget {
             color: booking.isQuoted ? kSecondaryColor : kGreyTextColor,
           ),
         ]),
+        // COMPLETED is the only state a review is accepted from, so the
+        // control appears exactly there. A second review earns a 409, but the
+        // server is the authority on that and the toast says so.
+        if (booking.status == BookingStatus.completed) ...[
+          const SizedBox(height: AppSizes.s12),
+          MyButton(
+            buttonText: 'Rate this provider',
+            fontSize: AppTextScale.label,
+            height: 40,
+            radius: AppSizes.radiusMd,
+            onTap: onReview,
+          ),
+        ],
         // Shown only while the server would accept it. Past IN_PROGRESS the
         // provider has travelled and started, so this would only earn a 409.
         if (booking.canCancel) ...[
