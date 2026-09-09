@@ -219,6 +219,19 @@ void main() {
       expect(find.text('Typing...'), findsNothing);
     });
 
+    testWidgets('the search box actually filters', (tester) async {
+      await pumpInbox(tester, rows: [_conversation()]);
+
+      await tester.enterText(find.byType(TextField).first, 'nobody');
+      await tester.pump();
+
+      // The controller had search() and visible() written and unreachable:
+      // the bar was constructed const, with no onChanged.
+      expect(tester.takeException(), isNull);
+      expect(find.text('Priya Raman'), findsNothing);
+      expect(find.textContaining('Nothing matches'), findsOneWidget);
+    });
+
     testWidgets('an empty inbox says where threads come from', (tester) async {
       await pumpInbox(tester);
 

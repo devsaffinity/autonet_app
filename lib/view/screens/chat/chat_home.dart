@@ -56,7 +56,9 @@ class _ChatHomePageState extends State<ChatHomePage> {
               weight: FontWeight.w600,
               color: kBlackColor,
             ),
-            const MySearchBar(),
+            // Wired: MySearchBar defaults onChanged to a no-op, so a const one
+            // renders a search box that silently does nothing.
+            MySearchBar(hint: 'Search your conversations', onChanged: c.search),
             Expanded(
               // Every Rx read in the closure, not in itemBuilder.
               child: Obx(() {
