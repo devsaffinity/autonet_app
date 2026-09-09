@@ -24,12 +24,14 @@ import '../fakes/fake_buyer_repositories.dart';
 /// a slot the server marked taken must be UNPICKABLE rather than offered and
 /// then refused, and a booking with no quote must never render as £0.00.
 
-ServiceProvider _provider() => ServiceProvider.fromJson({
-  'id': 'prov-1', 'fullName': 'Jack Brennan', 'headline': 'ECU Specialist',
-  'brands': ['BMW'], 'skills': ['Coding'],
-  'services': ['ECU_CODING', 'DIAGNOSTIC'],
-  'ratingAvg': 4.4, 'ratingCount': 112, 'region': 'LONDON',
-});
+ServiceProvider _provider({String? location = 'Bay 4, Speke Road, Liverpool'}) =>
+    ServiceProvider.fromJson({
+      'id': 'prov-1', 'fullName': 'Jack Brennan', 'headline': 'ECU Specialist',
+      'brands': ['BMW'], 'skills': ['Coding'],
+      'services': ['ECU_CODING', 'DIAGNOSTIC'],
+      'ratingAvg': 4.4, 'ratingCount': 112, 'region': 'LONDON',
+      'location': location,
+    });
 
 Map<String, dynamic> _slotJson(String time, String iso, {bool free = true}) => {
   'time': time, 'scheduledAt': iso, 'available': free,
@@ -154,6 +156,9 @@ void main() {
       // what 09:00 meant in July.
       expect(repo.calls.last,
           contains('create:prov-1:ECU_CODING:2026-09-10T08:00:00.000Z'));
+      // Both are RECORDED on the booking, not merely shown on screen.
+      expect(repo.calls.last, contains(':mins=90'));
+      expect(repo.calls.last, contains(':loc=Bay 4, Speke Road, Liverpool'));
     });
 
     test('a taken slot re-reads availability instead of leaving it stale',
@@ -283,6 +288,40 @@ void main() {
       expect(find.text('Confirm Selection'), findsOneWidget);
       // No slot picked yet, so the summary must not invent a time.
       expect(find.text('Not selected'), findsOneWidget);
+      // The comp draws a map here; this draws the address, which is the part
+      // the buyer reads and the provider needs.
+      expect(find.text('SERVICE LOCATION'), findsOneWidget);
+      expect(find.text('Bay 4, Speke Road, Liverpool'), findsOneWidget);
+      // ECU tuning is 90 minutes on the enum. APPROXIMATE is the honest word.
+      expect(find.text('Approximate service duration: 90 mins'), findsOneWidget);
+    });
+
+    testWidgets('a provider with no address shows no empty Location card', (
+      tester,
+    ) async {
+      final repo = FakeBookingsRepository()..availabilityResult = Ok(_day());
+      Get.put<BookingsRepository>(repo);
+      Get.put(NewBookingController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, NewBookingPage(provider: _provider(location: null)));
+
+      // A 'Location' heading over an empty card tells a buyer nothing and
+      // looks broken.
+      expect(find.text('SERVICE LOCATION'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('BookingServiceType duration', () {
+    test('every callout carries a plausible typical duration', () {
+      for (final s in BookingServiceType.values) {
+        // The server clamps durationMins to 15..600 and 400s outside it, so a
+        // constant drifting out of range would break every booking of that
+        // type — and only that type.
+        expect(s.typicalMinutes, greaterThanOrEqualTo(15));
+        expect(s.typicalMinutes, lessThanOrEqualTo(600));
+      }
     });
   });
 

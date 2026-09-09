@@ -105,6 +105,11 @@ void _detailTests() {
     expect(find.text('BMW'), findsOneWidget);
     // The CTA names what THIS provider offers.
     expect(find.text('Book ECU Tuning'), findsOneWidget);
+    // A buyer does not know /v1/providers only returns approved providers, so
+    // to them this badge means the provider cleared KYC.
+    expect(find.text('EXPERT VERIFIED'), findsOneWidget);
+    // Where they work — the booking screen shows the same value.
+    expect(find.text('Liverpool'), findsOneWidget);
   });
 
   testWidgets('a provider with none of the new fields renders no empty '
@@ -134,6 +139,8 @@ void _detailTests() {
     // Testimonials always render their heading — an empty one is meaningful.
     expect(find.text('Client Testimonials'), findsOneWidget);
     expect(find.textContaining('No reviews yet'), findsOneWidget);
+    // The badge is about approval, not about having filled a profile in.
+    expect(find.text('EXPERT VERIFIED'), findsOneWidget);
     // With no services, the CTA cannot name one.
     expect(find.text('Book a callout'), findsOneWidget);
   });
