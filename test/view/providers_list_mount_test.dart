@@ -58,6 +58,21 @@ void main() {
   _detailTests();
 }
 
+/// Pumps on a TALL surface.
+///
+/// The profile is a ListView, which builds lazily: on the default 800x600
+/// test window its footer CTA is never constructed, so an assertion about it
+/// fails for a reason that has nothing to do with the code. A tall window
+/// builds the whole page, which is the point of a mount test.
+Future<void> _pumpTall(WidgetTester tester, Widget home) async {
+  tester.view.physicalSize = const Size(1200, 4000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(GetMaterialApp(home: home));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
 ServiceProvider _p({String name = 'Jack Brennan'}) => ServiceProvider.fromJson({
   'id': 'p1', 'fullName': name, 'headline': 'ECU Specialist',
   'brands': ['BMW'], 'skills': ['Coding'], 'services': ['ECU_CODING'],
@@ -71,16 +86,75 @@ void _detailTests() {
     final repo = FakeProvidersRepository()..byIdResult = Ok(_p());
     Get.put<ProvidersRepository>(repo);
     Get.put(ProviderDetailController(repo,
+        reviews: FakeReviewsRepository(),
         toast: (_) {}, showBusy: () {}, hideBusy: () {}));
 
-    await tester.pumpWidget(
-      const GetMaterialApp(home: ProviderDetailPage(providerId: 'p1')),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await _pumpTall(tester, const ProviderDetailPage(providerId: 'p1'));
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Jack Brennan'), findsOneWidget);
+    // Upper-cased in the header, as the comp draws it.
+    expect(find.text('JACK BRENNAN'), findsOneWidget);
+    expect(find.text('ECU Specialist'), findsOneWidget);
+    // Sections driven by data, not literals.
+    expect(find.text('Expertise Profile'), findsOneWidget);
+    expect(find.text('1240+ Vehicles Serviced'), findsOneWidget);
+    expect(find.text('12 Years Experience'), findsOneWidget);
+    // The Specializations tile comes from services[], with the enum's own
+    // label — not one of four hardcoded tiles.
+    expect(find.text('ECU Tuning'), findsOneWidget);
+    expect(find.text('BMW'), findsOneWidget);
+    // The CTA names what THIS provider offers.
+    expect(find.text('Book ECU Tuning'), findsOneWidget);
+  });
+
+  testWidgets('a provider with none of the new fields renders no empty '
+      'headings', (tester) async {
+    // Everyone who registered before those columns existed. A heading over
+    // nothing is worse than no heading.
+    final bare = ServiceProvider.fromJson({
+      'id': 'p1', 'fullName': 'Bare Provider', 'brands': <String>[],
+      'ratingAvg': 0, 'ratingCount': 0,
+    });
+    final repo = FakeProvidersRepository()..byIdResult = Ok(bare);
+    Get.put<ProvidersRepository>(repo);
+    Get.put(ProviderDetailController(repo,
+        reviews: FakeReviewsRepository(),
+        toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+    await _pumpTall(tester, const ProviderDetailPage(providerId: 'p1'));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('BARE PROVIDER'), findsOneWidget);
+    expect(find.text('Expertise Profile'), findsNothing);
+    expect(find.text('Specializations'), findsNothing);
+    expect(find.text('Brands Supported'), findsNothing);
+    expect(find.textContaining('Vehicles Serviced'), findsNothing);
+    // Unrated reads 'New', never 0.0.
+    expect(find.text('New'), findsOneWidget);
+    // Testimonials always render their heading — an empty one is meaningful.
+    expect(find.text('Client Testimonials'), findsOneWidget);
+    expect(find.textContaining('No reviews yet'), findsOneWidget);
+    // With no services, the CTA cannot name one.
+    expect(find.text('Book a callout'), findsOneWidget);
+  });
+
+  testWidgets('a failed reviews read does not blank the profile', (
+    tester,
+  ) async {
+    // Testimonials are a bonus section: a provider whose reviews time out
+    // still has a profile worth reading.
+    final repo = FakeProvidersRepository()..byIdResult = Ok(_p());
+    Get.put<ProvidersRepository>(repo);
+    Get.put(ProviderDetailController(repo,
+        // forTargetResult left null, so the fake returns an Err.
+        reviews: FakeReviewsRepository(),
+        toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+    await _pumpTall(tester, const ProviderDetailPage(providerId: 'p1'));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('JACK BRENNAN'), findsOneWidget);
+    expect(find.textContaining('No reviews yet'), findsOneWidget);
   });
 
   testWidgets('the directory renders its empty state without throwing', (

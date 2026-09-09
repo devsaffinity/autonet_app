@@ -22,9 +22,13 @@ import '../fakes/fake_buyer_repositories.dart';
 /// the half that decides whether a buyer typing a part name trips the
 /// 300 req/60s global limiter.
 
-/// Longer than the controllers' 350ms debounce, so a test that waits this long
-/// has definitely seen the timer fire.
-const Duration _pastDebounce = Duration(milliseconds: 400);
+/// Comfortably longer than the controllers' 350ms debounce.
+///
+/// 400ms was too tight: it left 50ms of headroom, and under a full-suite run
+/// the timer slipped past it often enough to fail the build for a reason that
+/// had nothing to do with the code. Real time is the thing being tested here
+/// — the debounce is a Timer — so the fix is margin, not mocking it away.
+const Duration _pastDebounce = Duration(milliseconds: 700);
 
 PartRequest _req(String id) => PartRequest.fromJson({
   'id': id,

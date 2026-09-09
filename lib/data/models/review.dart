@@ -43,7 +43,8 @@ class Review {
     required this.id,
     required this.targetId,
     required this.authorId,
-    required this.orderId,
+    this.orderId,
+    this.bookingId,
     required this.rating,
     required this.status,
     required this.createdAt,
@@ -52,7 +53,21 @@ class Review {
     this.reply,
   });
 
-  final String id, targetId, authorId, orderId;
+  final String id, targetId, authorId;
+
+  /// EXACTLY ONE of these is set — the server enforces it with a CHECK.
+  ///
+  /// orderId became nullable when reviews learned to answer a completed
+  /// BOOKING as well as a delivered order, which is what finally let an
+  /// electrician be rated. Decoding it as a required String threw a
+  /// FormatException on the first booking review and took the whole reviews
+  /// list down with it, on the supplier screens too.
+  final String? orderId, bookingId;
+
+  /// True when this review is about an electrician callout rather than a
+  /// parts order. The profile screen shows both the same way; this exists so
+  /// a caller that needs to tell them apart does not test for null itself.
+  bool get isForBooking => bookingId != null;
   final int rating;
   final String? text;
 
@@ -70,7 +85,8 @@ class Review {
       id: jsonString(j, 'id'),
       targetId: jsonString(j, 'targetId'),
       authorId: jsonString(j, 'authorId'),
-      orderId: jsonString(j, 'orderId'),
+      orderId: j['orderId'] as String?,
+      bookingId: j['bookingId'] as String?,
       rating: (j['rating'] as num?)?.toInt() ?? 0,
       text: j['text'] as String?,
       status: jsonString(j, 'status'),
