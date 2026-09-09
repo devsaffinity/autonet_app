@@ -161,7 +161,9 @@ class _AvatarEditorState extends State<_AvatarEditor> {
                       // reads as a failed load rather than "no photo yet".
                       child: url != null && url.isNotEmpty
                           ? CommonImageView(
-                              url: url, height: 90, width: 90,
+                              url: url,
+                              cacheKey: _c.me?.id,
+                              height: 90, width: 90,
                               fit: BoxFit.cover)
                           : CommonImageView(
                               imagePath: Assets.imagesProfileImage,

@@ -20,8 +20,16 @@ class CommonImageView extends StatelessWidget {
   final String placeHolder;
   final Color? imageColor;
 
+  /// A STABLE identity for the network cache, when [url] is not one.
+  ///
+  /// Presigned S3 urls change on every read, so leaving the cache keyed on the
+  /// url means the same photo is re-fetched every time and an entry held past
+  /// its expiry serves a 403. Pass the S3 object key.
+  final String? cacheKey;
+
   CommonImageView({
     this.imageColor,
+    this.cacheKey,
     this.url,
     this.imagePath,
     this.svgPath,
@@ -94,6 +102,12 @@ class CommonImageView extends StatelessWidget {
           fit: fit,
           memCacheWidth: _decodeWidth(context),
           imageUrl: url!,
+          // Without this the cache is keyed on the URL. Every presigned S3 GET
+          // in this app carries a fresh signature and expiry, so the same photo
+          // looks like a new image on every read: re-downloaded each time, and
+          // any entry held from a previous read serves a 403 once it expires.
+          // Callers pass the stable object key instead.
+          cacheKey: cacheKey,
           placeholder: (context, url) => Container(
             height: 23,
             width: 23,

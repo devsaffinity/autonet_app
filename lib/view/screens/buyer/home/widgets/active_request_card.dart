@@ -3,6 +3,7 @@ import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/data/models/part_request.dart';
+import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -117,24 +118,33 @@ class ActiveRequestCard extends StatelessWidget {
     ],
   );
 
-  /// A PLACEHOLDER, not an image. `images` are raw S3 keys and the buyer routes
-  /// sign no download URL, so there is nothing fetchable to hand
-  /// CommonImageView. The chip states the count honestly instead.
+  /// The buyer's own first photo, or a placeholder when there is none.
   ///
-  /// Deliberately not stock photography, which the comp implies: a generic
-  /// engine bay on every card is a lie the buyer spots the moment they compare
-  /// two of their own requests. When the backend signs a thumbnail this becomes
-  /// `CommonImageView(url: …)` in place, with no layout change.
-  Widget _thumb() => SizedBox(
-    width: double.infinity,
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(
-          color: kMutedSurfaceColor,
-          child: Icon(Icons.directions_car_filled_outlined,
-              color: kGreyTextColor, size: AppSizes.s32),
-        ),
+  /// The url is a short-lived presign, so the decoded image is cached against
+  /// the stable S3 KEY — keying on the url would re-download on every read and
+  /// 403 the moment one expired.
+  ///
+  /// Still degrades rather than erroring: a request may genuinely have no
+  /// photos, and a server older than the signing change sends only keys.
+  Widget _thumb() {
+    final first = request.images.firstOrNull;
+    return SizedBox(
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (first != null && first.isRenderable)
+            CommonImageView(
+              url: first.url,
+              cacheKey: first.s3Key,
+              fit: BoxFit.cover,
+            )
+          else
+            const ColoredBox(
+              color: kMutedSurfaceColor,
+              child: Icon(Icons.directions_car_filled_outlined,
+                  color: kGreyTextColor, size: AppSizes.s32),
+            ),
         // The offer count has no slot in the comp, but it is the ONLY thing
         // distinguishing this carousel from the 'Requests with offers' one
         // below it. Drop it and the two sections render identical cards.
@@ -156,9 +166,10 @@ class ActiveRequestCard extends StatelessWidget {
               background: kBlackColor.withValues(alpha: .6),
             ),
           ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   Widget _chip(String text, {required Color background}) => Container(
     padding: const EdgeInsets.symmetric(

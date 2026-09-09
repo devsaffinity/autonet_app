@@ -228,7 +228,9 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                 width: 40,
                 child: url != null && url.isNotEmpty
                     ? CommonImageView(
-                        url: url, height: 40, width: 40, fit: BoxFit.cover)
+                        url: url,
+                        cacheKey: _profile.me?.id,
+                        height: 40, width: 40, fit: BoxFit.cover)
                     : CommonImageView(
                         imagePath: Assets.imagesProfileImage,
                         height: 40, width: 40, fit: BoxFit.cover),

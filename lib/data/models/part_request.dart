@@ -3,21 +3,34 @@ import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/vehicle.dart';
 
-/// One photo attached to a request — the `{s3Key}` projection at
-/// requests.service.ts:20.
+/// One photo attached to a request — the `{s3Key, url}` projection
+/// `withSignedImages` produces in requests.service.ts.
 ///
-/// There is deliberately NO `url`: requests.service.ts never calls
-/// `storage.createDownloadUrl`, so a buyer cannot render their own photos yet.
-/// It stays a class rather than collapsing to a bare `List<String>` because the
-/// supplier feed signs the same images and returns a second field; a flattened
-/// list would force a re-model the moment that lands.
+/// The url arrived late: the service returned bare keys against a private
+/// bucket for the whole of phase 1, so a buyer could not render the photos they
+/// had themselves uploaded while a supplier who unlocked the lead could. Both
+/// fields are kept rather than flattening to a url string, because the KEY is
+/// what a cache must be keyed on — see [url].
 class RequestImage {
-  const RequestImage({required this.s3Key});
+  const RequestImage({required this.s3Key, this.url});
 
   final String s3Key;
 
-  factory RequestImage.fromJson(Map<String, dynamic> j) =>
-      RequestImage(s3Key: jsonString(j, 's3Key'));
+  /// A PRESIGNED GET, short-lived. Nullable because a server older than the
+  /// signing change sends only the key, and a buyer on a new build must degrade
+  /// to the placeholder rather than crash.
+  ///
+  /// Cache decoded images against [s3Key], never against this: the url changes
+  /// on every read, so keying on it re-downloads every time and serves 403s
+  /// from anything that held onto an expired one.
+  final String? url;
+
+  bool get isRenderable => url != null && url!.isNotEmpty;
+
+  factory RequestImage.fromJson(Map<String, dynamic> j) => RequestImage(
+    s3Key: jsonString(j, 's3Key'),
+    url: j['url'] as String?,
+  );
 }
 
 /// A buyer's part request: the shape returned by `POST /v1/requests`,
