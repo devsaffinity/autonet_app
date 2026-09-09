@@ -106,37 +106,50 @@ class _ProvidersListPageState extends State<ProvidersListPage> {
 
   /// The comp's Diagnostics / ECU Tuning / Dashcam Install row. Tapping the
   /// active chip clears it, so a buyer is never stuck inside a filter.
-  Widget get _serviceChips => Obx(() => SizedBox(
-    height: 48,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.s20, vertical: AppSizes.s8),
-      itemCount: ProvidersListController.serviceChips.length,
-      separatorBuilder: (_, _) => const SizedBox(width: AppSizes.s8),
-      itemBuilder: (_, i) {
-        final service = ProvidersListController.serviceChips[i];
-        final selected = c.service.value == service;
-        return GestureDetector(
-          onTap: () => c.setService(selected ? null : service),
-          child: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.s12),
-            decoration: BoxDecoration(
-              color: selected ? kSecondaryColor : kMutedSurfaceColor,
-              borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+  ///
+  /// The selected service is read HERE, in the Obx closure itself — not down
+  /// inside itemBuilder.
+  ///
+  /// Obx subscribes only to Rx values read SYNCHRONOUSLY inside its own
+  /// closure. ListView's itemBuilder runs in a later build with no tracking
+  /// zone installed, so reading c.service.value there registers no dependency:
+  /// GetX sees an Obx with no subscriptions and throws, which in a release
+  /// build paints a grey rectangle instead of the screen. Same trap as
+  /// StateView.builder, which carries the same warning.
+  Widget get _serviceChips => Obx(() {
+    final selectedService = c.service.value;
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.s20, vertical: AppSizes.s8),
+        itemCount: ProvidersListController.serviceChips.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSizes.s8),
+        itemBuilder: (_, i) {
+          final service = ProvidersListController.serviceChips[i];
+          final selected = selectedService == service;
+          return GestureDetector(
+            onTap: () => c.setService(selected ? null : service),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.s12),
+              decoration: BoxDecoration(
+                color: selected ? kSecondaryColor : kMutedSurfaceColor,
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: MyText(
+                text: service.label,
+                size: AppTextScale.label,
+                weight: AppWeights.medium,
+                color: selected ? kWhiteColor : kGreyTextColor,
+              ),
             ),
-            child: MyText(
-              text: service.label,
-              size: AppTextScale.label,
-              weight: AppWeights.medium,
-              color: selected ? kWhiteColor : kGreyTextColor,
-            ),
-          ),
-        );
-      },
-    ),
-  ));
+          );
+        },
+      ),
+    );
+  });
 
   @override
   Widget build(BuildContext context) => Scaffold(
