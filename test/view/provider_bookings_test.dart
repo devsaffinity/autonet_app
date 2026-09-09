@@ -191,6 +191,47 @@ void main() {
     });
   });
 
+  group('quoting', () {
+    test('canQuote mirrors the server: not PENDING, not CANCELLED', () {
+      // The server 409s both, so the control must not be offered there.
+      expect(ProviderBookingsController.canQuote(BookingStatus.pending), isFalse);
+      expect(ProviderBookingsController.canQuote(BookingStatus.cancelled), isFalse);
+      expect(ProviderBookingsController.canQuote(BookingStatus.confirmed), isTrue);
+      expect(ProviderBookingsController.canQuote(BookingStatus.inProgress), isTrue);
+      expect(ProviderBookingsController.canQuote(BookingStatus.completed), isTrue);
+    });
+
+    test('sends quotedPence, and re-reads so the stored figure wins', () async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking(status: 'CONFIRMED')], _meta(1)))
+        ..quoteResult = Ok(_booking(status: 'CONFIRMED'));
+      final c = ProviderBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {});
+      await c.refreshFirst();
+      final before = repo.calls.where((x) => x.startsWith('bookings:')).length;
+
+      await c.quote(_booking(status: 'CONFIRMED'), quotedPence: 8950);
+
+      expect(repo.calls, contains('quote:bk-1:quoted=8950'));
+      // The row must show what was STORED, not what was typed.
+      expect(repo.calls.where((x) => x.startsWith('bookings:')).length,
+          greaterThan(before));
+    });
+
+    test('a final price goes in its own field, not over the quote', () async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking(status: 'COMPLETED')], _meta(1)))
+        ..quoteResult = Ok(_booking(status: 'COMPLETED'));
+      final c = ProviderBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {});
+
+      await c.quote(_booking(status: 'COMPLETED'), finalPence: 9500);
+
+      // A buyer is owed the difference between 'you said' and 'you charged'.
+      expect(repo.calls, contains('quote:bk-1:final=9500'));
+    });
+  });
+
   group('Booking.buyer', () {
     test('carries a name and nothing contactable', () {
       final b = _booking();

@@ -75,6 +75,42 @@ class ProviderBookingsController extends PagedController<Booking> {
     return ok;
   }
 
+  /// Name a price.
+  ///
+  /// Re-reads for the same reason [advance] does — a quote does not move the
+  /// booking, but the row on screen must show the figure that was actually
+  /// stored rather than the one that was typed.
+  Future<bool> quote(Booking booking, {int? quotedPence, int? finalPence}) async {
+    var ok = false;
+    await run<Booking, void>(
+      null,
+      () => _repo.quote(
+        id: booking.id,
+        quotedPence: quotedPence,
+        finalPence: finalPence,
+      ),
+      (r) {
+        switch (r) {
+          case Err():
+            break;
+          case Ok():
+            ok = true;
+        }
+      },
+    );
+    if (ok) await refreshFirst();
+    return ok;
+  }
+
+  /// Whether this booking can carry a price yet.
+  ///
+  /// PENDING means the provider has not accepted, CANCELLED means they never
+  /// will — the server 409s both, so the control is not offered.
+  static bool canQuote(BookingStatus? status) =>
+      status == BookingStatus.confirmed ||
+      status == BookingStatus.inProgress ||
+      status == BookingStatus.completed;
+
   /// Declining is a CANCELLATION with a reason, not a status advance — which
   /// is exactly how the server models it, so the client must not invent a
   /// separate verb for it.

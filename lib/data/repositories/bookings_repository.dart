@@ -51,6 +51,21 @@ abstract class BookingsRepository {
   /// started, and it is a dispute rather than a state change.
   Future<ApiResult<Booking>> cancel({required String id, required String note});
 
+  /// PROVIDER ONLY — the price for a job.
+  ///
+  /// [quotedPence] is the estimate, settable once the provider has taken the
+  /// work on; [finalPence] is what it came to and is only accepted on a
+  /// COMPLETED booking. Both are kept, because a buyer is owed the difference
+  /// between what they were told and what they were charged.
+  ///
+  /// Integer pence — no floats anywhere near money.
+  Future<ApiResult<Booking>> quote({
+    required String id,
+    int? quotedPence,
+    int? finalPence,
+    String? note,
+  });
+
   /// PROVIDER ONLY — a buyer calling this gets 403.
   ///
   /// Forward-only: PENDING -> CONFIRMED -> IN_PROGRESS -> COMPLETED. Skipping

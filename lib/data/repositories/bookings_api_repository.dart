@@ -88,6 +88,32 @@ class BookingsApiRepository implements BookingsRepository {
   Future<ApiResult<Booking>> byId(String id) =>
       _c.send(method: 'GET', path: '/v1/bookings/$id', decode: _one);
 
+  /// Throws [ArgumentError] BEFORE the wire when neither price is given: the
+  /// server's refine rejects an empty body, and a round trip to learn that is
+  /// a round trip spent on a programming error.
+  @override
+  Future<ApiResult<Booking>> quote({
+    required String id,
+    int? quotedPence,
+    int? finalPence,
+    String? note,
+  }) {
+    if (quotedPence == null && finalPence == null) {
+      throw ArgumentError('Provide quotedPence or finalPence');
+    }
+    final trimmed = note?.trim() ?? '';
+    return _c.send(
+      method: 'PATCH',
+      path: '/v1/bookings/$id/quote',
+      body: {
+        if (quotedPence != null) 'quotedPence': quotedPence,
+        if (finalPence != null) 'finalPence': finalPence,
+        if (trimmed.isNotEmpty) 'note': trimmed,
+      },
+      decode: _one,
+    );
+  }
+
   /// Throws [ArgumentError] BEFORE the wire for the two statuses the server
   /// cannot accept here, because both are guaranteed 400s and a round trip
   /// would turn a programming error into a toast:

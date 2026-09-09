@@ -5,6 +5,7 @@ import 'package:autonect/controller/electrician/provider_bookings_controller.dar
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
@@ -24,6 +25,7 @@ class ProviderBookingCard extends StatelessWidget {
     required this.booking,
     this.onAdvance,
     this.onDecline,
+    this.onQuote,
   });
 
   final Booking booking;
@@ -33,6 +35,10 @@ class ProviderBookingCard extends StatelessWidget {
 
   /// Only offered while the server would accept a cancellation.
   final VoidCallback? onDecline;
+
+  /// Name or revise the price. Only offered once the provider has taken the
+  /// work on — the server 409s a quote on a PENDING or CANCELLED booking.
+  final VoidCallback? onQuote;
 
   String get _buyerName => booking.buyer?.name ?? 'A buyer';
 
@@ -80,6 +86,38 @@ class ProviderBookingCard extends StatelessWidget {
               ),
             ],
           )),
+          // The price, and a way to name one. 'Not priced' rather than a
+          // blank or a zero: the buyer is reading 'Awaiting quote' on their
+          // side of the same booking, and this is the control that answers it.
+          if (ProviderBookingsController.canQuote(booking.status))
+            GestureDetector(
+              onTap: onQuote,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(left: AppSizes.s8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MyText(
+                      text: booking.isQuoted
+                          ? formatPence(booking.quotedPence!)
+                          : 'Not priced',
+                      size: AppTextScale.body,
+                      weight: AppWeights.bold,
+                      color: booking.isQuoted ? kSecondaryColor : kGreyTextColor,
+                    ),
+                    if (onQuote != null)
+                      MyText(
+                        text: booking.isQuoted ? 'Change' : 'Set price',
+                        size: AppTextScale.caption,
+                        color: kSecondaryColor,
+                        decoration: TextDecoration.underline,
+                      ),
+                  ],
+                ),
+              ),
+            ),
         ]),
         // The car and where to go — both optional on the wire, and each
         // omitted rather than rendered as an empty row.

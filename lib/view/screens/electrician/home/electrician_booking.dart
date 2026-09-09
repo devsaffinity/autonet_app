@@ -5,6 +5,7 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/domain/select_option.dart';
 import 'package:autonect/view/screens/electrician/home/widgets/provider_booking_card.dart';
+import 'package:autonect/view/screens/electrician/home/widgets/quote_dialog.dart';
 import 'package:autonect/view/widget/choice_chips_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
@@ -47,6 +48,19 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
     c.refreshFirst();
   }
 
+  /// Name a price. The dialog converts pounds to pence in one place — money
+  /// is integer pence end to end, and doing that arithmetic per screen is how
+  /// one of them ends up off by a factor of a hundred.
+  Future<void> _quote(Booking booking) async {
+    final result = await showQuoteDialog(booking);
+    if (result == null || !mounted) return;
+    await c.quote(
+      booking,
+      quotedPence: result.isFinal ? null : result.pence,
+      finalPence: result.isFinal ? result.pence : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: GeneralAppBar(hasBackButton: false, title: 'My Bookings'),
@@ -77,6 +91,7 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
               final next = ProviderBookingsController.nextStep(b.status);
               if (next != null) c.advance(b, next);
             },
+            onQuote: () => _quote(b),
           ),
         );
       })),

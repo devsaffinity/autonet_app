@@ -324,6 +324,7 @@ class FakeBookingsRepository implements BookingsRepository {
   ApiResult<Booking>? byIdResult;
   ApiResult<Booking>? cancelResult;
   ApiResult<Booking>? advanceResult;
+  ApiResult<Booking>? quoteResult;
 
   @override
   Future<ApiResult<Booking>> create({
@@ -375,6 +376,19 @@ class FakeBookingsRepository implements BookingsRepository {
   }) async {
     calls.add('cancel:$id:$note');
     return cancelResult ?? _none('bookings.cancel');
+  }
+
+  @override
+  Future<ApiResult<Booking>> quote({
+    required String id,
+    int? quotedPence,
+    int? finalPence,
+    String? note,
+  }) async {
+    calls.add('quote:$id'
+        '${quotedPence == null ? '' : ':quoted=$quotedPence'}'
+        '${finalPence == null ? '' : ':final=$finalPence'}');
+    return quoteResult ?? _none('bookings.quote');
   }
 
   @override
