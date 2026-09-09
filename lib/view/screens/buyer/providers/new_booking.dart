@@ -80,9 +80,7 @@ class _NewBookingPageState extends State<NewBookingPage> {
     body: ListView(
       padding: AppSizes.DEFAULT,
       children: [
-        MyText(text: 'Booking with $_providerName',
-            size: AppTextScale.subtitle, weight: AppWeights.bold,
-            color: kBlackColor),
+        _title(),
         const SizedBox(height: AppSizes.s4),
         MyText(
           text: 'Select your preferred date and time. '
@@ -102,6 +100,8 @@ class _NewBookingPageState extends State<NewBookingPage> {
           )),
         ),
         const SizedBox(height: AppSizes.s20),
+        _selectedDay(),
+        const SizedBox(height: AppSizes.s16),
         _slots(),
         const SizedBox(height: AppSizes.s20),
         MyText(text: 'Required Service', size: AppTextScale.body,
@@ -145,6 +145,44 @@ class _NewBookingPageState extends State<NewBookingPage> {
       ],
     ),
   );
+
+  /// The comp's 'Booking with <name>', with the NAME in the brand colour.
+  ///
+  /// Wrap of two MyTexts rather than a Text.rich: MyText carries the app's
+  /// font and a raw span would silently fall back to the platform default
+  /// for half the line. Wrap, not Row, because a long name plus a large
+  /// text scale will not sit on one line at 320dp — the same reason the
+  /// directory row builds its name and trade line this way.
+  Widget _title() => Wrap(
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      MyText(text: 'Booking with ', size: AppTextScale.subtitle,
+          weight: AppWeights.bold, color: kBlackColor),
+      MyText(text: _providerName, size: AppTextScale.subtitle,
+          weight: AppWeights.bold, color: kSecondaryColor),
+    ],
+  );
+
+  /// The comp's 'Selected slot' line, between the grid and the times.
+  ///
+  /// It reads the day back in words — '15 October 2026' — because the grid
+  /// above only ever shows a bare number in a circle, and by the time a
+  /// buyer has scrolled to the times that circle is off screen. Which day
+  /// they are about to book is the one fact this form must never make them
+  /// scroll up to check.
+  ///
+  /// UK ordering, day first, per formatLongDate. The comp's 'October 15,
+  /// 2024' is US and every other date in this product is already UK.
+  Widget _selectedDay() => Obx(() {
+    final day = _c.selectedDay.value;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      MyText(text: 'Selected slot', size: AppTextScale.body,
+          weight: AppWeights.semibold, color: kBlackColor),
+      const SizedBox(height: AppSizes.s4),
+      MyText(text: formatLongDate(day), size: AppTextScale.label,
+          color: kGreyTextColor),
+    ]);
+  });
 
   Widget _slots() => Obx(() {
     // Read INSIDE the closure — a read from a builder that runs later

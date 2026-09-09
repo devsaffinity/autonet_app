@@ -317,6 +317,7 @@ class FakeBookingsRepository implements BookingsRepository {
   ApiResult<Paged<Booking>>? listResult;
   ApiResult<Booking>? byIdResult;
   ApiResult<Booking>? cancelResult;
+  ApiResult<Booking>? advanceResult;
 
   @override
   Future<ApiResult<Booking>> create({
@@ -368,5 +369,15 @@ class FakeBookingsRepository implements BookingsRepository {
   }) async {
     calls.add('cancel:$id:$note');
     return cancelResult ?? _none('bookings.cancel');
+  }
+
+  @override
+  Future<ApiResult<Booking>> advance({
+    required String id,
+    required BookingStatus status,
+    String? note,
+  }) async {
+    calls.add('advance:$id:${status.wire}');
+    return advanceResult ?? _none('bookings.advance');
   }
 }

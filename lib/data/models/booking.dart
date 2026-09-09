@@ -37,6 +37,21 @@ class BookingProvider {
   }
 }
 
+/// The buyer on a booking — `booking.buyer` on the wire.
+///
+/// NAME ONLY, matching the server's projection. A provider has to know who
+/// booked them, but a booking is not a reason to hold their email or phone;
+/// contact belongs to the thread a booking opens.
+class BookingBuyer {
+  const BookingBuyer({required this.id, this.name});
+
+  final String id;
+  final String? name;
+
+  factory BookingBuyer.fromJson(Map<String, dynamic> j) =>
+      BookingBuyer(id: jsonString(j, 'id'), name: j['name'] as String?);
+}
+
 /// One entry in a booking's status history.
 class BookingEvent {
   const BookingEvent({required this.status, required this.at, this.note});
@@ -70,6 +85,7 @@ class Booking {
     this.durationMins,
     this.quotedPence,
     this.provider,
+    this.buyer,
   });
 
   final String id, buyerId, electricianId;
@@ -92,6 +108,11 @@ class Booking {
   final int? quotedPence;
 
   final BookingProvider? provider;
+
+  /// Present on both sides — the provider needs it, and the buyer simply gets
+  /// their own name back.
+  final BookingBuyer? buyer;
+
   final List<BookingEvent> events;
 
   bool get isQuoted => quotedPence != null;
@@ -119,6 +140,9 @@ class Booking {
       quotedPence: (j['quotedPence'] as num?)?.toInt(),
       provider: provider is Map
           ? BookingProvider.fromJson(provider.cast<String, dynamic>())
+          : null,
+      buyer: j['buyer'] is Map
+          ? BookingBuyer.fromJson((j['buyer'] as Map).cast<String, dynamic>())
           : null,
       events: events is List
           ? events

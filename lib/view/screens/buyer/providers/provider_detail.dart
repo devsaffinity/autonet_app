@@ -8,6 +8,7 @@ import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
+import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
@@ -25,12 +26,12 @@ import 'package:get/get.dart';
 /// decide who to let near their car — an empty 'Expertise Profile' heading
 /// over nothing is worse than no heading at all.
 ///
-/// One thing in the comp is still missing, and it is an absence of DATA
-/// rather than of effort:
-///   * 'Chat Now' — a conversation can only be opened against an OFFER.
-///     ConversationType.BOOKING exists in the enum but nothing implements it,
-///     and the Flutter chat screen is a static mock with no repository. A
-///     button opening a fake inbox is worse than no button.
+/// 'CHAT NOW' OPENS THE MESSAGES TAB, NOT THIS PROVIDER'S THREAD, and that
+/// is a limit of the API rather than of this screen: `POST /v1/conversations`
+/// accepts type OFFER only, so a booking has no conversation to open.
+/// ConversationType.BOOKING exists in the schema and the DTO does not accept
+/// it yet. When it does, [_chat] is the single call site to point at the
+/// thread — the button, its place in the comp and its label do not move.
 class ProviderDetailPage extends StatefulWidget {
   const ProviderDetailPage({super.key, required this.providerId});
 
@@ -39,6 +40,23 @@ class ProviderDetailPage extends StatefulWidget {
   @override
   State<ProviderDetailPage> createState() => _ProviderDetailPageState();
 }
+
+/// The tinted square behind the vehicles-serviced glyph.
+const double _kGlyphTile = 40;
+
+/// A glyph per callout, so the comp's tile grid reads as four different
+/// things rather than the same icon four times.
+///
+/// Exhaustive on purpose — no default arm. Adding a sixth BookingServiceType
+/// should fail to compile here and be given a glyph, not silently inherit a
+/// spanner.
+IconData _serviceIcon(BookingServiceType s) => switch (s) {
+  BookingServiceType.diagnostic => Icons.troubleshoot_rounded,
+  BookingServiceType.ecuCoding => Icons.memory_rounded,
+  BookingServiceType.installation => Icons.settings_input_component_rounded,
+  BookingServiceType.repair => Icons.build_rounded,
+  BookingServiceType.inspection => Icons.fact_check_outlined,
+};
 
 class _ProviderDetailPageState extends State<ProviderDetailPage> {
   late final ProviderDetailController _c;
@@ -65,10 +83,7 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
           padding: AppSizes.DEFAULT,
           children: [
             _header(p),
-            if (p.bio case final bio? when bio.isNotEmpty)
-              _section('Expertise Profile',
-                  MyText(text: bio, size: AppTextScale.body,
-                      color: kGreyTextColor)),
+            if (p.bio case final bio? when bio.isNotEmpty) _expertise(bio),
             if (p.vehiclesServiced case final n? when n > 0) _servedCounter(n),
             if (p.services.isNotEmpty) _specializations(p),
             if (p.brands.isNotEmpty) _brands(p),
@@ -83,6 +98,19 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
               // would be a round trip for nothing.
               onTap: () => Get.to(() => NewBookingPage(provider: p)),
             ),
+            const SizedBox(height: AppSizes.s12),
+            // The comp's outlined second action. Same height and radius as
+            // the primary, inverted colours — a second FILLED button beside
+            // it would make the buyer choose between two equals, and booking
+            // is the one this page exists to get to.
+            MyButton(
+              buttonText: 'Chat Now',
+              radius: AppSizes.radiusMd,
+              backgroundColor: kWhiteColor,
+              fontColor: kSecondaryColor,
+              outlineColor: kSecondaryColor,
+              onTap: _chat,
+            ),
             const SizedBox(height: AppSizes.s32),
           ],
         ),
@@ -94,6 +122,10 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
   /// offers, so a coder is not invited to book a diagnostic.
   String _primaryServiceLabel(ServiceProvider p) =>
       p.services.isEmpty ? 'a callout' : p.services.first.label;
+
+  /// The Messages tab. See the class doc: the thread for THIS provider is
+  /// not openable until the chat DTO accepts a booking as a context.
+  void _chat() => Get.to(() => const ChatHomePage());
 
   Widget _header(ServiceProvider p) {
     final url = p.avatarUrl;
@@ -180,35 +212,63 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
     ]);
   }
 
-  Widget _section(String title, Widget child) => Padding(
+  /// The comp's Expertise Profile: the heading sits INSIDE the card, in the
+  /// brand colour, rather than above it in black like every other section.
+  ///
+  /// That is the comp's own distinction and it is a real one — the other
+  /// headings label a LIST that continues past the card, while this one
+  /// titles the paragraph it is printed on.
+  Widget _expertise(String bio) => Padding(
     padding: const EdgeInsets.only(top: AppSizes.s20),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      MyText(text: title, size: AppTextScale.subtitle,
-          weight: AppWeights.bold, color: kBlackColor),
-      const SizedBox(height: AppSizes.s8),
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSizes.s16),
-        decoration: AppStyling().myShadowStyle(),
-        child: child,
-      ),
-    ]),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSizes.s16),
+      decoration: AppStyling().myShadowStyle(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        MyText(text: 'Expertise Profile', size: AppTextScale.body,
+            weight: AppWeights.semibold, color: kSecondaryColor),
+        const SizedBox(height: AppSizes.s8),
+        MyText(text: bio, size: AppTextScale.body, color: kGreyTextColor,
+            lineHeight: 1.5),
+      ]),
+    ),
   );
 
-  /// The comp's '1240+ Vehicles Serviced'. The '+' is the comp's and it is
+  /// The comp's '1240+ / Vehicles Serviced'. The '+' is the comp's and it is
   /// honest: the column is a milestone a provider states, not a live count.
+  ///
+  /// TWO LINES, behind a tinted tile, which is the comp's arrangement and
+  /// the better one: the number is the claim and the noun is only its unit,
+  /// so setting them at one weight on one line made the buyer read the whole
+  /// string to find the figure.
   Widget _servedCounter(int n) => Padding(
     padding: const EdgeInsets.only(top: AppSizes.s16),
     child: Container(
-      padding: const EdgeInsets.all(AppSizes.s16),
+      padding: const EdgeInsets.all(AppSizes.s12),
       decoration: AppStyling().myShadowStyle(),
       child: Row(children: [
-        const Icon(Icons.directions_car_filled_outlined,
-            size: AppSizes.s24, color: kSecondaryColor),
+        Container(
+          height: _kGlyphTile,
+          width: _kGlyphTile,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: kLightOrangeColor,
+            borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+          ),
+          child: const Icon(Icons.directions_car_filled_rounded,
+              size: AppSizes.s20, color: kSecondaryColor),
+        ),
         const SizedBox(width: AppSizes.s12),
-        Expanded(child: MyText(text: '$n+ Vehicles Serviced',
-            size: AppTextScale.subtitle, weight: AppWeights.bold,
-            color: kBlackColor)),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MyText(text: '$n+', size: AppTextScale.subtitle,
+                weight: AppWeights.bold, color: kBlackColor),
+            MyText(text: 'Vehicles Serviced', size: AppTextScale.label,
+                color: kGreyTextColor),
+          ],
+        )),
       ]),
     ),
   );
@@ -246,8 +306,7 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.build_circle_outlined, size: AppSizes.s24,
-              color: kSecondaryColor),
+          Icon(_serviceIcon(s), size: AppSizes.s24, color: kSecondaryColor),
           const SizedBox(height: AppSizes.s8),
           MyText(text: s.label, size: AppTextScale.body,
               weight: AppWeights.semibold, color: kBlackColor,

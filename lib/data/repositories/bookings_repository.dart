@@ -4,11 +4,13 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/request_enums.dart';
 
-/// The buyer half of `/v1/bookings`.
+/// `/v1/bookings`, for BOTH sides.
 ///
-/// `POST /v1/bookings/{id}/status` is deliberately absent: it is the
-/// PROVIDER's forward-only machine, so a buyer client carrying it could only
-/// ever earn a 403 — the same reason ReviewsRepository omits the reply route.
+/// [listMine] serves whoever is signed in — the server branches on role, so a
+/// buyer sees what they booked and a provider sees what they were booked for.
+/// [advance] is the provider's alone and 403s for a buyer, but it lives here
+/// rather than in a second repository because one app binary carries both
+/// roles and the seam is the same route.
 abstract class BookingsRepository {
   /// NO PRICE IS SENT. A buyer books a date and a service; the provider quotes
   /// after seeing the job, which is why `quotedPence` comes back null.
@@ -48,4 +50,16 @@ abstract class BookingsRepository {
   /// CONFIRMED can be cancelled. Past that the provider has travelled and
   /// started, and it is a dispute rather than a state change.
   Future<ApiResult<Booking>> cancel({required String id, required String note});
+
+  /// PROVIDER ONLY — a buyer calling this gets 403.
+  ///
+  /// Forward-only: PENDING -> CONFIRMED -> IN_PROGRESS -> COMPLETED. Skipping
+  /// a step is a 409, because 'the job is done' has to mean somebody accepted
+  /// it and turned up first. Declining is [cancel], not this: a decline is a
+  /// cancellation with a reason, and the server treats it that way.
+  Future<ApiResult<Booking>> advance({
+    required String id,
+    required BookingStatus status,
+    String? note,
+  });
 }

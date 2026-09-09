@@ -8,7 +8,10 @@ import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/domain/select_option.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.dart'
     show brandsLabel;
+import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
+import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
 import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
+import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -203,9 +206,29 @@ class _ProvidersListPageState extends State<ProvidersListPage> {
     );
   });
 
+  /// The comp's calendar glyph, and it goes to MY BOOKINGS.
+  ///
+  /// That is the only calendar this screen can honestly lead to. A buyer
+  /// browsing providers has no diary of their own here — what they have is
+  /// the callouts they have already booked, which is exactly the question a
+  /// calendar icon on a booking directory is being asked.
+  ///
+  /// IconButton rather than a bare Icon in the actions slot: it carries the
+  /// 48dp target and the tooltip, and the tooltip IS the semantics label —
+  /// an unlabelled glyph in an app bar is unreadable to a screen reader.
+  Widget get _bookingsAction => IconButton(
+    tooltip: 'My bookings',
+    onPressed: () => Get.to(() => const MyBookingsPage()),
+    icon: const Icon(Icons.calendar_month_rounded,
+        size: AppSizes.s24, color: kSecondaryColor),
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: GeneralAppBar(title: 'Services'),
+    appBar: GeneralAppBar(
+      title: 'Services',
+      action: [_bookingsAction, const SizedBox(width: AppSizes.s8)],
+    ),
     body: Column(children: [
       _tabsAndRegion,
       _search,
@@ -271,6 +294,14 @@ class _ServiceTab extends StatelessWidget {
   );
 }
 
+/// What the comp's '⋯' offers.
+///
+/// An enum, not an index. The requests filter and the region picker are
+/// keyed by index because one of their entries carries a null value and
+/// PopupMenuButton reads a null result as a DISMISSED menu; nothing here is
+/// null, so the values can say what they mean.
+enum _RowAction { profile, book, message }
+
 /// One provider in the directory — the comp's row.
 ///
 /// Public so the home strip's View All and this screen render the same thing;
@@ -293,7 +324,7 @@ class ProviderRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SizedBox(
               height: 48,
               width: 48,
@@ -329,6 +360,7 @@ class ProviderRow extends StatelessWidget {
                 _rating(),
               ],
             )),
+            _kebab(),
           ]),
           // Skills is what they DO; brands is what they do it TO. The comp
           // shows the skills line, and falls back to brands rather than
@@ -345,13 +377,71 @@ class ProviderRow extends StatelessWidget {
             fontSize: AppTextScale.label,
             height: 40,
             radius: AppSizes.radiusMd,
-            onTap: onTap ??
-                () => Get.to(() => ProviderDetailPage(providerId: provider.id)),
+            onTap: _openProfile,
           ),
         ],
       ),
     );
   }
+
+  /// The card's primary destination, shared by the button and the menu.
+  ///
+  /// One method rather than two call sites, because a caller that overrode
+  /// [onTap] means it for BOTH: the home strip opens this row inside its own
+  /// flow, and a kebab that quietly bypassed that would be the same card
+  /// going two places depending on which pixel was hit.
+  void _openProfile() {
+    if (onTap case final override?) {
+      override();
+      return;
+    }
+    Get.to(() => ProviderDetailPage(providerId: provider.id));
+  }
+
+  /// The comp's '⋯'.
+  ///
+  /// Three entries, and every one of them goes somewhere that exists today:
+  /// the profile, the booking form seeded with this provider, and the
+  /// Messages tab. Message does NOT yet open the thread for this provider —
+  /// `POST /v1/conversations` accepts type OFFER only, so a booking has no
+  /// conversation to open — and when it does, this is the one call site to
+  /// change rather than a fourth entry to add.
+  Widget _kebab() => PopupMenuButton<_RowAction>(
+    tooltip: 'More actions',
+    color: kWhiteColor,
+    position: PopupMenuPosition.under,
+    padding: EdgeInsets.zero,
+    shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd)),
+    onSelected: (a) => switch (a) {
+      _RowAction.profile => _openProfile(),
+      _RowAction.book => Get.to(() => NewBookingPage(provider: provider)),
+      _RowAction.message => Get.to(() => const ChatHomePage()),
+    },
+    itemBuilder: (_) => const [
+      PopupMenuItem<_RowAction>(
+        value: _RowAction.profile,
+        child: _MenuRow(Icons.person_outline_rounded, 'View Profile'),
+      ),
+      PopupMenuItem<_RowAction>(
+        value: _RowAction.book,
+        child: _MenuRow(Icons.event_available_outlined, 'Book a callout'),
+      ),
+      PopupMenuItem<_RowAction>(
+        value: _RowAction.message,
+        child: _MenuRow(Icons.chat_bubble_outline_rounded, 'Message'),
+      ),
+    ],
+    child: Container(
+      height: 28,
+      width: 28,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+          color: kLightOrangeColor, shape: BoxShape.circle),
+      child: const Icon(Icons.more_horiz_rounded, size: AppSizes.s16,
+          color: kSecondaryColor),
+    ),
+  );
 
   String? _secondary(String brands) {
     if (provider.skills.isNotEmpty) return provider.skills.join(', ');
@@ -384,4 +474,26 @@ class ProviderRow extends StatelessWidget {
       )),
     ]);
   }
+}
+
+/// One line in the row's '⋯' menu.
+///
+/// Const-constructible on purpose: itemBuilder runs on every open, and a
+/// const list is three widgets that are never rebuilt rather than three that
+/// are allocated each time the menu is tapped.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: AppSizes.s16, color: kGreyTextColor),
+      const SizedBox(width: AppSizes.s8),
+      MyText(text: label, size: AppTextScale.body, color: kBlackColor),
+    ],
+  );
 }

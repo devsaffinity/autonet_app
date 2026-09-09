@@ -9,6 +9,11 @@ import 'package:flutter/material.dart';
 /// this is the line between them.
 const int _kNoonMinutes = 12 * 60;
 
+/// The narrowest a slot chip may be. '09:00' plus its padding, with room to
+/// stay tappable — below this the grid drops to one column rather than
+/// clipping the time itself.
+const double _kMinChip = 120;
+
 /// The comp's Morning / Afternoon slot grid.
 ///
 /// Slots come from the server, which is what makes this honest: a slot that
@@ -42,33 +47,49 @@ class SlotPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final morning = slots.where((s) => _minutesOf(s) < _kNoonMinutes).toList();
     final afternoon = slots.where((s) => _minutesOf(s) >= _kNoonMinutes).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Each half is omitted when empty rather than printing a heading over
-        // nothing — a provider's grid may be entirely afternoon.
-        if (morning.isNotEmpty) ..._band('Morning', morning),
-        if (morning.isNotEmpty && afternoon.isNotEmpty)
-          const SizedBox(height: AppSizes.s16),
-        if (afternoon.isNotEmpty) ..._band('Afternoon', afternoon),
-      ],
-    );
+    // TWO PER ROW, measured — not a fixed chip width.
+    //
+    // The comp draws two chips filling the content width, and a hard 148
+    // only happened to do that on the phone it was checked on: it left a
+    // ragged right edge on a wide handset and dropped to ONE per row on a
+    // narrow one, which reads as a broken grid rather than a chosen layout.
+    // LayoutBuilder rather than MediaQuery because this widget does not know
+    // what padding its parent already spent.
+    return LayoutBuilder(builder: (_, constraints) {
+      final full = constraints.maxWidth;
+      // Unbounded happens inside a Row or a horizontal list. Nothing does
+      // that today, but a NaN width is a hard layout assertion rather than a
+      // degraded layout, so it is worth one line to fall back.
+      final width = full.isFinite ? (full - AppSizes.s12) / 2 : _kMinChip;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Each half is omitted when empty rather than printing a heading
+          // over nothing — a provider's grid may be entirely afternoon.
+          if (morning.isNotEmpty) ..._band('Morning', morning, width),
+          if (morning.isNotEmpty && afternoon.isNotEmpty)
+            const SizedBox(height: AppSizes.s16),
+          if (afternoon.isNotEmpty) ..._band('Afternoon', afternoon, width),
+        ],
+      );
+    });
   }
 
-  List<Widget> _band(String title, List<BookingSlot> band) => [
+  List<Widget> _band(String title, List<BookingSlot> band, double width) => [
     MyText(text: title, size: AppTextScale.body, weight: AppWeights.semibold,
         color: kBlackColor),
     const SizedBox(height: AppSizes.s8),
     // Wrap, not a fixed 2-column grid: the slot count is the server's to
-    // decide, and an odd one leaves a hole in a grid.
+    // decide, and an odd one leaves a hole in a grid. The width is measured
+    // so the wrap lands on two per row, which is what the comp draws.
     Wrap(
       spacing: AppSizes.s12,
       runSpacing: AppSizes.s12,
-      children: [for (final s in band) _chip(s)],
+      children: [for (final s in band) _chip(s, width)],
     ),
   ];
 
-  Widget _chip(BookingSlot slot) {
+  Widget _chip(BookingSlot slot, double width) {
     final isSelected = selected?.scheduledAt == slot.scheduledAt;
     return Semantics(
       button: true,
@@ -79,7 +100,10 @@ class SlotPicker extends StatelessWidget {
         onTap: slot.available ? () => onSelect(slot) : null,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 148,
+          // Never below the floor: at a huge text scale two chips genuinely
+          // do not fit, and one column of readable chips beats two columns
+          // of clipped ones.
+          width: width < _kMinChip ? _kMinChip : width,
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(

@@ -8,6 +8,7 @@ import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_confirmed.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
@@ -284,8 +285,17 @@ void main() {
       await _pumpTall(tester, NewBookingPage(provider: _provider()));
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Booking with Jack Brennan'), findsOneWidget);
+      // TWO widgets, not one: the comp sets the provider's name in the brand
+      // colour and the lead-in in black, and MyText carries one colour. The
+      // assertion is on both halves rather than on the joined string, which
+      // no single widget renders any more.
+      expect(find.text('Booking with '), findsOneWidget);
+      expect(find.text('Jack Brennan'), findsOneWidget);
       expect(find.text('Confirm Selection'), findsOneWidget);
+      // The comp's 'Selected slot' line, reading today's date back in words
+      // so the day is legible once the calendar has scrolled away.
+      expect(find.text('Selected slot'), findsOneWidget);
+      expect(find.text(formatLongDate(DateTime.now())), findsOneWidget);
       // No slot picked yet, so the summary must not invent a time.
       expect(find.text('Not selected'), findsOneWidget);
       // The comp draws a map here; this draws the address, which is the part

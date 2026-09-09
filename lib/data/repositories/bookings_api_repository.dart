@@ -88,6 +88,39 @@ class BookingsApiRepository implements BookingsRepository {
   Future<ApiResult<Booking>> byId(String id) =>
       _c.send(method: 'GET', path: '/v1/bookings/$id', decode: _one);
 
+  /// Throws [ArgumentError] BEFORE the wire for the two statuses the server
+  /// cannot accept here, because both are guaranteed 400s and a round trip
+  /// would turn a programming error into a toast:
+  ///   * PENDING is seeded by the create and is never a destination;
+  ///   * CANCELLED has its own route, with a mandatory reason.
+  ///
+  /// Deliberately NOT `async`: throwing synchronously is what lets a caller
+  /// prove no request was made at all.
+  @override
+  Future<ApiResult<Booking>> advance({
+    required String id,
+    required BookingStatus status,
+    String? note,
+  }) {
+    if (status == BookingStatus.pending || status == BookingStatus.cancelled) {
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Only CONFIRMED, IN_PROGRESS or COMPLETED are accepted here',
+      );
+    }
+    final trimmed = note?.trim() ?? '';
+    return _c.send(
+      method: 'POST',
+      path: '/v1/bookings/$id/status',
+      body: {
+        'status': status.wire,
+        if (trimmed.isNotEmpty) 'note': trimmed,
+      },
+      decode: _one,
+    );
+  }
+
   @override
   Future<ApiResult<Booking>> cancel({
     required String id,

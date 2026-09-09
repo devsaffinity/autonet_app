@@ -1,18 +1,15 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
-/// Month names, Monday-first weekday labels.
+/// Monday-first weekday labels, the UK convention and the comp's.
 ///
-/// Hand-rolled because this project has no `intl` dependency, deliberately —
-/// the same reason domain/date_format.dart formats dates by hand. Monday
-/// first is the UK convention and matches the comp.
-const List<String> _kMonths = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+/// The month names live in domain/date_format.dart rather than here: the
+/// booking screen spells the selected day out in full right below this grid,
+/// and two lists would be two places for a typo to hide in one screenshot.
 const List<String> _kWeekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 /// Whether two instants fall on the same calendar day, LOCALLY.
@@ -84,7 +81,7 @@ class _MonthCalendarState extends State<MonthCalendar> {
     return Column(children: [
       Row(children: [
         Expanded(child: MyText(
-          text: '${_kMonths[_month.month - 1]} ${_month.year}',
+          text: '${kMonthNames[_month.month - 1]} ${_month.year}',
           size: AppTextScale.subtitle, weight: AppWeights.bold,
           color: kBlackColor,
         )),
@@ -135,30 +132,45 @@ class _MonthCalendarState extends State<MonthCalendar> {
         ),
       );
 
+  /// The comp's selected day: a PALE disc with the brand colour on top,
+  /// not a solid one with white text.
+  ///
+  /// White-on-orange is the louder of the two and was here first, but this
+  /// grid sits directly above a row of slot chips that mark their own
+  /// selection the same pale way. Two different visual answers to 'this is
+  /// the one you picked', six lines apart, is the reading a buyer has to
+  /// stop and do.
   Widget _dayCell(DateTime day) {
     final selected = isSameDay(day, widget.selected);
     final disabled = _isDisabled(day);
     return Center(
-      child: GestureDetector(
-        onTap: disabled ? null : () => widget.onSelect(day),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          height: 36,
-          width: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? kSecondaryColor : kTransperentColor,
-            shape: BoxShape.circle,
-          ),
-          child: MyText(
-            text: '${day.day}',
-            size: AppTextScale.label,
-            weight: selected ? AppWeights.bold : AppWeights.regular,
-            color: selected
-                ? kWhiteColor
-                : disabled
-                    ? kGreyTextColor.withValues(alpha: .4)
-                    : kBlackColor,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        enabled: !disabled,
+        child: GestureDetector(
+          onTap: disabled ? null : () => widget.onSelect(day),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            height: 36,
+            width: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected
+                  ? kSecondaryColor.withValues(alpha: .14)
+                  : kTransperentColor,
+              shape: BoxShape.circle,
+            ),
+            child: MyText(
+              text: '${day.day}',
+              size: AppTextScale.label,
+              weight: selected ? AppWeights.bold : AppWeights.regular,
+              color: selected
+                  ? kSecondaryColor
+                  : disabled
+                      ? kGreyTextColor.withValues(alpha: .4)
+                      : kBlackColor,
+            ),
           ),
         ),
       ),

@@ -4,10 +4,14 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/service_provider.dart';
+import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/controller/buyer/provider_detail_controller.dart';
+import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
+import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
 import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
 import 'package:autonect/view/screens/buyer/providers/providers_list.dart';
+import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -56,6 +60,7 @@ void main() {
   });
 
   _detailTests();
+  _actionTests();
 }
 
 /// Pumps on a TALL surface.
@@ -97,7 +102,9 @@ void _detailTests() {
     expect(find.text('ECU Specialist'), findsOneWidget);
     // Sections driven by data, not literals.
     expect(find.text('Expertise Profile'), findsOneWidget);
-    expect(find.text('1240+ Vehicles Serviced'), findsOneWidget);
+    // Two lines, as the comp draws it: the figure above its label.
+    expect(find.text('1240+'), findsOneWidget);
+    expect(find.text('Vehicles Serviced'), findsOneWidget);
     expect(find.text('12 Years Experience'), findsOneWidget);
     // The Specializations tile comes from services[], with the enum's own
     // label — not one of four hardcoded tiles.
@@ -209,5 +216,112 @@ void _detailTests() {
 
     expect(tester.takeException(), isNull);
     expect(c.service.value, BookingServiceType.ecuCoding);
+  });
+}
+
+/// THE COMP'S TWO AFFORDANCES THAT WERE MISSING: the app bar's calendar and
+/// the row's '⋯'.
+///
+/// Every one of them is asserted by NAVIGATING, not by finding the glyph. An
+/// icon that is drawn but wired to nothing is exactly the defect these are
+/// here to catch, and only the destination can tell the two apart.
+void _actionTests() {
+  Future<void> _mountList(WidgetTester tester) async {
+    final providers = FakeProvidersRepository()
+      ..listResult = Ok(Paged<ServiceProvider>(
+        [_p()],
+        const PageMeta(page: 1, limit: 20, pageSize: 1, total: 1,
+            totalPages: 1, hasNextPage: false, hasPreviousPage: false),
+      ))
+      ..byIdResult = Ok(_p());
+    Get.put<ProvidersRepository>(providers);
+    Get.put(ProvidersListController(providers,
+        toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+    // The kebab and the calendar both leave this screen, so their
+    // destinations need their own dependencies registered or the tap lands
+    // on a route that throws while building.
+    Get.put<BookingsRepository>(FakeBookingsRepository());
+    Get.put(ProviderDetailController(providers,
+        reviews: FakeReviewsRepository(),
+        toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+    await _pumpTall(tester, const ProvidersListPage());
+  }
+
+  testWidgets("the app bar's calendar opens My Bookings", (tester) async {
+    await _mountList(tester);
+
+    // By TOOLTIP, which is also the semantics label — an app bar glyph with
+    // neither is unreadable to a screen reader.
+    await tester.tap(find.byTooltip('My bookings'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(MyBookingsPage), findsOneWidget);
+  });
+
+  testWidgets("the row's kebab offers profile, booking and messages", (
+    tester,
+  ) async {
+    await _mountList(tester);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('View Profile'), findsWidgets);
+    expect(find.text('Book a callout'), findsOneWidget);
+    expect(find.text('Message'), findsOneWidget);
+  });
+
+  testWidgets('Book a callout goes straight to the booking form, seeded',
+      (tester) async {
+    await _mountList(tester);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Book a callout'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(NewBookingPage), findsOneWidget);
+    // Seeded with THIS provider, not left for the buyer to pick again.
+    expect(find.text('Jack Brennan'), findsOneWidget);
+  });
+
+  testWidgets('Message opens the Messages tab', (tester) async {
+    await _mountList(tester);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Message'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    // NOT this provider's thread — POST /v1/conversations accepts type OFFER
+    // only, so a booking has no conversation to open yet. The inbox is the
+    // honest destination until it does.
+    expect(find.byType(ChatHomePage), findsOneWidget);
+  });
+
+  testWidgets("the profile's Chat Now sits beside the booking CTA", (
+    tester,
+  ) async {
+    final repo = FakeProvidersRepository()..byIdResult = Ok(_p());
+    Get.put<ProvidersRepository>(repo);
+    Get.put<BookingsRepository>(FakeBookingsRepository());
+    Get.put(ProviderDetailController(repo,
+        reviews: FakeReviewsRepository(),
+        toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+    await _pumpTall(tester, const ProviderDetailPage(providerId: 'p1'));
+
+    // The comp draws both. Booking stays the filled one: a second filled
+    // button would make the buyer choose between two equals.
+    expect(find.text('Book ECU Tuning'), findsOneWidget);
+    expect(find.text('Chat Now'), findsOneWidget);
+
+    await tester.tap(find.text('Chat Now'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(ChatHomePage), findsOneWidget);
   });
 }
