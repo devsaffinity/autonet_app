@@ -1,4 +1,6 @@
+import 'package:autonect/controller/buyer/providers_list_controller.dart';
 import 'package:autonect/controller/buyer/service_providers_controller.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/page_meta.dart';
@@ -257,6 +259,8 @@ void main() {
     });
   });
 
+  _directoryTests();
+
   group('ServiceProvider model', () {
     test('isRated is false when nothing is behind the average', () {
       expect(_provider(ratingAvg: 0, ratingCount: 0).isRated, isFalse);
@@ -268,6 +272,122 @@ void main() {
       expect(p.brands, isEmpty);
       expect(p.ratingAvg, 0);
       expect(p.avatarUrl, isNull);
+    });
+  });
+}
+
+/// The Services directory's filters. The tabs and the chips drive the SAME
+/// `?service=` parameter — the schema has one provider table and no column
+/// separating a coder from an electrician — so the interesting behaviour is
+/// how they share that one field without fighting each other.
+void _directoryTests() {
+  ProvidersListController controller(FakeProvidersRepository repo) =>
+      ProvidersListController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {});
+
+  group('ProvidersListController filters', () {
+    test('the Electricians tab sends no service; Coders sends ECU_CODING',
+        () async {
+      final repo = FakeProvidersRepository()
+        ..listResult = Ok(Paged<ServiceProvider>([_provider()], _meta(1)));
+      final c = controller(repo);
+
+      await c.setService(BookingServiceType.ecuCoding);
+      expect(repo.calls.last, contains(':service=ECU_CODING'));
+
+      await c.setService(null);
+      // Absent, not blank — 'Electricians' is the whole directory.
+      expect(repo.calls.last, isNot(contains(':service=')));
+    });
+
+    test('re-selecting the same tab does not re-issue the read', () async {
+      final repo = FakeProvidersRepository()
+        ..listResult = Ok(Paged<ServiceProvider>([_provider()], _meta(1)));
+      final c = controller(repo);
+
+      await c.setService(BookingServiceType.diagnostic);
+      final after = repo.calls.length;
+      await c.setService(BookingServiceType.diagnostic);
+      expect(repo.calls.length, after);
+    });
+
+    test('a chip and a tab share one field, so selecting a chip moves the tab',
+        () async {
+      final repo = FakeProvidersRepository()
+        ..listResult = Ok(Paged<ServiceProvider>([_provider()], _meta(1)));
+      final c = controller(repo);
+
+      await c.setService(BookingServiceType.ecuCoding);
+      // ECU_CODING IS the Coders tab, so the tab row must show index 1.
+      expect(ProvidersListController.tabs.indexOf(c.service.value), 1);
+
+      // Diagnostics is a chip but not a tab; the row falls back to the first
+      // tab rather than rendering nothing selected.
+      await c.setService(BookingServiceType.diagnostic);
+      expect(ProvidersListController.tabs.indexOf(c.service.value), -1);
+    });
+
+    test('changing the filter BLANKS the previous rows', () async {
+      final repo = FakeProvidersRepository()
+        ..listResult = Ok(Paged<ServiceProvider>([_provider()], _meta(1)));
+      final c = controller(repo);
+      await c.refreshFirst();
+      expect(c.state.value, isA<Data<List<ServiceProvider>>>());
+
+      repo.listResult = Ok(Paged<ServiceProvider>(const [], _meta(0)));
+      await c.setService(BookingServiceType.repair);
+      // Leaving them under a tab that no longer describes them would be the
+      // screen lying about where its rows came from.
+      expect(c.state.value, isA<Empty<List<ServiceProvider>>>());
+    });
+  });
+
+  group('BookingServiceType', () {
+    test('renders the design word, not the enum name', () {
+      expect(BookingServiceType.ecuCoding.label, 'ECU Tuning');
+      expect(BookingServiceType.diagnostic.label, 'Diagnostics');
+      // The wire value is what travels.
+      expect(BookingServiceType.ecuCoding.wire, 'ECU_CODING');
+    });
+
+    test('an unknown callout decodes to null rather than throwing', () {
+      // /v1 lets enums grow; an older client must not break on a sixth value.
+      expect(BookingServiceType.fromWire('TELEPORTATION'), isNull);
+      expect(BookingServiceType.fromWire(null), isNull);
+    });
+  });
+
+  group('ServiceProvider new fields', () {
+    test('decodes headline, skills, services and the counter', () {
+      final p = ServiceProvider.fromJson({
+        'id': 'p1', 'fullName': 'Larry Allison',
+        'headline': 'ECU Specialist', 'bio': 'Specialises in diagnostics.',
+        'skills': ['Coding', 'Remapping'], 'vehiclesServiced': 1240,
+        'services': ['ECU_CODING', 'DIAGNOSTIC'],
+        'brands': ['BMW'], 'ratingAvg': 4.8, 'ratingCount': 126,
+      });
+      expect(p.headline, 'ECU Specialist');
+      expect(p.skills, ['Coding', 'Remapping']);
+      expect(p.vehiclesServiced, 1240);
+      expect(p.services, [BookingServiceType.ecuCoding, BookingServiceType.diagnostic]);
+    });
+
+    test('drops an unknown service instead of failing the whole provider', () {
+      final p = ServiceProvider.fromJson({
+        'id': 'p1', 'fullName': 'X', 'brands': <String>[],
+        'ratingAvg': 0, 'ratingCount': 0,
+        'services': ['DIAGNOSTIC', 'SOMETHING_NEW'],
+      });
+      expect(p.services, [BookingServiceType.diagnostic]);
+    });
+
+    test('a provider from before these columns existed decodes cleanly', () {
+      final p = ServiceProvider.fromJson({'id': 'p1', 'fullName': 'X'});
+      expect(p.headline, isNull);
+      expect(p.bio, isNull);
+      expect(p.skills, isEmpty);
+      expect(p.services, isEmpty);
+      expect(p.vehiclesServiced, isNull);
     });
   });
 }

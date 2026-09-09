@@ -1,4 +1,5 @@
 import 'package:autonect/data/models/auth_user.dart' show jsonString;
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
 
 /// An approved electrician from `GET /v1/providers`.
@@ -19,6 +20,11 @@ class ServiceProvider {
     required this.brands,
     required this.ratingAvg,
     required this.ratingCount,
+    required this.skills,
+    required this.services,
+    this.headline,
+    this.bio,
+    this.vehiclesServiced,
     this.location,
     this.region,
     this.yearsExperience,
@@ -40,6 +46,26 @@ class ServiceProvider {
   final Region? region;
   final int? yearsExperience;
 
+  /// The trade line under the name — 'ECU Specialist'. Free text, and absent
+  /// on every provider who registered before the column existed.
+  final String? headline;
+
+  /// The profile's 'Expertise Profile' paragraph.
+  final String? bio;
+
+  /// What they DO — 'Coding', 'Remapping'. Distinct from [brands], which is
+  /// what they do it TO. Empty is normal.
+  final List<String> skills;
+
+  /// The '1240+ Vehicles Serviced' counter. Null means they have not said,
+  /// which is not the same as none.
+  final int? vehiclesServiced;
+
+  /// Which callouts they take. This is what the directory's service chips
+  /// filter on, and what separates a 'Coder' (ecuCoding) from a plain
+  /// electrician — one provider table, filtered, not two populations.
+  final List<BookingServiceType> services;
+
   /// A PRESIGNED GET when the provider uploaded a photo, a plain external url
   /// on older rows, and null when they have neither. Short-lived either way, so
   /// cache it against [id] rather than the url.
@@ -58,6 +84,23 @@ class ServiceProvider {
     },
     ratingAvg: (j['ratingAvg'] as num?)?.toDouble() ?? 0,
     ratingCount: (j['ratingCount'] as num?)?.toInt() ?? 0,
+    headline: j['headline'] as String?,
+    bio: j['bio'] as String?,
+    skills: switch (j['skills']) {
+      final List<dynamic> list => list.whereType<String>().toList(growable: false),
+      _ => const <String>[],
+    },
+    vehiclesServiced: (j['vehiclesServiced'] as num?)?.toInt(),
+    // Unknown enum members are DROPPED, not crashed on: /v1 lets enums grow,
+    // so a server that adds a sixth callout must not break an older client.
+    services: switch (j['services']) {
+      final List<dynamic> list => list
+          .whereType<String>()
+          .map(BookingServiceType.fromWire)
+          .whereType<BookingServiceType>()
+          .toList(growable: false),
+      _ => const <BookingServiceType>[],
+    },
     location: j['location'] as String?,
     region: Region.fromWire(j['region'] as String?),
     yearsExperience: (j['yearsExperience'] as num?)?.toInt(),

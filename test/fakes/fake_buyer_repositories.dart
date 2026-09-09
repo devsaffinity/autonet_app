@@ -17,6 +17,7 @@ import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/vehicle.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
@@ -281,6 +282,7 @@ class FakeProvidersRepository implements ProvidersRepository {
     int limit = 20,
     Region? region,
     String? brand,
+    BookingServiceType? service,
     String? q,
   }) async {
     // Blank filters are logged as absent, because the api repository omits
@@ -288,6 +290,7 @@ class FakeProvidersRepository implements ProvidersRepository {
     final query = q?.trim() ?? '';
     calls.add('providers:$page:$limit:${region?.wire}'
         '${brand == null ? '' : ':brand=$brand'}'
+        '${service == null ? '' : ':service=${service.wire}'}'
         '${query.isEmpty ? '' : ':q=$query'}');
     return listResult ?? _none('providers.list');
   }

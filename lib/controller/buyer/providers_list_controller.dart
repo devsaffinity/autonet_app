@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:autonect/controller/base/paged_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/service_provider.dart';
@@ -25,6 +26,35 @@ class ProvidersListController extends PagedController<ServiceProvider> {
 
   /// null is 'All regions', and the repository then omits the key.
   final Rxn<Region> region = Rxn<Region>();
+
+  /// The design's Electricians / Coders tabs.
+  ///
+  /// Both read the SAME table — the schema has one provider type and no
+  /// column separating a coder from an electrician — so 'Coders' is the
+  /// ECU_CODING callout, not a second population. Modelled as a nullable
+  /// service filter rather than a bool so the chips below can drive the same
+  /// field without a second query parameter.
+  final Rxn<BookingServiceType> service = Rxn<BookingServiceType>();
+
+  /// The tab row, in the comp's order.
+  static const List<BookingServiceType?> tabs = [null, BookingServiceType.ecuCoding];
+  static const List<String> tabLabels = ['Electricians', 'Coders'];
+
+  /// The chips under the search box. Deliberately a SUBSET of the enum: these
+  /// are the three the comp shows, and a row of five would wrap at 320dp.
+  static const List<BookingServiceType> serviceChips = [
+    BookingServiceType.diagnostic,
+    BookingServiceType.ecuCoding,
+    BookingServiceType.installation,
+  ];
+
+  /// [refreshForFilter], never `refreshFirst`: the previous filter's rows must
+  /// be blanked rather than sit under a tab that no longer describes them.
+  Future<void> setService(BookingServiceType? value) {
+    if (service.value == value) return Future<void>.value();
+    service.value = value;
+    return refreshForFilter();
+  }
 
   Timer? _queryTimer;
 
@@ -54,7 +84,12 @@ class ProvidersListController extends PagedController<ServiceProvider> {
 
   @override
   Future<ApiResult<Paged<ServiceProvider>>> fetchPage(int page) =>
-      _repo.list(page: page, region: region.value, q: query.value);
+      _repo.list(
+        page: page,
+        region: region.value,
+        service: service.value,
+        q: query.value,
+      );
 
   @override
   String idOf(ServiceProvider item) => item.id;

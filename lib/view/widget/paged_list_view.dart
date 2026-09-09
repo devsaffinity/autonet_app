@@ -15,6 +15,7 @@ class PagedListView<T> extends StatefulWidget {
     required this.loadMoreError, required this.hasMore,
     required this.onLoadMore, required this.onRefresh,
     required this.itemBuilder, this.emptyAction,
+    this.emptyTitle, this.emptyBody,
   });
 
   final ViewState<List<T>> state;
@@ -25,6 +26,12 @@ class PagedListView<T> extends StatefulWidget {
 
   /// Forwarded to [StateView] so an empty list can offer its CTA.
   final Widget? emptyAction;
+
+  /// Fallback empty copy, used only when the controller's own [Empty] carried
+  /// none. StateView has always accepted these; PagedListView simply never
+  /// forwarded them, so every paged screen fell back to 'Nothing here yet'
+  /// even where a filter was what emptied the list.
+  final String? emptyTitle, emptyBody;
 
   @override
   State<PagedListView<T>> createState() => _PagedListViewState<T>();
@@ -81,6 +88,8 @@ class _PagedListViewState<T> extends State<PagedListView<T>> {
         state: widget.state,
         onRetry: widget.onRefresh,
         emptyAction: widget.emptyAction,
+        emptyTitle: widget.emptyTitle,
+        emptyBody: widget.emptyBody,
         // No header slot on purpose. One used to exist, and because it could
         // only be painted here — inside the Data arm — a screen that put its
         // filter chips in it lost them the moment a filter came back empty.

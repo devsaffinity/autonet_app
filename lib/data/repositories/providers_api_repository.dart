@@ -2,6 +2,7 @@ import 'package:autonect/data/core/api_client.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
@@ -23,6 +24,7 @@ class ProvidersApiRepository implements ProvidersRepository {
     int limit = 20,
     Region? region,
     String? brand,
+    BookingServiceType? service,
     String? q,
   }) => _c.sendEnvelope(
     method: 'GET',
@@ -36,6 +38,7 @@ class ProvidersApiRepository implements ProvidersRepository {
       // read the same.
       if (region != null) 'region': region.wire,
       if (brand != null && brand.trim().isNotEmpty) 'brand': brand.trim(),
+      if (service != null) 'service': service.wire,
       if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
     },
     decode: Paged.decoder(ServiceProvider.fromJson),

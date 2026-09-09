@@ -1,5 +1,6 @@
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/service_provider.dart';
 
@@ -9,6 +10,9 @@ abstract class ProvidersRepository {
   /// Approved providers only; that is the server's set, not a filter a caller
   /// can widen.
   ///
+  /// [service] is the design's Electricians/Coders tabs AND its chips: one
+  /// provider table filtered by callout, not two populations.
+  ///
   /// [brand] is matched against the `brands` array EXACTLY, casing included —
   /// Postgres array containment is case-sensitive. Pass a value the API itself
   /// returned rather than something a user typed.
@@ -17,6 +21,7 @@ abstract class ProvidersRepository {
     int limit = 20,
     Region? region,
     String? brand,
+    BookingServiceType? service,
     String? q,
   });
 
