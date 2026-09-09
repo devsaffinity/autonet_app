@@ -4,6 +4,7 @@ import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
@@ -104,6 +105,13 @@ class BookingsApiRepository implements BookingsRepository {
           .toList(),
     },
     decode: _schedule,
+  );
+
+  @override
+  Future<ApiResult<ProviderDashboard>> dashboard() => _c.send(
+    method: 'GET',
+    path: '/v1/bookings/dashboard',
+    decode: (d) => ProviderDashboard.fromJson((d as Map).cast<String, dynamic>()),
   );
 
   @override

@@ -84,6 +84,7 @@ class Booking {
     this.description,
     this.durationMins,
     this.quotedPence,
+    this.finalPence,
     this.provider,
     this.buyer,
   });
@@ -106,6 +107,15 @@ class Booking {
   /// a price, so this is absent on every freshly created booking — 'no quote
   /// yet' rather than 'free'.
   final int? quotedPence;
+
+  /// What the job ACTUALLY came to, set on completion. Kept beside
+  /// [quotedPence] rather than overwriting it, because a buyer is owed the
+  /// difference between what they were told and what they were charged.
+  final int? finalPence;
+
+  /// What this job was worth: what it came to, falling back to the quote.
+  /// Null when NEITHER was recorded — not zero, which would read as free.
+  int? get earnedPence => finalPence ?? quotedPence;
 
   final BookingProvider? provider;
 
@@ -138,6 +148,7 @@ class Booking {
       description: j['description'] as String?,
       durationMins: (j['durationMins'] as num?)?.toInt(),
       quotedPence: (j['quotedPence'] as num?)?.toInt(),
+      finalPence: (j['finalPence'] as num?)?.toInt(),
       provider: provider is Map
           ? BookingProvider.fromJson(provider.cast<String, dynamic>())
           : null,

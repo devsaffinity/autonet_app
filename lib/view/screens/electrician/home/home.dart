@@ -1,6 +1,15 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/controller/electrician/availability_controller.dart';
+import 'package:autonect/controller/electrician/provider_bookings_controller.dart';
+import 'package:autonect/controller/electrician/provider_dashboard_controller.dart';
+import 'package:autonect/data/models/booking.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/provider_dashboard.dart';
+import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/domain/money_format.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibilty_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
@@ -20,49 +29,21 @@ class ElectricianHomePage extends StatefulWidget {
 }
 
 class _ElectricianHomePageState extends State<ElectricianHomePage> {
-  bool _isOnline = true;
+  final ProviderDashboardController _dashboard =
+      ProviderDashboardController.ensure();
+  final ProviderBookingsController _bookings =
+      ProviderBookingsController.ensure();
+  final AvailabilityController _availability = AvailabilityController.ensure();
 
-  final List<Map<String, String>> _bookings = [
-    {
-      'name': 'Sarah Johnson',
-      'vehicle': 'Porsche 911',
-      'service': 'Full Diagnostic',
-      'time': '10:30AM',
-      'fee': '\$285.00',
-      'image': Assets.imagesProfileImage,
-    },
-    {
-      'name': 'Michael Chen',
-      'vehicle': 'Tesla Model S',
-      'service': 'Brake Service',
-      'time': '02:15 PM',
-      'fee': '\$190.00',
-      'image': Assets.imagesProfileImage,
-    },
-    {
-      'name': 'James Wilson',
-      'vehicle': 'Ferrari Roma',
-      'service': 'Oil Change',
-      'time': '06:45 PM',
-      'fee': '\$140.00',
-      'image': Assets.imagesProfileImage,
-    },
-  ];
-
-  final List<Map<String, String>> _messages = [
-    {
-      'name': 'Elena Ross',
-      'preview': 'Hey Alex, do you have any morning sl...',
-      'time': '12m ago',
-      'image': Assets.imagesProfileImage,
-    },
-    {
-      'name': 'David Miller',
-      'preview': 'The brakes feel amazing now, thanks...',
-      'time': '1h ago',
-      'image': Assets.imagesProfileImage,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Three independent reads, each with its own slot, so a slow one never
+    // holds up the rest of the screen.
+    _dashboard.load();
+    _bookings.refreshFirst();
+    _availability.load();
+  }
 
   // ── Quick Management actions ─────
   final List<Map<String, dynamic>> _quickActions = [
@@ -147,7 +128,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
 
         // Online toggle
         MyRippleEffect(
-          onTap: () => setState(() => _isOnline = !_isOnline),
+          onTap: () => Get.to(() => const ElectricianAvailabilityPage()),
           radius: 20,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -158,21 +139,35 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _isOnline ? const Color(0xff34C759) : kGreyTextColor,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                MyText(
-                  text: _isOnline ? 'ONLINE' : 'OFFLINE',
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: kBlackColor,
-                ),
+                // ONLINE was a local bool nothing acted on — a provider could
+                // switch to OFFLINE and still be booked all day. What actually
+                // decides that is their schedule, so this reflects it and taps
+                // through to the screen that changes it.
+                Obx(() {
+                  final working = _availability.worksToday;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: working
+                              ? const Color(0xff34C759)
+                              : kGreyTextColor,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      MyText(
+                        text: working ? 'WORKING TODAY' : 'OFF TODAY',
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: kBlackColor,
+                      ),
+                    ],
+                  );
+                }),
                 const SizedBox(width: 3),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
@@ -195,8 +190,32 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
     );
   }
 
-  // ── Performance Card (red) ─────
+  /// Work coming up and work waiting on an answer.
+  ///
+  /// The card used to read '4 Bookings / 20% increase from yesterday'. Nothing
+  /// computed either figure, and no comparison against yesterday exists to
+  /// compute — so it says what the data actually supports.
   Widget _buildPerformanceCard() {
+    return Obx(() {
+      final state = _dashboard.state.value;
+      final d = state is Data<ProviderDashboard> ? state.value : null;
+      return _performanceCard(
+        headline: d == null
+            ? '—'
+            : '${d.upcomingCount} '
+                  '${d.upcomingCount == 1 ? 'booking' : 'bookings'}',
+        sub: d == null
+            ? 'Loading your day'
+            : d.pendingCount == 0
+            ? 'Nothing waiting on you'
+            : '${d.pendingCount} '
+                  '${d.pendingCount == 1 ? 'request needs' : 'requests need'} '
+                  'your answer',
+      );
+    });
+  }
+
+  Widget _performanceCard({required String headline, required String sub}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
@@ -222,14 +241,14 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               MyText(
-                text: "Today's Performance",
+                text: 'Coming Up',
                 size: 12,
                 weight: FontWeight.w600,
-                color: kWhiteColor.withOpacity(0.8),
+                color: kWhiteColor.withValues(alpha: 0.8),
                 paddingBottom: 6,
               ),
               MyText(
-                text: '4 Bookings',
+                text: headline,
                 size: 24,
                 weight: FontWeight.w700,
                 color: kWhiteColor,
@@ -243,11 +262,13 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                     size: 16,
                   ),
                   const SizedBox(width: 6),
-                  MyText(
-                    text: '20% increase from yesterday',
-                    size: 16,
-                    weight: FontWeight.w500,
-                    color: kWhiteColor.withOpacity(0.8),
+                  Expanded(
+                    child: MyText(
+                      text: sub,
+                      size: 14,
+                      weight: FontWeight.w500,
+                      color: kWhiteColor.withValues(alpha: 0.8),
+                    ),
                   ),
                 ],
               ),
@@ -275,7 +296,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               MyText(
-                text: 'Weekly Earnings',
+                text: 'Work completed this week',
                 size: 12,
                 weight: FontWeight.w500,
                 color: kGreyTextColor,
@@ -295,33 +316,33 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
             ],
           ),
           const SizedBox(height: 6),
-          MyText(
-            text: '\$1,240',
-            size: 28,
-            weight: FontWeight.w800,
-            color: kBlackColor,
-            paddingBottom: 12,
-          ),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(100),
-            child: LinearProgressIndicator(
-              value: 0.75,
-              backgroundColor: kTertiaryColor,
-              valueColor: const AlwaysStoppedAnimation<Color>(kSecondaryColor),
-              minHeight: 5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: MyText(
-              text: '75% of goal',
-              size: 11,
-              weight: FontWeight.w400,
-              color: kGreyTextColor,
-            ),
-          ),
+          Obx(() {
+            final state = _dashboard.state.value;
+            final d = state is Data<ProviderDashboard> ? state.value : null;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  text: d == null ? '—' : formatPence(d.last7DaysPence),
+                  size: 28,
+                  weight: FontWeight.w800,
+                  color: kBlackColor,
+                  paddingBottom: 4,
+                ),
+                // The progress bar and '75% of goal' are gone: there is no
+                // earnings goal anywhere in the product to be 75% of, and a
+                // bar with an invented denominator is a made-up figure with a
+                // picture attached. This says who pays, which is the fact a
+                // provider actually needs from this card.
+                MyText(
+                  text: 'Paid to you directly by each customer',
+                  size: 11,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
+                ),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -421,43 +442,83 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          decoration: AppStyling().myShadowDecoration(
-            color: kPrimaryColor,
-            radius: 14,
-            borderColor: kTransperentColor,
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _bookings.length,
-            separatorBuilder: (_, __) => Divider(
-              height: 1,
-              color: kTertiaryColor,
-              indent: 16,
-              endIndent: 16,
+        // The rows are read HERE, in the Obx closure. Reading `state.value`
+        // inside itemBuilder would subscribe to nothing — the list runs
+        // outside the tracking zone — and GetX throws, which release paints
+        // as a grey rectangle.
+        Obx(() {
+          final state = _bookings.state.value;
+          final rows = state is Data<List<Booking>>
+              ? state.value.where((b) => b.status != BookingStatus.cancelled).take(3).toList()
+              : const <Booking>[];
+          return Container(
+            decoration: AppStyling().myShadowDecoration(
+              color: kPrimaryColor,
+              radius: 14,
+              borderColor: kTransperentColor,
             ),
-            itemBuilder: (_, i) => _buildBookingRow(_bookings[i]),
-          ),
-        ),
+            child: rows.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 22,
+                    ),
+                    child: MyText(
+                      text: state is Loading<List<Booking>>
+                          ? 'Loading your bookings…'
+                          : 'No bookings yet. They appear here as soon as a '
+                                'customer books you.',
+                      size: 13,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, _) => Divider(
+                      height: 1,
+                      color: kTertiaryColor,
+                      indent: 16,
+                      endIndent: 16,
+                    ),
+                    itemBuilder: (_, i) => _buildBookingRow(rows[i]),
+                  ),
+          );
+        }),
       ],
     );
   }
 
-  Widget _buildBookingRow(Map<String, String> booking) {
+  Widget _buildBookingRow(Booking booking) {
+    // Every field falls back to something TRUE rather than to a plausible
+    // placeholder: a buyer may not know their model, and a job is unpriced
+    // until the provider quotes it. 'Not quoted yet' is information; a made-up
+    // fee is not.
+    final name = booking.buyer?.name?.trim();
+    final client = (name == null || name.isEmpty) ? 'Customer' : name;
+    final vehicle = booking.regNumber?.trim().isNotEmpty == true
+        ? booking.regNumber!.trim()
+        : 'Vehicle not given';
+    final service = booking.serviceType?.label ?? 'Service';
+    final fee = booking.earnedPence == null
+        ? 'Not quoted yet'
+        : formatPence(booking.earnedPence!);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: InkWell(
         onTap: () {
           Get.to(
             () => ElectricianBookingDetailsPage(
-              clientName: booking['name']!,
-              clientImage: booking['image']!,
-              service: booking['service']!,
-              vehicle: booking['vehicle']!,
-              time: booking['time']!,
-              fee: booking['fee']!,
-              date: 'Today',
+              clientName: client,
+              clientImage: Assets.imagesProfileImage,
+              service: service,
+              vehicle: vehicle,
+              time: formatClock(booking.scheduledAt.toLocal()),
+              fee: fee,
+              date: formatShortDate(booking.scheduledAt.toLocal()),
             ),
           );
         },
@@ -474,7 +535,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: CommonImageView(
-                  imagePath: booking['image'],
+                  imagePath: Assets.imagesProfileImage,
                   width: 48,
                   height: 48,
                   fit: BoxFit.cover,
@@ -487,14 +548,14 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   MyText(
-                    text: booking['name']!,
+                    text: client,
                     size: 14,
                     weight: FontWeight.w700,
                     color: kBlackColor,
                   ),
                   const SizedBox(height: 3),
                   MyText(
-                    text: '${booking['vehicle']} • ${booking['service']}',
+                    text: '$vehicle • $service',
                     size: 12,
                     weight: FontWeight.w400,
                     color: kGreyTextColor,
@@ -509,7 +570,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: MyText(
-                text: booking['time']!,
+                text: formatClock(booking.scheduledAt.toLocal()),
                 size: 11,
                 weight: FontWeight.w600,
                 color: kSecondaryColor,
@@ -534,23 +595,9 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               weight: FontWeight.w700,
               color: kBlackColor,
             ),
-            const SizedBox(width: 8),
-            Container(
-              width: 20,
-              height: 20,
-              decoration: const BoxDecoration(
-                color: kSecondaryColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: MyText(
-                  text: '2',
-                  size: 11,
-                  weight: FontWeight.w700,
-                  color: kWhiteColor,
-                ),
-              ),
-            ),
+            // The unread badge said '2' unconditionally. Nothing counts
+            // unread messages, so a badge here can only ever be wrong; it
+            // comes back with the chat client.
           ],
         ),
         const SizedBox(height: 12),
@@ -563,17 +610,22 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
           ),
           child: Column(
             children: [
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _messages.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: kTertiaryColor,
-                  indent: 16,
-                  endIndent: 16,
+              // The three conversations here were fabricated — named people
+              // with quoted messages nobody sent. Chat has no client yet
+              // (sending is socket-only server-side), so this says nothing
+              // rather than something false; the section stays so the wiring
+              // is a fill, not a rebuild.
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 18,
                 ),
-                itemBuilder: (_, i) => _buildMessageRow(_messages[i]),
+                child: MyText(
+                  text: 'No messages yet.',
+                  size: 13,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
+                ),
               ),
               const Divider(height: 1, color: kTertiaryColor),
               // Go to Messenger

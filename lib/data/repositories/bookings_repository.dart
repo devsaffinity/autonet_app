@@ -2,6 +2,7 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/request_enums.dart';
 
@@ -57,6 +58,12 @@ abstract class BookingsRepository {
   Future<ApiResult<ProviderSchedule>> setSchedule(
     Map<int, Set<AvailabilityBand>> byWeekday,
   );
+
+  /// PROVIDER ONLY — what they have earned, from their own bookings.
+  ///
+  /// RECORDED WORK, NEVER A BALANCE. The buyer pays the provider directly and
+  /// Autonect holds no money, so nothing here is payable to anybody.
+  Future<ApiResult<ProviderDashboard>> dashboard();
 
   Future<ApiResult<Paged<Booking>>> listMine({
     int page = 1,

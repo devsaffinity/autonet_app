@@ -1,18 +1,24 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
-import 'package:autonect/view/screens/electrician/review/review.dart';
+import 'package:autonect/controller/electrician/provider_dashboard_controller.dart';
+import 'package:autonect/data/models/provider_dashboard.dart';
+import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/domain/money_format.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/get.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Usage:
-//   body: TotalBalancePage()
-// ─────────────────────────────────────────────────────────────────────────────
-
+/// What the provider has earned.
+///
+/// NOT A BALANCE, and the copy on this screen is load-bearing. The buyer pays
+/// the provider directly; Autonect holds no money, takes no commission and has
+/// no payout rail. Every figure is a record of work completed, so nothing here
+/// says 'balance', 'available' or 'withdraw' — a provider reading it that way
+/// would be waiting on money that is never coming.
 class TotalBalancePage extends StatefulWidget {
   const TotalBalancePage({super.key});
 
@@ -21,129 +27,162 @@ class TotalBalancePage extends StatefulWidget {
 }
 
 class _TotalBalancePageState extends State<TotalBalancePage> {
-  // ── Chart tab ──────────────────────────────────────────────────────────────
-  int _chartTab = 0; // 0 = WEEK, 1 = MONTH
+  final ProviderDashboardController c = ProviderDashboardController.ensure();
 
-  // ── Bar chart data ─────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _weekBars = [
-    {'day': 'MON', 'value': 0.35},
-    {'day': 'TUE', 'value': 0.55},
-    {'day': 'WED', 'value': 1.0, 'highlight': true},
-    {'day': 'THU', 'value': 0.40},
-    {'day': 'FRI', 'value': 0.28},
-    {'day': 'SAT', 'value': 0.20},
-    {'day': 'SUN', 'value': 0.15},
-  ];
-
-  // ── Income streams ─────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _incomeStreams = [
-    {
-      'label': 'Repair Services',
-      'amount': '\$2,840',
-      'icon': Icons.build_circle_outlined,
-      'color': kSecondaryColor,
-    },
-    {
-      'label': 'Installations',
-      'amount': '\$1,250',
-      'icon': Icons.electrical_services_outlined,
-      'color': kSecondaryColor,
-    },
-    {
-      'label': 'Consultations',
-      'amount': '\$490',
-      'icon': Icons.chat_bubble_outline_rounded,
-      'color': kSecondaryColor,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    c.load();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              MyBackButton(),
-              // ── Total Balance header ───────────────────────────────────────
-              _buildBalanceHeader(),
-              const SizedBox(height: 20),
+        // Every Rx is read HERE, in the Obx closure — StateView.builder runs
+        // in its own build, outside the tracking zone, and a read down there
+        // subscribes to nothing. GetX throws, and release paints it grey.
+        child: Obx(() {
+          final state = c.state.value;
+          final tab = c.chartTab.value;
 
-              // ── Stat cards ─────────────────────────────────────────────────
-              _buildStatCard(
-                label: 'JOBS COMPLETED',
-                value: '124',
-                icon: Icons.check_circle_outline_rounded,
-                iconColor: kSecondaryColor,
+          return StateView<ProviderDashboard>(
+            state: state,
+            onRetry: c.load,
+            builder: (_, d) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const MyBackButton(),
+                  _header(d),
+                  const SizedBox(height: 20),
+
+                  _statCard(
+                    label: 'JOBS COMPLETED',
+                    value: '${d.completedCount}',
+                    icon: Icons.check_circle_outline_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _statCard(
+                    label: 'AVERAGE JOB',
+                    // Null, not zero, when nothing priced has completed:
+                    // '£0.00' is a claim about the work.
+                    value: d.averageJobPence == null
+                        ? '—'
+                        : formatPence(d.averageJobPence!),
+                    icon: Icons.receipt_long_outlined,
+                  ),
+                  const SizedBox(height: 12),
+                  _statCard(
+                    label: 'AWAITING YOUR REPLY',
+                    value: '${d.pendingCount}',
+                    icon: Icons.bolt_rounded,
+                  ),
+                  const SizedBox(height: 28),
+
+                  _chart(d, tab),
+                  const SizedBox(height: 24),
+
+                  if (d.byServiceType.isNotEmpty) ...[
+                    _byService(d),
+                    const SizedBox(height: 20),
+                  ],
+
+                  if (d.unpricedCompletedCount > 0) _unpricedNotice(d),
+                  const SizedBox(height: 30),
+                ],
               ),
-              const SizedBox(height: 12),
-              _buildStatCard(
-                label: 'AVG. TICKET',
-                value: '\$145',
-                icon: Icons.receipt_long_outlined,
-                iconColor: kSecondaryColor,
-              ),
-              const SizedBox(height: 12),
-              _buildStatCard(
-                label: 'ACTIVE LEADS',
-                value: '12',
-                icon: Icons.bolt_rounded,
-                iconColor: kSecondaryColor,
-              ),
-              const SizedBox(height: 28),
-
-              // ── Earnings Performance chart ─────────────────────────────────
-              _buildEarningsChart(),
-              const SizedBox(height: 24),
-
-              // ── Monthly Income Streams ─────────────────────────────────────
-              _buildIncomeStreams(),
-              const SizedBox(height: 20),
-
-              // ── Growth Opportunity ────────────────────────────────────────
-              _buildGrowthOpportunity(),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
+            ),
+          );
+        }),
       ),
     );
   }
 
-  // ── Balance Header ─────────────────────────────────────────────────────────
-  Widget _buildBalanceHeader() {
-    return Column(
+  Widget _header(ProviderDashboard d) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      MyText(
+        // 'CURRENT LIQUIDITY' promised a pot of money. This is a record of
+        // work done, and nothing is held on the provider's behalf.
+        text: 'WORK COMPLETED',
+        size: 11,
+        weight: FontWeight.w700,
+        color: kGreyTextColor,
+        paddingBottom: 4,
+      ),
+      MyText(
+        text: formatPence(d.workCompletedPence),
+        size: 32,
+        weight: FontWeight.w800,
+        color: kBlackColor,
+        paddingBottom: 4,
+      ),
+      MyText(
+        text: d.thisMonthPence > 0
+            ? '${formatPence(d.thisMonthPence)} this month · paid to you '
+                  'directly by each customer'
+            : 'Paid to you directly by each customer',
+        size: 12,
+        weight: FontWeight.w400,
+        color: kGreyTextColor,
+      ),
+    ],
+  );
+
+  Widget _statCard({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+    decoration: AppStyling().myShadowDecoration(
+      color: kPrimaryColor,
+      borderColor: kTertiaryColor,
+      radius: 14,
+    ),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MyText(
-          text: 'CURRENT LIQUIDITY',
-          size: 11,
-          weight: FontWeight.w700,
-          color: kGreyTextColor,
-          paddingBottom: 4,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            MyText(
+              text: label,
+              size: 12,
+              weight: FontWeight.w700,
+              color: kGreyTextColor,
+            ),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: kLightOrangeColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 16, color: kSecondaryColor),
+            ),
+          ],
         ),
+        const SizedBox(height: 8),
         MyText(
-          text: 'Total Balance:\n\$4,580',
-          size: 32,
+          text: value,
+          size: 30,
           weight: FontWeight.w800,
           color: kBlackColor,
         ),
       ],
-    );
-  }
+    ),
+  );
 
-  // ── Stat Card ──────────────────────────────────────────────────────────────
-  Widget _buildStatCard({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-  }) {
+  Widget _chart(ProviderDashboard d, int tab) {
+    final series = c.seriesFor(d);
+    final peak = c.peakPence(d);
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.all(16),
       decoration: AppStyling().myShadowDecoration(
         color: kPrimaryColor,
         borderColor: kTertiaryColor,
@@ -152,52 +191,6 @@ class _TotalBalancePageState extends State<TotalBalancePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label + icon
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              MyText(
-                text: label,
-                size: 12,
-                weight: FontWeight.w700,
-                color: kGreyTextColor,
-              ),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: kLightOrangeColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 16, color: iconColor),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          MyText(
-            text: value,
-            size: 30,
-            weight: FontWeight.w800,
-            color: kBlackColor,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Earnings Performance Chart ─────────────────────────────────────────────
-  Widget _buildEarningsChart() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      decoration: AppStyling().myShadowDecoration(
-        color: kPrimaryColor,
-        borderColor: kTertiaryColor,
-        radius: 14,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title + tabs
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -212,7 +205,9 @@ class _TotalBalancePageState extends State<TotalBalancePage> {
                       color: kBlackColor,
                     ),
                     MyText(
-                      text: 'Weekly growth trajectory',
+                      text: tab == 0
+                          ? 'The last seven days'
+                          : 'The last six months',
                       size: 11,
                       weight: FontWeight.w400,
                       color: kGreyTextColor,
@@ -221,15 +216,14 @@ class _TotalBalancePageState extends State<TotalBalancePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              // WEEK / MONTH chips
               Row(
                 children: List.generate(2, (i) {
-                  final labels = ['WEEK', 'MONTH'];
-                  final isSelected = _chartTab == i;
+                  const labels = ['WEEK', 'MONTH'];
+                  final isSelected = tab == i;
                   return Padding(
                     padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
                     child: MyRippleEffect(
-                      onTap: () => setState(() => _chartTab = i),
+                      onTap: () => c.selectChartTab(i),
                       radius: 20,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
@@ -255,27 +249,26 @@ class _TotalBalancePageState extends State<TotalBalancePage> {
             ],
           ),
           const SizedBox(height: 24),
-
-          // Bar chart
           SizedBox(
             height: 140,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: _weekBars.map((bar) {
-                final isHighlight = bar['highlight'] == true;
-                final double val = bar['value'] as double;
+              children: series.map((point) {
+                // The tallest bar is labelled, and ONLY when something was
+                // actually earned — normalising an empty week against its own
+                // maximum would draw seven full bars out of nothing.
+                final isPeak = peak > 0 && point.totalPence == peak;
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Tooltip on highlighted bar
-                        if (isHighlight)
+                        if (isPeak)
                           Container(
                             margin: const EdgeInsets.only(bottom: 4),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                              horizontal: 5,
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
@@ -283,33 +276,31 @@ class _TotalBalancePageState extends State<TotalBalancePage> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: MyText(
-                              text: '\$841',
-                              size: 9,
+                              text: formatPence(point.totalPence),
+                              size: 8,
                               weight: FontWeight.w700,
                               color: kWhiteColor,
                             ),
                           ),
-                        // Bar
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 400),
                           curve: Curves.easeOut,
-                          height: 100 * val,
+                          height: 100 * c.barHeightFor(d, point),
                           decoration: BoxDecoration(
-                            color: isHighlight
+                            color: isPeak
                                 ? kSecondaryColor
-                                : kSecondaryColor.withOpacity(0.15),
+                                : kSecondaryColor.withValues(alpha: 0.15),
                             borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(6),
                             ),
                           ),
                         ),
                         const SizedBox(height: 6),
-                        // Day label
                         MyText(
-                          text: bar['day'],
+                          text: _pointLabel(point, tab),
                           size: 9,
                           weight: FontWeight.w600,
-                          color: isHighlight ? kSecondaryColor : kGreyTextColor,
+                          color: isPeak ? kSecondaryColor : kGreyTextColor,
                         ),
                       ],
                     ),
@@ -318,129 +309,130 @@ class _TotalBalancePageState extends State<TotalBalancePage> {
               }).toList(),
             ),
           ),
+          if (peak == 0)
+            MyText(
+              text: 'No completed work in this period yet.',
+              size: 12,
+              weight: FontWeight.w400,
+              color: kGreyTextColor,
+              paddingTop: 12,
+            ),
         ],
       ),
     );
   }
 
-  // ── Monthly Income Streams ─────────────────────────────────────────────────
-  Widget _buildIncomeStreams() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: AppStyling().myDecoration(
-        color: kLightBlueColor,
-        borderColor: kTertiaryColor,
-        radius: 14,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MyText(
-            text: 'Monthly Income Streams',
-            size: 15,
-            weight: FontWeight.w800,
-            color: kBlackColor,
-            paddingBottom: 16,
-          ),
-          ..._incomeStreams.map((s) => _buildIncomeRow(s)),
-        ],
-      ),
-    );
+  /// 'MON' for a day bucket, 'SEP' for a month one. The server sends
+  /// `YYYY-MM-DD` and `YYYY-MM`; parsing rather than formatting server-side
+  /// keeps the wire a plain date and the wording a client concern.
+  String _pointLabel(EarningsPoint point, int tab) {
+    final parts = point.label.split('-').map(int.tryParse).toList();
+    if (parts.length < 2 || parts[0] == null || parts[1] == null) return '';
+    if (tab == 1) return kMonthNames[parts[1]! - 1].substring(0, 3).toUpperCase();
+    if (parts.length < 3 || parts[2] == null) return '';
+    return weekdayAbbrev(DateTime(parts[0]!, parts[1]!, parts[2]!).weekday);
   }
 
-  Widget _buildIncomeRow(Map<String, dynamic> s) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: kLightOrangeColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              s['icon'] as IconData,
-              size: 16,
-              color: s['color'] as Color,
+  Widget _byService(ProviderDashboard d) => Container(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    decoration: AppStyling().myDecoration(
+      color: kPrimaryColor,
+      borderColor: kTertiaryColor,
+      radius: 14,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: 'Where it came from',
+          size: 15,
+          weight: FontWeight.w800,
+          color: kBlackColor,
+          paddingBottom: 12,
+        ),
+        ...d.byServiceType.map(
+          (s) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: kLightOrangeColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.build_circle_outlined,
+                    size: 18,
+                    color: kSecondaryColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MyText(
+                        text: s.serviceType!.label,
+                        size: 14,
+                        weight: FontWeight.w700,
+                        color: kBlackColor,
+                      ),
+                      MyText(
+                        text:
+                            '${s.completedCount} '
+                            '${s.completedCount == 1 ? 'job' : 'jobs'}',
+                        size: 12,
+                        weight: FontWeight.w400,
+                        color: kGreyTextColor,
+                      ),
+                    ],
+                  ),
+                ),
+                MyText(
+                  text: formatPence(s.totalPence),
+                  size: 15,
+                  weight: FontWeight.w800,
+                  color: kBlackColor,
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: MyText(
-              text: s['label'],
-              size: 14,
-              weight: FontWeight.w500,
-              color: kBlackColor,
-            ),
-          ),
-          MyText(
-            text: s['amount'],
-            size: 15,
-            weight: FontWeight.w700,
-            color: kBlackColor,
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 
-  // ── Growth Opportunity ─────────────────────────────────────────────────────
-  Widget _buildGrowthOpportunity() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: kLightBlueColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Stack(
-        children: [
-          // Decorative bg icon
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Icon(
-              Icons.trending_up_rounded,
-              size: 64,
-              color: const Color(0xff4A6CF7).withOpacity(0.1),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              MyText(
-                text: 'Growth Opportunity',
-                size: 15,
-                weight: FontWeight.w800,
-                color: kBlackColor,
-                paddingBottom: 6,
-              ),
-              MyText(
-                text:
-                    'Upsell to increase your average ticket by 22% this month.',
-                size: 13,
-                weight: FontWeight.w400,
-                color: kGreyTextColor,
-                paddingBottom: 16,
-              ),
-              MyButton(
-                buttonText: 'View Recommendations',
-                onTap: () {
-                  Get.to(() => ElectricianReviewPage());
-                },
-                backgroundColor: kSecondaryColor,
-                fontColor: kWhiteColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 44,
-                radius: 100,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  /// A total that quietly omits work is worse than one that explains the gap.
+  Widget _unpricedNotice(ProviderDashboard d) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: kLightBlueColor,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: 'Not counted above',
+          size: 15,
+          weight: FontWeight.w800,
+          color: kBlackColor,
+          paddingBottom: 6,
+        ),
+        MyText(
+          text:
+              '${d.unpricedCompletedCount} completed '
+              '${d.unpricedCompletedCount == 1 ? 'job has' : 'jobs have'} no '
+              'price recorded. Add one from the booking and it will be '
+              'included here.',
+          size: 13,
+          weight: FontWeight.w400,
+          color: kGreyTextColor,
+        ),
+      ],
+    ),
+  );
 }

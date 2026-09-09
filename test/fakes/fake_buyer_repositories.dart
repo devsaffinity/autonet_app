@@ -11,6 +11,7 @@ import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/paged.dart';
+import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/part_request.dart';
@@ -327,6 +328,7 @@ class FakeBookingsRepository implements BookingsRepository {
   ApiResult<Booking>? advanceResult;
   ApiResult<Booking>? quoteResult;
   ApiResult<ProviderSchedule>? scheduleResult;
+  ApiResult<ProviderDashboard>? dashboardResult;
   ApiResult<ProviderSchedule>? setScheduleResult;
 
   @override
@@ -354,6 +356,12 @@ class FakeBookingsRepository implements BookingsRepository {
   }) async {
     calls.add('availability:$providerId:$date');
     return availabilityResult ?? _none('bookings.availability');
+  }
+
+  @override
+  Future<ApiResult<ProviderDashboard>> dashboard() async {
+    calls.add('dashboard');
+    return dashboardResult ?? _none('bookings.dashboard');
   }
 
   @override

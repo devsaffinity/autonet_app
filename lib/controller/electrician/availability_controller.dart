@@ -75,6 +75,19 @@ class AvailabilityController extends ApiController {
   /// True when the provider works no band at all on the selected day.
   bool get selectedDayIsOff => selectedBands.isEmpty;
 
+  /// Whether they work at all TODAY.
+  ///
+  /// Reads today's weekday explicitly rather than [selectedBands]: that
+  /// follows whatever day the availability screen last selected, so a caller
+  /// elsewhere — the home screen's status chip — would silently start
+  /// reporting the day the provider happened to tap last.
+  ///
+  /// False before the schedule has loaded. The chip it feeds says 'off today',
+  /// which is the safer way round to be briefly wrong: it invites a look at
+  /// the schedule, where 'working' would invite ignoring it.
+  bool get worksToday =>
+      (draft[DateTime.now().weekday] ?? const <AvailabilityBand>{}).isNotEmpty;
+
   Future<void> load() => runRead<ProviderSchedule>(
     _scheduleSlot,
     _repo.schedule,
