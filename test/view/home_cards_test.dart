@@ -152,29 +152,45 @@ void main() {
       expect(find.text('Part No'), findsOneWidget);
     });
 
-    testWidgets('one offer is singular', (tester) async {
+    testWidgets('the image band carries no overlay chips', (tester) async {
       await tester.pumpWidget(
-        _host(ActiveRequestCard(request: _request(offerCount: 1))),
+        _host(ActiveRequestCard(
+            request: _request(offerCount: 3, imageCount: 2))),
       );
 
-      expect(find.text('1 offer'), findsOneWidget);
-      expect(find.text('1 offers'), findsNothing);
+      // The comp's band is a clean photograph. Both counts that used to be
+      // stacked on it are said better elsewhere now: offers by the Offers
+      // section under the carousel, which carries real priced offers rather
+      // than the derived count that chip predated, and photos by the request
+      // detail screen, which actually shows them.
+      expect(find.text('3 offers'), findsNothing);
+      expect(find.text('2 photos'), findsNothing);
     });
 
-    testWidgets('many offers are plural', (tester) async {
-      await tester.pumpWidget(
-        _host(ActiveRequestCard(request: _request(offerCount: 3))),
-      );
+    testWidgets('width is half the viewport, clamped at both ends',
+        (tester) async {
+      Future<double> widthAt(double viewport) async {
+        late double measured;
+        await tester.pumpWidget(MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(viewport, 800)),
+            child: Builder(builder: (context) {
+              measured = activeRequestCardWidth(context);
+              return const SizedBox.shrink();
+            }),
+          ),
+        ));
+        return measured;
+      }
 
-      expect(find.text('3 offers'), findsOneWidget);
-    });
-
-    testWidgets('one photo is singular', (tester) async {
-      await tester.pumpWidget(
-        _host(ActiveRequestCard(request: _request(imageCount: 1))),
-      );
-
-      expect(find.text('1 photo'), findsOneWidget);
+      // Two of these plus their gap always overrun the padded row, and that
+      // overrun IS the peek that says 'swipe' — which is the comp's two-up
+      // rhythm rather than the fixed width that only held on one device.
+      expect(await widthAt(400), 200);
+      // Clamped up, so four text rows still fit on a small phone.
+      expect(await widthAt(320), 170);
+      // Clamped down, so a tablet gets a card rather than a slab.
+      expect(await widthAt(900), 240);
     });
 
     testWidgets('condition falls back to Any when the field predates it', (
