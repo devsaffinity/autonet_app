@@ -12,6 +12,8 @@ import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibi
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
 import 'package:autonect/view/screens/electrician/home/electrician_booking.dart';
+import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
+import 'package:autonect/view/screens/electrician/profile/edit_provider_profile.dart';
 import 'package:autonect/view/screens/electrician/review/review.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -72,6 +74,16 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
               paddingBottom: 12,
             ),
             ProfileMenuTile(
+              icon: Icons.edit_outlined,
+              label: 'Edit Profile',
+              // Re-reads on the way back so the header and stats reflect an
+              // edit that just landed.
+              onTap: () async {
+                await Get.to<void>(() => const EditProviderProfilePage());
+                await _profile.load();
+              },
+            ),
+            ProfileMenuTile(
               icon: Icons.build_outlined,
               label: 'Manage Services',
               onTap: () => Get.to(() => const ManageServicesPage()),
@@ -125,7 +137,9 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
             ProfileMenuTile(
               icon: Icons.notifications_none_rounded,
               label: 'Notifications',
-              onTap: () {},
+              // Was a dead tap. NotificationsPage reads its own controller and
+              // is not buyer-specific, so it serves a provider unchanged.
+              onTap: () => Get.to(() => const NotificationsPage()),
             ),
             ProfileMenuTile(
               icon: Icons.logout_rounded,

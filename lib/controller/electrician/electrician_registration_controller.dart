@@ -52,6 +52,17 @@ class ElectricianRegistrationController extends ApiController {
 
   final RxInt yearsExperience = 0.obs;
 
+  // ── Step 3 on the EDIT screen: how they describe themselves ────────────────
+  /// The trade line under their name on the buyer's directory card.
+  final RxString headline = ''.obs;
+
+  /// The profile's 'Expertise Profile' paragraph.
+  final RxString bio = ''.obs;
+
+  /// The design's '1240+ Vehicles Serviced'. Null rather than 0 when they have
+  /// not said — claiming zero vehicles serviced is worse than saying nothing.
+  final Rxn<int> vehiclesServiced = Rxn<int>();
+
   // ── Result ─────────────────────────────────────────────────────────────────
   /// What the server returned. Its `approved` flag decides the landing screen,
   /// so the wizard reads this rather than assuming registration means approved
@@ -66,6 +77,29 @@ class ElectricianRegistrationController extends ApiController {
 
   void setExperience(int years) => yearsExperience.value = years;
 
+  /// Load an existing profile into the form.
+  ///
+  /// THE ENDPOINT IS AN UPSERT, so editing is the same call as registering and
+  /// this controller serves both screens. That is also why pre-filling matters:
+  /// a partial submit REPLACES the row, so anything not loaded here would be
+  /// cleared by the next save.
+  void prefillFrom(ElectricianProfile p) {
+    fullName.value = p.fullName;
+    phone.value = p.phone ?? '';
+    location.value = p.location ?? '';
+    region.value = p.region;
+    yearsExperience.value = p.yearsExperience ?? 0;
+    brands
+      ..clear()
+      ..addAll(p.brands);
+    services
+      ..clear()
+      ..addAll(p.services);
+    headline.value = p.headline ?? '';
+    bio.value = p.bio ?? '';
+    vehiclesServiced.value = p.vehiclesServiced;
+  }
+
   ElectricianRegistrationDraft get draft => ElectricianRegistrationDraft(
     fullName: fullName.value,
     phone: phone.value,
@@ -74,9 +108,12 @@ class ElectricianRegistrationController extends ApiController {
     yearsExperience: yearsExperience.value,
     brands: brands.toList(),
     services: services.toList(),
-    // Derived from the services rather than collected twice: the wizard has no
-    // free-text skills field, and inventing one here would put words in the
-    // provider's mouth. Their own wording can be edited later on the profile.
+    headline: headline.value,
+    bio: bio.value,
+    vehiclesServiced: vehiclesServiced.value,
+    // Derived from the services rather than collected twice: neither screen has
+    // a free-text skills field, and inventing one would put words in the
+    // provider's mouth.
     skills: [for (final s in services) s.label],
   );
 

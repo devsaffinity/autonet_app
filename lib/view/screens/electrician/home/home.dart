@@ -10,6 +10,7 @@ import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/view_state.dart';
+import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibilty_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
@@ -180,9 +181,9 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         ),
         const SizedBox(width: 10),
 
-        // Bell
+        // Bell — was a dead tap.
         MyRippleEffect(
-          onTap: () {},
+          onTap: () => Get.to(() => const NotificationsPage()),
           radius: 20,
           child: CommonImageView(svgPath: Assets.imagesNotification),
         ),

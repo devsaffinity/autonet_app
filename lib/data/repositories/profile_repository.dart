@@ -80,6 +80,7 @@ class ElectricianRegistrationDraft {
     this.skills = const [],
     this.headline,
     this.bio,
+    this.vehiclesServiced,
   });
 
   final String fullName;
@@ -92,6 +93,10 @@ class ElectricianRegistrationDraft {
   final List<String> skills;
   final String? headline;
   final String? bio;
+
+  /// The profile card's vehicles-serviced counter. Nullable: a provider who
+  /// has not told us leaves it out rather than claiming zero.
+  final int? vehiclesServiced;
 
   bool get isComplete => fullName.trim().isNotEmpty;
 
@@ -110,6 +115,7 @@ class ElectricianRegistrationDraft {
     'skills': skills,
     if (headline case final v? when v.trim().isNotEmpty) 'headline': v.trim(),
     if (bio case final v? when v.trim().isNotEmpty) 'bio': v.trim(),
+    if (vehiclesServiced case final n?) 'vehiclesServiced': n,
   };
 }
 

@@ -1,3 +1,4 @@
+import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/auth_user.dart';
 import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/request_enums.dart';
@@ -95,8 +96,10 @@ class SupplierProfile {
 /// and a merged type would carry `businessName` and `categories` that an
 /// electrician never has.
 ///
-/// Only the fields the client actually gates or renders on are decoded. The
-/// server returns more; adding them here is cheap when something needs them.
+/// Decoded in full, because the provider now EDITS this. It used to carry only
+/// the fields the client gated on, which was fine while nothing could author a
+/// profile — an edit screen that cannot pre-fill makes a provider retype what
+/// the server already holds.
 class ElectricianProfile {
   const ElectricianProfile({
     required this.fullName,
@@ -105,6 +108,15 @@ class ElectricianProfile {
     this.headline,
     this.ratingAvg = 0,
     this.ratingCount = 0,
+    this.bio,
+    this.phone,
+    this.location,
+    this.region,
+    this.yearsExperience,
+    this.vehiclesServiced,
+    this.brands = const [],
+    this.skills = const [],
+    this.services = const [],
   });
 
   final String fullName;
@@ -122,7 +134,34 @@ class ElectricianProfile {
   final double ratingAvg;
   final int ratingCount;
 
+  /// EVERYTHING BELOW IS WHAT THE PROVIDER AUTHORS ABOUT THEMSELVES, and it is
+  /// decoded so an edit screen can pre-fill from the server rather than making
+  /// them retype a profile they already have. `/v1/me` has always returned the
+  /// whole row; the client simply never read past the fields it gated on.
+  final String? bio;
+  final String? phone;
+  final String? location;
+  final Region? region;
+  final int? yearsExperience;
+  final int? vehiclesServiced;
+
+  /// What they work ON.
+  final List<String> brands;
+
+  /// What they DO, in their own words.
+  final List<String> skills;
+
+  /// The callouts they take — the enum the buyer's filters use. Unknown wire
+  /// values are dropped rather than rendered, so a value shipped server-side
+  /// cannot put a broken chip on an older client.
+  final List<BookingServiceType> services;
+
   bool get canEnterShell => approved;
+
+  static List<String> _strings(Object? v) => ((v as List?) ?? const [])
+      .map((e) => e?.toString())
+      .whereType<String>()
+      .toList();
 
   factory ElectricianProfile.fromJson(Map<String, dynamic> j) =>
       ElectricianProfile(
@@ -132,6 +171,18 @@ class ElectricianProfile {
         headline: j['headline'] as String?,
         ratingAvg: (j['ratingAvg'] as num?)?.toDouble() ?? 0,
         ratingCount: (j['ratingCount'] as num?)?.toInt() ?? 0,
+        bio: j['bio'] as String?,
+        phone: j['phone'] as String?,
+        location: j['location'] as String?,
+        region: Region.fromWire(j['region'] as String?),
+        yearsExperience: (j['yearsExperience'] as num?)?.toInt(),
+        vehiclesServiced: (j['vehiclesServiced'] as num?)?.toInt(),
+        brands: _strings(j['brands']),
+        skills: _strings(j['skills']),
+        services: _strings(j['services'])
+            .map(BookingServiceType.fromWire)
+            .whereType<BookingServiceType>()
+            .toList(),
       );
 }
 
