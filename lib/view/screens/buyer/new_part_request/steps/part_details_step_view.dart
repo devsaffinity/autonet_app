@@ -7,7 +7,6 @@ import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/select_option.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/widgets/category_picker_sheet.dart';
-import 'package:autonect/view/widget/choice_chips_field.dart';
 import 'package:autonect/view/widget/counted_text_field.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
 import 'package:autonect/view/widget/image_tray.dart';
@@ -41,12 +40,14 @@ const double _kLabelSize = AppTextScale.body;
 /// Step 2 — the part itself. Stateful because the draft is a plain object: a
 /// chip tap changes no observable, so the repaint has to be asked for.
 ///
-/// FIELD ORDER follows the comp — name, number, then the two selects, the
-/// description and the upload card. Category and Region sit between them
+/// FIELD ORDER follows the comp — name, number, then the selects, the
+/// description and the upload card. Category and Region sit among them
 /// because the comp omits both and neither can be dropped: `validate()` fails
 /// on `categoryId` and `region`, `toBody()` throws without them, and region is
 /// half the supplier-matching key. Removing them here would strand the buyer
-/// on step 3 behind two errors with no field to fix them in.
+/// on step 3 behind two errors with no field to fix them in. Region is a
+/// select rather than the twelve-chip grid it was, so the three enum pickers
+/// on this screen read as one control instead of two.
 class PartDetailsStepView extends StatefulWidget {
   const PartDetailsStepView({
     super.key, required this.controller, required this.partName,
@@ -125,13 +126,11 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
             // Required, and half the supplier-matching key. Pre-selected from
             // the buyer's last successful create, never silently defaulted: the
             // User table has no region column to read one from.
-            _label('Region'),
-            ChoiceChipsField<Region>(options: _regions, selected: d.region,
-                onSelect: (r) { d.region = r; _edited('region'); }),
-            if (_c.fieldErrorFor('region') case final e?)
-              MyText(text: e, size: AppTextScale.label, color: kRedColor,
-                  paddingTop: AppSizes.s4, paddingLeft: AppSizes.s8),
-            const SizedBox(height: AppSizes.s16),
+            EnumSelectField<Region>(title: 'Region',
+                hint: 'Choose your region', options: _regions,
+                value: d.region, errorText: _c.fieldErrorFor('region'),
+                borderColor: kFieldBorderColor, titleSize: _kLabelSize,
+                onChanged: (r) { d.region = r; _edited('region'); }),
             EnumSelectField<RequestUrgency>(title: 'Set Urgency',
                 hint: 'How soon do you need it?', options: _urgencies,
                 value: d.urgency, errorText: _c.fieldErrorFor('urgency'),

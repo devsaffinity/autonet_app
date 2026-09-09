@@ -18,7 +18,7 @@ import '../fakes/fake_buyer_repositories.dart';
 import '../fakes/fake_image_picker.dart';
 
 /// Step 2 is where every one of the 13 create fields is actually produced. The
-/// two dropdown assertions are the point of this file: the screen it replaces
+/// dropdown assertions are the point of this file: the screen it replaces
 /// offered 'Refurbished' and 'Normal', neither of which exists on the wire, so
 /// a buyer who picked either got a 400 after filling the whole form.
 void main() {
@@ -84,16 +84,29 @@ void main() {
     expect(find.text('Category'), findsOneWidget);
     expect(find.text('Choose a part category'), findsOneWidget);
     expect(find.text('Region'), findsOneWidget);
-    // All twelve regions are visible chips, not a hidden default.
-    expect(find.text('London'), findsOneWidget);
-    expect(find.text('Northern Ireland'), findsOneWidget);
+    // The select RESTS on its hint. Region was a twelve-chip grid when this
+    // file was written; what mattered then and still matters is that nothing
+    // is preselected — the User table has no region column to read a default
+    // from, and a wrong one fans the request at the wrong suppliers.
+    expect(find.text('Choose your region'), findsOneWidget);
+  });
+
+  testWidgets('the region select offers all twelve regions', (t) async {
+    await pumpStep2(t);
+    final field = find.byType(DropdownButton2<Region>);
+    await t.ensureVisible(field);
+    await t.pumpAndSettle();
+    await t.tap(field);
+    await t.pumpAndSettle();
+    for (final r in Region.values) {
+      expect(find.text(r.label), findsWidgets, reason: r.label);
+    }
   });
 
   testWidgets('a chosen region reaches the draft as its wire value',
       (t) async {
     await pumpStep2(t);
-    await t.tap(find.text('South East'));
-    await t.pump();
+    await pick<Region>(t, 'South East');
     // Cancels the 500 ms draft debounce the tap armed; a timer outliving the
     // tree is a test failure, and the wizard really does arm one per keystroke.
     c.saveNow();
