@@ -17,7 +17,9 @@ import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/vehicle.dart';
+import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
@@ -299,5 +301,63 @@ class FakeProvidersRepository implements ProvidersRepository {
   Future<ApiResult<ServiceProvider>> byId(String id) async {
     calls.add('provider:$id');
     return byIdResult ?? _none('providers.byId');
+  }
+}
+
+class FakeBookingsRepository implements BookingsRepository {
+  final List<String> calls = [];
+  ApiResult<Booking>? createResult;
+  ApiResult<DayAvailability>? availabilityResult;
+  ApiResult<Paged<Booking>>? listResult;
+  ApiResult<Booking>? byIdResult;
+  ApiResult<Booking>? cancelResult;
+
+  @override
+  Future<ApiResult<Booking>> create({
+    required String electricianId,
+    required BookingServiceType serviceType,
+    required Region region,
+    required DateTime scheduledAt,
+    String? description,
+    String? regNumber,
+    String? location,
+  }) async {
+    calls.add('create:$electricianId:${serviceType.wire}:'
+        '${scheduledAt.toUtc().toIso8601String()}');
+    return createResult ?? _none('bookings.create');
+  }
+
+  @override
+  Future<ApiResult<DayAvailability>> availability({
+    required String providerId,
+    required String date,
+  }) async {
+    calls.add('availability:$providerId:$date');
+    return availabilityResult ?? _none('bookings.availability');
+  }
+
+  @override
+  Future<ApiResult<Paged<Booking>>> listMine({
+    int page = 1,
+    int limit = 20,
+    BookingStatus? status,
+  }) async {
+    calls.add('bookings:$page:$limit:${status?.wire}');
+    return listResult ?? _none('bookings.listMine');
+  }
+
+  @override
+  Future<ApiResult<Booking>> byId(String id) async {
+    calls.add('booking:$id');
+    return byIdResult ?? _none('bookings.byId');
+  }
+
+  @override
+  Future<ApiResult<Booking>> cancel({
+    required String id,
+    required String note,
+  }) async {
+    calls.add('cancel:$id:$note');
+    return cancelResult ?? _none('bookings.cancel');
   }
 }

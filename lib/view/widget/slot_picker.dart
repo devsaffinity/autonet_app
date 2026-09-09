@@ -1,0 +1,116 @@
+import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/data/models/booking.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:flutter/material.dart';
+
+/// Noon, in minutes. The comp splits the day into Morning and Afternoon, and
+/// this is the line between them.
+const int _kNoonMinutes = 12 * 60;
+
+/// The comp's Morning / Afternoon slot grid.
+///
+/// Slots come from the server, which is what makes this honest: a slot that
+/// somebody already booked, or that has simply passed, arrives with
+/// `available: false` and is rendered unpickable rather than being offered
+/// and then refused on submit.
+class SlotPicker extends StatelessWidget {
+  const SlotPicker({
+    super.key,
+    required this.slots,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<BookingSlot> slots;
+  final BookingSlot? selected;
+  final ValueChanged<BookingSlot> onSelect;
+
+  /// Splits on the LABEL, not the instant.
+  ///
+  /// `time` is 'HH:MM' on a London clock as the server computed it; deriving
+  /// morning from `scheduledAt.hour` would read the device's zone and could
+  /// put a 09:00 BST slot in the afternoon for a traveller.
+  static int _minutesOf(BookingSlot s) {
+    final parts = s.time.split(':');
+    if (parts.length != 2) return 0;
+    return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final morning = slots.where((s) => _minutesOf(s) < _kNoonMinutes).toList();
+    final afternoon = slots.where((s) => _minutesOf(s) >= _kNoonMinutes).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Each half is omitted when empty rather than printing a heading over
+        // nothing — a provider's grid may be entirely afternoon.
+        if (morning.isNotEmpty) ..._band('Morning', morning),
+        if (morning.isNotEmpty && afternoon.isNotEmpty)
+          const SizedBox(height: AppSizes.s16),
+        if (afternoon.isNotEmpty) ..._band('Afternoon', afternoon),
+      ],
+    );
+  }
+
+  List<Widget> _band(String title, List<BookingSlot> band) => [
+    MyText(text: title, size: AppTextScale.body, weight: AppWeights.semibold,
+        color: kBlackColor),
+    const SizedBox(height: AppSizes.s8),
+    // Wrap, not a fixed 2-column grid: the slot count is the server's to
+    // decide, and an odd one leaves a hole in a grid.
+    Wrap(
+      spacing: AppSizes.s12,
+      runSpacing: AppSizes.s12,
+      children: [for (final s in band) _chip(s)],
+    ),
+  ];
+
+  Widget _chip(BookingSlot slot) {
+    final isSelected = selected?.scheduledAt == slot.scheduledAt;
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      enabled: slot.available,
+      label: slot.available ? slot.time : '${slot.time}, unavailable',
+      child: GestureDetector(
+        onTap: slot.available ? () => onSelect(slot) : null,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 148,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? kSecondaryColor.withValues(alpha: .12)
+                : kWhiteColor,
+            borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+            border: Border.all(
+              color: isSelected ? kSecondaryColor : kFieldBorderColor,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: ExcludeSemantics(
+            child: MyText(
+              text: slot.time,
+              size: AppTextScale.label,
+              weight: isSelected ? AppWeights.semibold : AppWeights.regular,
+              // A taken slot is greyed, not hidden: seeing that 11:30 exists
+              // but is gone tells a buyer something an absent chip does not.
+              color: !slot.available
+                  ? kGreyTextColor.withValues(alpha: .5)
+                  : isSelected
+                      ? kSecondaryColor
+                      : kBlackColor,
+              decoration: slot.available
+                  ? TextDecoration.none
+                  : TextDecoration.lineThrough,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -7,6 +7,7 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/view/screens/buyer/providers/new_booking.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
@@ -78,9 +79,11 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
             MyButton(
               buttonText: 'Book ${_primaryServiceLabel(p)}',
               radius: AppSizes.radiusMd,
-              // Disabled until the booking flow lands. The route and the slot
-              // grid are already live; this is the last mile.
-              enabled: false,
+              // The whole provider travels, not just the id: the booking
+              // screen needs their region and services to build a valid
+              // request, and re-fetching what this screen already holds
+              // would be a round trip for nothing.
+              onTap: () => Get.to(() => NewBookingPage(provider: p)),
             ),
             const SizedBox(height: AppSizes.s32),
           ],

@@ -12,3 +12,11 @@ String formatDayMonthYear(DateTime d) {
   final month = d.month.toString().padLeft(2, '0');
   return '$day/$month/${d.year}';
 }
+
+/// `HH:MM`, 24-hour, zero-padded.
+///
+/// Callers pass a LOCAL DateTime — `scheduledAt` arrives as UTC and the clock
+/// a buyer will be standing next to is their own, so `.toLocal()` belongs at
+/// the call site where that intent is visible rather than hidden in here.
+String formatClock(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
