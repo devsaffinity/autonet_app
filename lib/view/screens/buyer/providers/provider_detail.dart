@@ -25,10 +25,8 @@ import 'package:get/get.dart';
 /// decide who to let near their car — an empty 'Expertise Profile' heading
 /// over nothing is worse than no heading at all.
 ///
-/// Two things in the comp are still missing, and both are absences of DATA
+/// One thing in the comp is still missing, and it is an absence of DATA
 /// rather than of effort:
-///   * 'EXPERT VERIFIED' — the schema has `approved`, but this route can only
-///     ever return approved providers, so a badge on every one says nothing.
 ///   * 'Chat Now' — a conversation can only be opened against an OFFER.
 ///     ConversationType.BOOKING exists in the enum but nothing implements it,
 ///     and the Flutter chat screen is a static mock with no repository. A
@@ -109,7 +107,31 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
             : InitialsAvatar(name: p.fullName, size: 96,
                 radius: AppSizes.radiusLg),
       ),
-      const SizedBox(height: AppSizes.s12),
+      const SizedBox(height: AppSizes.s8),
+      // EXPERT VERIFIED.
+      //
+      // I argued against this once, on the grounds that /v1/providers only
+      // ever returns approved providers so the badge is true of everybody.
+      // That was wrong: the BUYER does not know the route is filtered, and to
+      // them it says this provider cleared KYC — which is exactly what
+      // `approved` means and exactly what they are weighing up.
+      Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.s8, vertical: AppSizes.s4),
+        decoration: BoxDecoration(
+          color: kMutedSurfaceColor,
+          borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.verified_rounded, size: AppSizes.s12,
+              color: kSecondaryColor),
+          const SizedBox(width: AppSizes.s4),
+          MyText(text: 'EXPERT VERIFIED', size: AppTextScale.caption,
+              weight: AppWeights.bold, color: kGreyTextColor,
+              letterSpacing: 0.5),
+        ]),
+      ),
+      const SizedBox(height: AppSizes.s8),
       MyText(text: p.fullName.toUpperCase(), size: AppTextScale.title,
           weight: AppWeights.bold, color: kSecondaryColor,
           textAlign: TextAlign.center),
@@ -143,6 +165,18 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
           ],
         ],
       ),
+      // Where they work. Not in the comp's profile header, but it is the
+      // first thing a buyer wants after 'are they any good' — and the booking
+      // screen shows it as the Service Location, so the two agree.
+      if (p.location case final l? when l.isNotEmpty) ...[
+        const SizedBox(height: AppSizes.s8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.place_outlined, size: AppSizes.s16,
+              color: kGreyTextColor),
+          const SizedBox(width: AppSizes.s4),
+          MyText(text: l, size: AppTextScale.body, color: kGreyTextColor),
+        ]),
+      ],
     ]);
   }
 

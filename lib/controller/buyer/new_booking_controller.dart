@@ -57,12 +57,17 @@ class NewBookingController extends ApiController {
   String? _providerId;
   Region? _region;
 
+  /// The provider's own premises, shown as the Service Location and sent with
+  /// the booking so it is recorded on the row rather than only on screen.
+  String? providerLocation;
+
   /// Seeds from the provider being booked. [services] decides the default
   /// callout — the first one they offer, which is what the profile's CTA
   /// named, so the two screens agree.
   void start(ServiceProvider provider) {
     _providerId = provider.id;
     _region = provider.region;
+    providerLocation = provider.location;
     serviceType.value = provider.services.isEmpty ? null : provider.services.first;
     selectedSlot.value = null;
     created.value = null;
@@ -125,6 +130,8 @@ class NewBookingController extends ApiController {
         scheduledAt: selectedSlot.value!.scheduledAt,
         description: description,
         regNumber: regNumber,
+        location: providerLocation,
+        durationMins: serviceType.value!.typicalMinutes,
       ),
       (r) {
         switch (r) {

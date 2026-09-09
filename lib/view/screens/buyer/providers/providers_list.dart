@@ -2,7 +2,6 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/providers_list_controller.dart';
-import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/domain/failure_copy.dart';
@@ -12,11 +11,10 @@ import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.d
 import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
-import 'package:autonect/view/widget/enum_select_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_pill_tabs.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
 import 'package:autonect/view/widget/search_field.dart';
@@ -61,35 +59,89 @@ class _ProvidersListPageState extends State<ProvidersListPage> {
   Widget get _tabsAndRegion => Padding(
     padding: const EdgeInsets.fromLTRB(
         AppSizes.s20, AppSizes.s8, AppSizes.s20, 0),
-    child: Obx(() => Row(
-      children: [
+    child: Obx(() {
+      // A chip can select a service that is not a tab, so neither tab is
+      // current. Fall back to the first rather than -1, which would render
+      // as nothing selected.
+      final raw = ProvidersListController.tabs.indexOf(c.service.value);
+      final tab = raw < 0 ? 0 : raw;
+      return Row(children: [
+        for (final (i, label) in ProvidersListController.tabLabels.indexed) ...[
+          if (i > 0) const SizedBox(width: AppSizes.s8),
+          _ServiceTab(
+            label: label,
+            icon: i == 0
+                ? Icons.electrical_services_rounded
+                : Icons.memory_rounded,
+            selected: tab == i,
+            onTap: () => c.setService(ProvidersListController.tabs[i]),
+          ),
+        ],
+        // Expanded and right-aligned rather than a Spacer: the picker needs a
+        // bounded box to ellipsize inside, and at 320dp the two pills leave
+        // it very little.
         Expanded(
-          child: MyPillTabs(
-            labels: ProvidersListController.tabLabels,
-            selectedIndex:
-                ProvidersListController.tabs.indexOf(c.service.value) < 0
-                    // A chip selected a service that is not a tab, so neither
-                    // tab is current. Fall back to the first rather than -1,
-                    // which MyPillTabs would render as nothing selected.
-                    ? 0
-                    : ProvidersListController.tabs.indexOf(c.service.value),
-            onChanged: (i) => c.setService(ProvidersListController.tabs[i]),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: _regionPicker(c.region.value),
           ),
         ),
-        const SizedBox(width: AppSizes.s12),
-        SizedBox(
-          width: 132,
-          child: EnumSelectField<Region?>(
-            options: _regionOptions,
-            value: c.region.value,
-            onChanged: c.setRegion,
-            hint: 'All regions',
-            bottomPadding: 0,
-          ),
-        ),
-      ],
-    )),
+      ]);
+    }),
   );
+
+  /// The comp's location pill, not a boxed dropdown.
+  ///
+  /// Keyed by INDEX, never by the region itself, for the same reason the
+  /// requests filter is: 'All regions' carries a null value — the repository
+  /// must OMIT the key rather than send it blank — and PopupMenuButton treats
+  /// a null result as a DISMISSED menu, so a null-valued item is unselectable
+  /// and choosing 'All regions' would silently leave the old filter applied.
+  Widget _regionPicker(Region? selected) {
+    final index = _regionOptions.indexWhere((o) => o.value == selected);
+    return PopupMenuButton<int>(
+      tooltip: 'Filter by region',
+      initialValue: index,
+      onSelected: (i) => c.setRegion(_regionOptions[i].value),
+      color: kWhiteColor,
+      position: PopupMenuPosition.under,
+      padding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusMd)),
+      itemBuilder: (_) => [
+        for (final (i, o) in _regionOptions.indexed)
+          PopupMenuItem<int>(
+            value: i,
+            child: MyText(text: o.label, size: AppTextScale.body,
+                color: i == index ? kSecondaryColor : kBlackColor,
+                weight: i == index ? AppWeights.semibold : AppWeights.regular),
+          ),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.location_on_outlined, size: AppSizes.s16,
+              color: kSecondaryColor),
+          const SizedBox(width: AppSizes.s4),
+          Flexible(
+            child: MyText(
+              // 'All' in the trigger, 'All regions' in the menu. The two pills
+              // leave roughly 70dp here at 320dp, and a truncated 'All regi…'
+              // says less than the short word does.
+              text: selected?.label ?? 'All',
+              size: AppTextScale.label,
+              weight: AppWeights.semibold,
+              color: kBlackColor,
+              maxLines: 1,
+              textOverflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const Icon(Icons.keyboard_arrow_down_rounded, size: AppSizes.s20,
+              color: kGreyTextColor),
+        ],
+      ),
+    );
+  }
 
   /// Outside [PagedListView] for the same reason as on My Requests: its header
   /// slot renders only in the Data arm, so a search matching nothing would
@@ -176,6 +228,49 @@ class _ProvidersListPageState extends State<ProvidersListPage> {
   );
 }
 
+/// The comp's tab pair: a filled pill for the active filter, an outlined one
+/// for the other, each with its glyph.
+///
+/// Local rather than MyPillTabs, which is a segmented control on a tinted
+/// track — a different component, and one that electrician bookings and the
+/// supplier chips both still render. Restyling that would have changed two
+/// screens nobody has reconciled against a comp.
+class _ServiceTab extends StatelessWidget {
+  const _ServiceTab({required this.label, required this.icon,
+      required this.selected, required this.onTap});
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => MyRippleEffect(
+    radius: AppSizes.radiusPill,
+    onTap: onTap,
+    child: Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.s12),
+      decoration: BoxDecoration(
+        color: selected ? kSecondaryColor : kWhiteColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+        border: Border.all(color: kSecondaryColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: AppSizes.s16,
+              color: selected ? kWhiteColor : kSecondaryColor),
+          const SizedBox(width: AppSizes.s4),
+          MyText(text: label, size: AppTextScale.label,
+              weight: AppWeights.semibold,
+              color: selected ? kWhiteColor : kSecondaryColor),
+        ],
+      ),
+    ),
+  );
+}
+
 /// One provider in the directory — the comp's row.
 ///
 /// Public so the home strip's View All and this screen render the same thing;
@@ -191,8 +286,10 @@ class ProviderRow extends StatelessWidget {
     final brands = brandsLabel(provider.brands);
     final url = provider.avatarUrl;
     return AppCard(
-      margin: const EdgeInsets.fromLTRB(
-          AppSizes.s20, 0, AppSizes.s20, AppSizes.s12),
+      // Bottom gap ONLY. PagedListView already pads its scroll view by
+      // AppSizes.DEFAULT, so a horizontal margin here inset the card twice
+      // and left it visibly narrower than the search box and chips above.
+      margin: const EdgeInsets.only(bottom: AppSizes.s12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -23,10 +23,11 @@ import 'package:get/get.dart';
 /// omission: a buyer books a date and a service, and the provider quotes once
 /// they have seen the job. `quotedPence` is null on everything this creates.
 ///
-/// The comp's Location map is not here. There is a `location` column and the
-/// API accepts it, but nothing in this project draws a map — no tiles, no key,
-/// no geocoding — and a decorative map image that does not reflect where the
-/// job is would be worse than the plain address the provider actually needs.
+/// The comp draws Location as a MAP. This shows the same information as an
+/// address instead: nothing in this project draws maps — no tiles, no key, no
+/// geocoding, no dependency — and a decorative map that does not actually
+/// show where the job is would be worse than the address, which is the part
+/// the buyer needs to read and the provider needs recorded.
 class NewBookingPage extends StatefulWidget {
   const NewBookingPage({super.key, required this.provider});
 
@@ -123,6 +124,9 @@ class _NewBookingPageState extends State<NewBookingPage> {
           marginBottom: AppSizes.s16,
           textCapitalization: TextCapitalization.characters,
         ),
+        _serviceLocation(),
+        _duration(),
+        const SizedBox(height: AppSizes.s16),
         _summary(),
         const SizedBox(height: AppSizes.s16),
         Obx(() => MyButton(
@@ -156,6 +160,75 @@ class _NewBookingPageState extends State<NewBookingPage> {
         onSelect: (s) => _c.selectedSlot.value = s,
       ),
     );
+  });
+
+  /// The comp's Location panel, as an address rather than a map.
+  ///
+  /// Omitted entirely when the provider has not given one — a 'Service
+  /// Location' heading over an empty card tells a buyer nothing and looks
+  /// broken.
+  Widget _serviceLocation() {
+    final location = widget.provider.location;
+    if (location == null || location.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.s16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        MyText(text: 'Location', size: AppTextScale.body,
+            weight: AppWeights.semibold, color: kBlackColor),
+        const SizedBox(height: AppSizes.s8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSizes.s16),
+          decoration: BoxDecoration(
+            color: kSecondaryColor.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+          ),
+          child: Row(children: [
+            Container(
+              height: 32,
+              width: 32,
+              decoration: const BoxDecoration(
+                  color: kSecondaryColor, shape: BoxShape.circle),
+              child: const Icon(Icons.place, size: AppSizes.s16,
+                  color: kWhiteColor),
+            ),
+            const SizedBox(width: AppSizes.s12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MyText(text: 'SERVICE LOCATION', size: AppTextScale.caption,
+                    weight: AppWeights.bold, color: kSecondaryColor,
+                    letterSpacing: 0.5),
+                MyText(text: location, size: AppTextScale.label,
+                    color: kBlackColor),
+              ],
+            )),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// The comp's 'Approximate service duration: 90 mins'.
+  ///
+  /// APPROXIMATE is the honest word and the comp's own. Nothing in the schema
+  /// records how long a job takes; this is a per-callout product constant on
+  /// BookingServiceType, sent as durationMins so the provider's day has a
+  /// length to plan around.
+  Widget _duration() => Obx(() {
+    final service = _c.serviceType.value;
+    if (service == null) return const SizedBox.shrink();
+    return Row(children: [
+      const Icon(Icons.schedule, size: AppSizes.s16, color: kGreyTextColor),
+      const SizedBox(width: AppSizes.s8),
+      Expanded(child: MyText(
+        text: 'Approximate service duration: '
+            '${service.typicalMinutes} mins',
+        size: AppTextScale.label,
+        color: kGreyTextColor,
+      )),
+    ]);
   });
 
   /// The comp's SELECTED DATE / TIME SLOT bar.

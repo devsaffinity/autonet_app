@@ -27,6 +27,7 @@ abstract class BookingsRepository {
     String? description,
     String? regNumber,
     String? location,
+    int? durationMins,
   });
 
   /// Which slots are free on one day. [date] is `YYYY-MM-DD`.

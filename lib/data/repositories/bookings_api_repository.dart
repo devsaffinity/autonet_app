@@ -29,6 +29,7 @@ class BookingsApiRepository implements BookingsRepository {
     String? description,
     String? regNumber,
     String? location,
+    int? durationMins,
   }) => _c.send(
     method: 'POST',
     path: '/v1/bookings',
@@ -48,6 +49,10 @@ class BookingsApiRepository implements BookingsRepository {
         'regNumber': regNumber.trim(),
       if (location != null && location.trim().isNotEmpty)
         'location': location.trim(),
+      // The server clamps this to 15..600 and 400s outside it, so a caller
+      // sending something silly learns immediately rather than booking a
+      // nine-hour diagnostic.
+      if (durationMins != null) 'durationMins': durationMins,
     },
     decode: _one,
   );

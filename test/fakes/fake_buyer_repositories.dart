@@ -327,9 +327,12 @@ class FakeBookingsRepository implements BookingsRepository {
     String? description,
     String? regNumber,
     String? location,
+    int? durationMins,
   }) async {
     calls.add('create:$electricianId:${serviceType.wire}:'
-        '${scheduledAt.toUtc().toIso8601String()}');
+        '${scheduledAt.toUtc().toIso8601String()}'
+        '${durationMins == null ? '' : ':mins=$durationMins'}'
+        '${location == null ? '' : ':loc=$location'}');
     return createResult ?? _none('bookings.create');
   }
 

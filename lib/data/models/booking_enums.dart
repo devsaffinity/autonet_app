@@ -8,13 +8,13 @@ import 'package:autonect/data/models/request_enums.dart' show enumFromWire;
 /// travels and the human word is what renders, and neither has to be spelled
 /// out again at a call site.
 enum BookingServiceType {
-  diagnostic('DIAGNOSTIC', 'Diagnostics', 'Fault finding and fault codes'),
-  ecuCoding('ECU_CODING', 'ECU Tuning', 'Remapping, coding and key programming'),
-  installation('INSTALLATION', 'Installation', 'Dashcams, alarms and retrofits'),
-  repair('REPAIR', 'Repair', 'Wiring, looms and electrical repair'),
-  inspection('INSPECTION', 'Inspection', 'Pre-purchase and condition checks');
+  diagnostic('DIAGNOSTIC', 'Diagnostics', 'Fault finding and fault codes', 60),
+  ecuCoding('ECU_CODING', 'ECU Tuning', 'Remapping, coding and key programming', 90),
+  installation('INSTALLATION', 'Installation', 'Dashcams, alarms and retrofits', 120),
+  repair('REPAIR', 'Repair', 'Wiring, looms and electrical repair', 120),
+  inspection('INSPECTION', 'Inspection', 'Pre-purchase and condition checks', 45);
 
-  const BookingServiceType(this.wire, this.label, this.blurb);
+  const BookingServiceType(this.wire, this.label, this.blurb, this.typicalMinutes);
 
   final String wire;
 
@@ -23,6 +23,16 @@ enum BookingServiceType {
 
   /// The second line on the profile's Specializations tiles.
   final String blurb;
+
+  /// A TYPICAL duration for this callout, in minutes — the comp's
+  /// 'Approximate service duration: 90 mins'.
+  ///
+  /// A product constant, not data: nothing in the schema records how long a
+  /// job takes, and the provider is the one who will actually know. It is
+  /// sent as `durationMins` so the provider's day has a length to plan
+  /// around, and it is always shown to the buyer as APPROXIMATE, because that
+  /// is exactly what it is. A provider correcting it is a v2 concern.
+  final int typicalMinutes;
 
   static BookingServiceType? fromWire(String? v) =>
       enumFromWire(values, v, (e) => e.wire);
