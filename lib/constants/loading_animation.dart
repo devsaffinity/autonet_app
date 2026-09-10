@@ -151,12 +151,10 @@ displayToast({required String msg}) {
     msg: msg,
     toastLength: Toast.LENGTH_SHORT,
     gravity: ToastGravity.TOP,
-    timeInSecForIosWeb: 1,
-    // kPrimaryColor is 0xffFFFFFF, so the previous pairing rendered white text
-    // on a white toast — every toast in the app was invisible, including the
-    // session-expiry one.
-    backgroundColor: kBlackColor,
-    textColor: kWhiteColor,
+    timeInSecForIosWeb: 2,
+    backgroundColor: kWhiteColor,
+    textColor: kBlackColor,
+    webBgColor: '#FFFFFF',
     fontSize: 14.0,
   );
 }
