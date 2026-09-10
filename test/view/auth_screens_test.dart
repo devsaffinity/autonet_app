@@ -4,8 +4,6 @@ import 'package:autonect/controller/auth_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
-import 'package:autonect/data/models/conversation.dart';
-import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/data/models/auth_user.dart';
 import 'package:autonect/data/models/token_pair.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';

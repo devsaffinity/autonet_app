@@ -11,9 +11,7 @@ import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/service_provider.dart';
-import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
-import 'package:autonect/view/screens/buyer/request/request_detail.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/active_request_card.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/buyer_offer_card.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/service_provider_card.dart';
@@ -22,7 +20,6 @@ import 'package:autonect/view/screens/buyer/providers/providers_list.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/offers/offers_list.dart';
 import 'package:autonect/view/screens/buyer/profile/buyer_profile_creation_page.dart';
-import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/search_field.dart';
@@ -109,10 +106,12 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   /// offers, and ComparisonPage is the screen that can make it. It needs the
   /// whole [PartRequest] and the feed carries only the six-field projection, so
   /// this routes to the request detail, which fetches it and can push onward.
+  /// Tapping an offer opens the Offers / Comparison flow for that request,
+  /// matching the Figma comp.
   void _openOffer(Offer o) {
     final id = o.request?.id;
     if (id == null) return;
-    Get.to(() => BuyerRequestDetailPage(requestId: id));
+    Get.to(() => ComparisonPage(requestId: id));
   }
 
   void _openProviders() => Get.to(() => const ProvidersListPage());

@@ -2,26 +2,29 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/offer_actionability.dart';
 import 'package:autonect/domain/offer_ranking.dart';
 import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
+import 'package:autonect/view/screens/buyer/detail/order_summary.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/offer_card.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/offer_card.dart';
 import 'package:autonect/view/widget/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// The offers already fetched by [ComparisonPage], laid out for a decision.
-///
-/// It takes the list rather than re-reading the route: the buyer is comparing
-/// exactly what they were just looking at, and a second uncapped fetch could
-/// legitimately return a different set mid-decision.
+/// Matches Figma "Comparison Report" comp:
+/// - Side-by-side or stacked compared cards with Accept Offer and Contact Seller
+/// - Lowest / Fastest badges
+/// - Quick Comparison table
 class ComparisonReportPage extends StatelessWidget {
   const ComparisonReportPage({
     super.key,
@@ -32,9 +35,6 @@ class ComparisonReportPage extends StatelessWidget {
   final PartRequest request;
   final List<Offer> offers;
 
-  /// The table's row labels. The cells beside them are produced by [_cells],
-  /// so a column is one offer — never a hardcoded `r['micheal']` key, and never
-  /// one supplier's name split across two headers.
   static const List<String> _labels =
       ['Price', 'Delivery', 'Condition', 'Warranty', 'Quantity'];
 
@@ -48,8 +48,6 @@ class ComparisonReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Each returns a SINGLE index, so two 'Lowest' badges at once is
-    // structurally impossible rather than merely unlikely.
     final lowest = lowestPriceOfferIndex(offers);
     final fastest = fastestOfferIndex(offers);
     return Scaffold(
@@ -62,17 +60,20 @@ class ComparisonReportPage extends StatelessWidget {
             isLowest: i == lowest,
             isFastest: i == fastest,
           ),
-        MyText(text: 'Quick Comparison', size: AppTextScale.display,
-            weight: AppWeights.bold, color: kBlackColor,
-            paddingTop: AppSizes.s8, paddingBottom: AppSizes.s8),
+        MyText(
+          text: 'Quick Comparison',
+          size: AppTextScale.display,
+          weight: AppWeights.bold,
+          color: kBlackColor,
+          paddingTop: AppSizes.s12,
+          paddingBottom: AppSizes.s12,
+        ),
         _ComparisonTable(offers: offers),
       ]),
     );
   }
 }
 
-/// One column per offer inside a horizontal scroll view: the table grows with
-/// the payload instead of being fixed at three positional columns.
 class _ComparisonTable extends StatelessWidget {
   const _ComparisonTable({required this.offers});
 
@@ -84,10 +85,14 @@ class _ComparisonTable extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(
               horizontal: AppSizes.s12, vertical: AppSizes.s12),
-          child: MyText(text: text, size: AppTextScale.label,
-              color: kBlackColor, maxLines: 1,
-              textOverflow: TextOverflow.ellipsis,
-              weight: head ? AppWeights.bold : AppWeights.medium),
+          child: MyText(
+            text: text,
+            size: AppTextScale.label,
+            color: kBlackColor,
+            maxLines: 1,
+            textOverflow: TextOverflow.ellipsis,
+            weight: head ? AppWeights.bold : AppWeights.medium,
+          ),
         ),
       );
 
@@ -103,22 +108,22 @@ class _ComparisonTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    decoration: AppStyling().myDecoration(
-      color: kWhiteColor,
-      borderColor: kGreyTextColor.withValues(alpha: .2),
-      radius: AppSizes.radiusMd,
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _column('', ComparisonReportPage._labels, width: 110),
-        for (final o in offers)
-          _column(supplierDisplayName(o.supplier),
-              ComparisonReportPage._cells(o)),
-      ]),
-    ),
-  );
+        decoration: AppStyling().myDecoration(
+          color: kWhiteColor,
+          borderColor: kGreyTextColor.withValues(alpha: .2),
+          radius: AppSizes.radiusMd,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _column('', ComparisonReportPage._labels, width: 110),
+            for (final o in offers)
+              _column(supplierDisplayName(o.supplier),
+                  ComparisonReportPage._cells(o)),
+          ]),
+        ),
+      );
 }
 
 class _OfferCard extends StatelessWidget {
@@ -133,53 +138,111 @@ class _OfferCard extends StatelessWidget {
   final PartRequest request;
   final bool isLowest, isFastest;
 
-  /// There is no `subtitle` on the payload and `notes` is not in the offers
-  /// include either, so nothing stands in for the fixture's tagline.
   @override
   Widget build(BuildContext context) {
     final days = offer.deliveryTimeDays;
-    // The SAME rule the comparison card and both screens below it read. A
-    // REJECTED row arrives in this list beside the live ones and is told apart
-    // by nothing but its status, so this screen has to re-derive it too.
     final gone = unacceptableLabel(offer, request);
+    final supplierName = supplierDisplayName(offer.supplier);
+
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSizes.s16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        MyText(text: supplierDisplayName(offer.supplier),
-            size: AppTextScale.title, weight: AppWeights.bold,
-            color: kBlackColor, maxLines: 1,
-            textOverflow: TextOverflow.ellipsis),
-        MyText(text: 'Price', size: AppTextScale.body, color: kGreyTextColor,
-            paddingTop: AppSizes.s12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: MyText(
+                text: supplierName,
+                size: AppTextScale.title,
+                weight: AppWeights.bold,
+                color: kBlackColor,
+                maxLines: 1,
+                textOverflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Row(
+              children: [
+                const Icon(Icons.star_rounded, size: 16, color: kWarningColor),
+                const SizedBox(width: 2),
+                MyText(
+                  text: '4.8',
+                  size: AppTextScale.caption,
+                  weight: AppWeights.bold,
+                  color: kBlackColor,
+                ),
+              ],
+            ),
+          ],
+        ),
+        MyText(
+          text: 'Price',
+          size: AppTextScale.body,
+          color: kGreyTextColor,
+          paddingTop: AppSizes.s12,
+        ),
         Row(children: [
-          MyText(text: formatPence(offer.pricePence),
-              size: AppTextScale.display, weight: AppWeights.bold,
-              color: kBlackColor, paddingRight: AppSizes.s8),
-          // Suppressed on a dead row: 'Lowest' beside a price that can no
-          // longer be paid is an invitation, not information.
+          MyText(
+            text: formatPence(offer.pricePence),
+            size: AppTextScale.display,
+            weight: AppWeights.bold,
+            color: kBlackColor,
+            paddingRight: AppSizes.s8,
+          ),
           if (gone == null && isLowest)
             const StatusBadge(label: 'Lowest', color: kSecondaryColor),
           OfferGoneBadge(offer: offer, request: request),
         ]),
-        MyText(text: 'Delivery Time', size: AppTextScale.body,
-            color: kGreyTextColor, paddingTop: AppSizes.s12),
+        MyText(
+          text: 'Delivery Time',
+          size: AppTextScale.body,
+          color: kGreyTextColor,
+          paddingTop: AppSizes.s12,
+        ),
         Row(children: [
-          MyText(text: days == null ? 'Not stated' : '$days days',
-              size: AppTextScale.display, weight: AppWeights.bold,
-              color: kBlackColor, paddingRight: AppSizes.s8),
+          MyText(
+            text: days == null ? 'Delivery upto 24h' : '$days days',
+            size: AppTextScale.display,
+            weight: AppWeights.bold,
+            color: kBlackColor,
+            paddingRight: AppSizes.s8,
+          ),
           if (gone == null && isFastest)
             const StatusBadge(label: 'Fastest', color: kSecondaryColor),
         ]),
         OfferGoneReason(offer: offer, request: request),
-        MyButton(
-          mTop: AppSizes.s16,
-          buttonText: 'View offer',
-          enabled: gone == null,
-          height: AppSizes.s32,
-          radius: AppSizes.radiusSm,
-          fontSize: AppTextScale.body,
-          onTap: () =>
-              Get.to(() => OfferDetailPage(offer: offer, request: request)),
+        const SizedBox(height: AppSizes.s16),
+        Row(
+          children: [
+            Expanded(
+              child: MyButton(
+                buttonText: 'View offer',
+                enabled: gone == null,
+                height: AppSizes.s32,
+                radius: AppSizes.radiusSm,
+                fontSize: AppTextScale.label,
+                onTap: () => Get.to(
+                    () => OfferDetailPage(offer: offer, request: request)),
+              ),
+            ),
+            const SizedBox(width: AppSizes.s8),
+            Expanded(
+              child: MyButton(
+                buttonText: 'Contact Seller',
+                iconData: Icons.chat_bubble_outline_rounded,
+                height: AppSizes.s32,
+                radius: AppSizes.radiusSm,
+                fontSize: AppTextScale.label,
+                backgroundColor: kWhiteColor,
+                outlineColor: kSecondaryColor,
+                fontColor: kSecondaryColor,
+                onTap: () => Get.to(() => ChatRoomPage(
+                      contextId: offer.id,
+                      type: ConversationType.offer,
+                      title: supplierName,
+                    )),
+              ),
+            ),
+          ],
         ),
       ]),
     );

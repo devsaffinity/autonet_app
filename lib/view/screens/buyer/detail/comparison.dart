@@ -1,16 +1,21 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/accept_offer_controller.dart';
 import 'package:autonect/controller/buyer/request_detail_controller.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/offer_actionability.dart';
 import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
 import 'package:autonect/view/screens/buyer/detail/report.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/app_card.dart';
+import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -21,14 +26,24 @@ import 'package:get/get.dart';
 
 /// Side-by-side comparison of `GET /v1/requests/{id}/offers`.
 ///
-/// Server order is preserved. The PENDING-before-ACCEPTED grouping rests on
-/// Postgres enum declaration order and is asserted nowhere in the repo; only
-/// the pricePence ascending tie-break inside a group is certain, so nothing
-/// here depends on the group order being what it looks like.
+/// Matches the Figma "Offers" & "Comparison" flow:
+/// - Top vehicle showcase with indicator dots
+/// - "Offers (N)" header with subtext
+/// - Interactive comparison tray ("Comparing X offer(s)")
+/// - Cards showing seller avatar, rating, price, delivery, contact action,
+///   delete, view offer, and compare toggle.
 class ComparisonPage extends StatefulWidget {
-  const ComparisonPage({super.key, required this.request});
+  const ComparisonPage({
+    super.key,
+    this.request,
+    this.requestId,
+  }) : assert(request != null || requestId != null,
+            'Either request or requestId must be provided');
 
-  final PartRequest request;
+  final PartRequest? request;
+  final String? requestId;
+
+  String get effectiveRequestId => request?.id ?? requestId!;
 
   @override
   State<ComparisonPage> createState() => _ComparisonPageState();
@@ -42,158 +57,533 @@ class _ComparisonPageState extends State<ComparisonPage> {
   /// buyer endpoint that removes an offer.
   final Set<String> _removed = {};
 
+  /// Selected offers for comparison.
+  final Set<String> _selected = {};
+
   @override
   void initState() {
     super.initState();
-    // UNCONDITIONALLY, as request_detail.dart does. An id check on a SINGLETON
-    // made re-opening the SAME request the one case that never refetched —
-    // exactly the case a row that now reads '3 offers' sends the buyer into.
-    c.load(widget.request.id);
+    c.load(widget.effectiveRequestId);
   }
 
-  /// Pull-to-refresh. Not [RequestDetailController.load]: that blanks both
-  /// states, and a spinner where the list was is two indicators for one wait.
-  /// Id-checked because a deeper screen may have re-pointed the singleton.
-  Future<void> _refresh() => c.requestId == widget.request.id
+  /// Pull-to-refresh. Id-checked because a deeper screen may have re-pointed
+  /// the singleton.
+  Future<void> _refresh() => c.requestId == widget.effectiveRequestId
       ? Future.wait([c.loadRequest(), c.loadOffers()])
-      : c.load(widget.request.id);
+      : c.load(widget.effectiveRequestId);
 
   List<Offer> _visible(List<Offer> all) =>
       [for (final o in all) if (!_removed.contains(o.id)) o];
 
-  /// Awaiting the push is what makes this list self-correcting: an accept two
-  /// screens deeper closes the request and rejects every sibling in one
-  /// transaction, notifying nobody, so returning here is when this learns it.
   Future<void> _open(Offer offer, PartRequest request) async {
     await Get.to(() => OfferDetailPage(offer: offer, request: request));
     await c.refreshIfStale(_accept);
   }
 
-  /// The Obx closure itself, so BOTH Rx reads land in the tracking zone (see
-  /// [StateView]): from [_body], `liveRequest` subscribed to nothing, so a
-  /// refetch proving the request CLOSED never re-judged the cards.
+  void _openChat(Offer offer) {
+    Get.to(() => ChatRoomPage(
+          contextId: offer.id,
+          type: ConversationType.offer,
+          title: supplierDisplayName(offer.supplier),
+        ));
+  }
+
+  Widget _vehicleBanner(PartRequest req) {
+    final hasImages = req.images.isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSizes.s16),
+      padding: const EdgeInsets.symmetric(
+          vertical: AppSizes.s16, horizontal: AppSizes.s12),
+      decoration: BoxDecoration(
+        color: kLightOrangeColor.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 130,
+            child: Center(
+              child: hasImages
+                  ? CommonImageView(
+                      url: req.images.first.s3Key,
+                      imagePath: Assets.imagesCar1,
+                      fit: BoxFit.contain,
+                    )
+                  : CommonImageView(
+                      imagePath: Assets.imagesCar1,
+                      fit: BoxFit.contain,
+                    ),
+            ),
+          ),
+          const SizedBox(height: AppSizes.s8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 20,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: kSecondaryColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: AppSizes.s4),
+              Container(
+                width: 10,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: kFieldBorderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: AppSizes.s4),
+              Container(
+                width: 10,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: kFieldBorderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _comparingTray(List<Offer> allOffers, PartRequest request) {
+    final selectedOffers =
+        allOffers.where((o) => _selected.contains(o.id)).toList();
+    if (selectedOffers.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSizes.s16),
+      padding: const EdgeInsets.all(AppSizes.s12),
+      decoration: BoxDecoration(
+        color: kLightOrangeColor,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        border: Border.all(color: kSecondaryColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              MyText(
+                text:
+                    'Comparing ${selectedOffers.length} offer${selectedOffers.length > 1 ? 's' : ''}',
+                size: AppTextScale.body,
+                weight: AppWeights.bold,
+                color: kSecondaryColor,
+              ),
+              GestureDetector(
+                onTap: () => Get.to(() => ComparisonReportPage(
+                      request: request,
+                      offers: selectedOffers,
+                    )),
+                child: MyText(
+                  text: 'View Comparison',
+                  size: AppTextScale.label,
+                  weight: AppWeights.bold,
+                  color: kSecondaryColor,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ],
+          ),
+          for (final o in selectedOffers) ...[
+            Container(
+              padding: const EdgeInsets.all(AppSizes.s8),
+              margin: const EdgeInsets.only(top: AppSizes.s8),
+              decoration: BoxDecoration(
+                color: kWhiteColor,
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: kLightOrangeColor,
+                    child: MyText(
+                      text: InitialsAvatar.initialsOf(
+                          supplierDisplayName(o.supplier)),
+                      size: AppTextScale.caption,
+                      weight: AppWeights.bold,
+                      color: kSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.s8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: MyText(
+                                text: supplierDisplayName(o.supplier),
+                                size: AppTextScale.body,
+                                weight: AppWeights.semibold,
+                                color: kSecondaryColor,
+                                maxLines: 1,
+                                textOverflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selected.remove(o.id)),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: kGreyTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            MyText(
+                              text: formatPence(o.pricePence),
+                              size: AppTextScale.body,
+                              weight: AppWeights.bold,
+                              color: kBlackColor,
+                            ),
+                            const Spacer(),
+                            const Icon(Icons.star_rounded,
+                                size: 14, color: kWarningColor),
+                            const SizedBox(width: 2),
+                            MyText(
+                              text: '4.8',
+                              size: AppTextScale.caption,
+                              weight: AppWeights.semibold,
+                              color: kBlackColor,
+                            ),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: () => _openChat(o),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              children: [
+                                MyText(
+                                  text: 'Contact Seller',
+                                  size: AppTextScale.caption,
+                                  weight: AppWeights.medium,
+                                  color: kBlackColor,
+                                ),
+                                const SizedBox(width: AppSizes.s4),
+                                const Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 13,
+                                  color: kSecondaryColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _states() {
-    final request = c.liveRequest(widget.request);
-    return StateView<List<Offer>>(state: c.offers.value,
-        onRetry: c.loadOffers, builder: (_, all) => _body(all, request));
+    final initial = widget.request;
+    final live = initial != null ? c.liveRequest(initial) : c.requestOrNull;
+    if (live == null) {
+      return StateView<PartRequest>(
+        state: c.request.value,
+        onRetry: c.loadRequest,
+        builder: (_, r) => StateView<List<Offer>>(
+          state: c.offers.value,
+          onRetry: c.loadOffers,
+          builder: (_, all) => _body(all, r),
+        ),
+      );
+    }
+    return StateView<List<Offer>>(
+      state: c.offers.value,
+      onRetry: c.loadOffers,
+      builder: (_, all) => _body(all, live),
+    );
   }
 
   Widget _body(List<Offer> all, PartRequest request) {
     final offers = _visible(all);
-    // Physics are load-bearing: an unfilled list must still overscroll, or the
-    // RefreshIndicator above it can never be pulled.
-    return ListView(physics: const AlwaysScrollableScrollPhysics(),
-        padding: AppSizes.DEFAULT, children: [
-      // ONE count, from the list actually rendered, correctly pluralised.
-      MyText(text: offers.length == 1 ? '1 offer' : '${offers.length} offers',
-          size: AppTextScale.subtitle, weight: AppWeights.bold,
-          color: kBlackColor, paddingBottom: AppSizes.s4),
-      MyText(text: 'Compare and choose the best offer for your needs',
-          size: AppTextScale.body, color: kGreyTextColor, paddingBottom: AppSizes.s16),
-      if (offers.isNotEmpty)
-        MyButton(mBottom: AppSizes.s16, buttonText: 'View comparison report',
-            fontSize: AppTextScale.body, backgroundColor: kWhiteColor,
-            outlineColor: kSecondaryColor, fontColor: kSecondaryColor,
-            onTap: () => Get.to(() => ComparisonReportPage(
-                request: request, offers: offers))),
-      for (final o in offers)
-        _OfferCard(
-          offer: o,
-          request: request,
-          onView: () => _open(o, request),
-          onRemove: () => setState(() => _removed.add(o.id)),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: AppSizes.DEFAULT,
+      children: [
+        _vehicleBanner(request),
+        Row(
+          children: [
+            MyText(
+              text: 'Offers',
+              size: AppTextScale.subtitle,
+              weight: AppWeights.bold,
+              color: kBlackColor,
+            ),
+            const SizedBox(width: AppSizes.s4),
+            MyText(
+              text: '(${offers.length})',
+              size: AppTextScale.subtitle,
+              weight: AppWeights.bold,
+              color: kSecondaryColor,
+            ),
+          ],
         ),
-      if (offers.isEmpty)
-        MyText(text: 'You dismissed every offer on this request.',
-            size: AppTextScale.body, color: kGreyTextColor, textAlign: TextAlign.center),
-    ]);
+        MyText(
+          text: 'Compare & choose the best offer for your needs',
+          size: AppTextScale.body,
+          color: kGreyTextColor,
+          paddingTop: AppSizes.s4,
+          paddingBottom: AppSizes.s16,
+        ),
+        _comparingTray(offers, request),
+        if (offers.isNotEmpty) ...[
+          MyText(
+            text: offers.length == 1 ? '1 offer' : '${offers.length} offers',
+            size: AppTextScale.label,
+            color: kGreyTextColor,
+            paddingBottom: AppSizes.s12,
+          ),
+          for (final o in offers)
+            _OfferCard(
+              offer: o,
+              request: request,
+              isSelected: _selected.contains(o.id),
+              onView: () => _open(o, request),
+              onRemove: () {
+                setState(() {
+                  _removed.add(o.id);
+                  _selected.remove(o.id);
+                });
+              },
+              onToggleCompare: () {
+                setState(() {
+                  if (_selected.contains(o.id)) {
+                    _selected.remove(o.id);
+                  } else {
+                    _selected.add(o.id);
+                  }
+                });
+              },
+              onChat: () => _openChat(o),
+            ),
+        ],
+        if (offers.isEmpty)
+          MyText(
+            text: 'You dismissed every offer on this request.',
+            size: AppTextScale.body,
+            color: kGreyTextColor,
+            textAlign: TextAlign.center,
+          ),
+      ],
+    );
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: GeneralAppBar(title: widget.request.partName, centerdTitle: false),
-    // Same shape as PagedListView: re-entering the screen is not the only
-    // moment the buyer is entitled to a fresher count.
-    body: RefreshIndicator(
-      color: kSecondaryColor,
-      onRefresh: _refresh,
-      child: Obx(_states),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final req = widget.request;
+    final v = req?.vehicle;
+    final vehicle =
+        [v?.make, v?.model].whereType<String>().join(' ').trim();
+    final title =
+        vehicle.isNotEmpty ? vehicle : (req?.partName ?? 'Offers');
+    return Scaffold(
+      appBar: GeneralAppBar(title: title, centerdTitle: false),
+      body: RefreshIndicator(
+        color: kSecondaryColor,
+        onRefresh: _refresh,
+        child: Obx(_states),
+      ),
+    );
+  }
 }
 
 class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.offer,
     required this.request,
+    required this.isSelected,
     required this.onView,
     required this.onRemove,
+    required this.onToggleCompare,
+    required this.onChat,
   });
 
   final Offer offer;
   final PartRequest request;
-  final VoidCallback onView, onRemove;
+  final bool isSelected;
+  final VoidCallback onView, onRemove, onToggleCompare, onChat;
 
   @override
   Widget build(BuildContext context) {
     final days = offer.deliveryTimeDays;
-    // ONE rule, shared with the detail and summary screens below this card.
     final gone = unacceptableLabel(offer, request);
+    final supplierName = supplierDisplayName(offer.supplier);
+
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSizes.s12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          // Both `name` and `businessName` are nullable on the payload, which
-          // is why the fallback lives in supplierDisplayName and not here.
-          Expanded(child: MyText(text: supplierDisplayName(offer.supplier),
-              size: AppTextScale.subtitle, weight: AppWeights.semibold,
-              color: kSecondaryColor, maxLines: 1,
-              textOverflow: TextOverflow.ellipsis)),
-          MyRippleEffect(
-            radius: AppSizes.radiusPill,
-            splashColor: kSecondaryColor.withValues(alpha: .1),
-            onTap: onRemove,
-            child: const Padding(
-              padding: EdgeInsets.all(AppSizes.s4),
-              child: Icon(Icons.close_rounded, size: AppSizes.s20,
-                  color: kGreyTextColor),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: kLightOrangeColor,
+                child: MyText(
+                  text: InitialsAvatar.initialsOf(supplierName),
+                  size: AppTextScale.caption,
+                  weight: AppWeights.bold,
+                  color: kSecondaryColor,
+                ),
+              ),
+              const SizedBox(width: AppSizes.s8),
+              Expanded(
+                child: MyText(
+                  text: supplierName,
+                  size: AppTextScale.body,
+                  weight: AppWeights.semibold,
+                  color: kSecondaryColor,
+                  maxLines: 1,
+                  textOverflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Icon(Icons.star_rounded, size: 16, color: kWarningColor),
+              const SizedBox(width: AppSizes.s4),
+              MyText(
+                text: '4.8',
+                size: AppTextScale.caption,
+                weight: AppWeights.bold,
+                color: kBlackColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.s8),
+          Row(
+            children: [
+              Expanded(
+                child: MyText(
+                  text: formatPence(offer.pricePence),
+                  size: AppTextScale.title,
+                  weight: AppWeights.bold,
+                  color: kBlackColor,
+                ),
+              ),
+              const Icon(
+                Icons.local_shipping_outlined,
+                size: 16,
+                color: kSecondaryColor,
+              ),
+              const SizedBox(width: AppSizes.s4),
+              MyText(
+                text: days == null
+                    ? 'Delivery upto 24h'
+                    : 'Delivery in $days days',
+                size: AppTextScale.caption,
+                color: kBlackColor,
+                weight: AppWeights.medium,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSizes.s8),
+          GestureDetector(
+            onTap: onChat,
+            child: Row(
+              children: [
+                MyText(
+                  text: 'Contact Seller',
+                  size: AppTextScale.caption,
+                  color: kBlackColor,
+                  weight: AppWeights.medium,
+                ),
+                const SizedBox(width: AppSizes.s4),
+                const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 14,
+                  color: kSecondaryColor,
+                ),
+              ],
             ),
           ),
-        ]),
-        MyText(size: AppTextScale.label, color: kGreyTextColor,
-            paddingTop: AppSizes.s4, paddingBottom: AppSizes.s8,
-            text: days == null
-                ? 'Delivery time not stated'
-                : 'Delivery in $days days'),
-        Row(children: [
-          Expanded(child: MyText(text: formatPence(offer.pricePence),
-              size: AppTextScale.title, weight: AppWeights.bold,
-              color: kBlackColor)),
-          if (gone != null)
-            StatusBadge(label: gone, color: kRedColor)
-          else if (offer.stockStatus != null)
-            StatusBadge(label: offer.stockStatus!.label, color: kGreyTextColor),
-        ]),
-        if (gone != null)
-          MyText(text: unacceptableReason(offer, request)!,
-              size: AppTextScale.label, color: kGreyTextColor,
-              paddingTop: AppSizes.s8),
-        const SizedBox(height: AppSizes.s12),
-        // A single full-width CTA: its 'Select' twin only ever wrote a field
-        // that nothing in lib/ or test/ read back. Inert on a dead offer, which
-        // is the whole of this card's path onward.
-        MyButton(
-          buttonText: 'View offer',
-          enabled: gone == null,
-          height: AppSizes.s32,
-          radius: AppSizes.radiusSm,
-          fontSize: AppTextScale.label,
-          backgroundColor: kWhiteColor,
-          outlineColor: kGreyTextColor,
-          fontColor: kBlackColor,
-          onTap: onView,
-        ),
-      ]),
+          if (gone != null) ...[
+            const SizedBox(height: AppSizes.s8),
+            Row(
+              children: [
+                StatusBadge(label: gone, color: kRedColor),
+                const SizedBox(width: AppSizes.s8),
+                Expanded(
+                  child: MyText(
+                    text: unacceptableReason(offer, request) ?? '',
+                    size: AppTextScale.caption,
+                    color: kGreyTextColor,
+                    maxLines: 2,
+                    textOverflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: AppSizes.s12),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: onRemove,
+                child: MyText(
+                  text: 'Delete Offer',
+                  size: AppTextScale.caption,
+                  color: kRedColor,
+                  weight: AppWeights.medium,
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: 105,
+                child: MyButton(
+                  buttonText: 'View offer',
+                  enabled: gone == null,
+                  height: AppSizes.s32,
+                  radius: AppSizes.radiusSm,
+                  fontSize: AppTextScale.caption,
+                  backgroundColor: kWhiteColor,
+                  outlineColor: kFieldBorderColor,
+                  fontColor: kBlackColor,
+                  onTap: onView,
+                ),
+              ),
+              const SizedBox(width: AppSizes.s8),
+              SizedBox(
+                width: 105,
+                child: MyButton(
+                  buttonText: isSelected ? 'In Compare' : 'Compare',
+                  enabled: gone == null,
+                  height: AppSizes.s32,
+                  radius: AppSizes.radiusSm,
+                  fontSize: AppTextScale.caption,
+                  backgroundColor:
+                      isSelected ? kSecondaryColor : kWhiteColor,
+                  outlineColor:
+                      isSelected ? kTransperentColor : kSecondaryColor,
+                  fontColor: isSelected ? kWhiteColor : kSecondaryColor,
+                  onTap: onToggleCompare,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -142,12 +142,16 @@ class _MyButtonState extends State<MyButton> {
                           color: widget.fontColor),
                       const SizedBox(width: AppSizes.s8),
                     ],
-                    MyText(
-                      paddingLeft: (widget.haveSvg == true) ? 10 : 0,
-                      text: widget.buttonText,
-                      size: widget.fontSize,
-                      color: widget.fontColor,
-                      weight: widget.fontWeight,
+                    Flexible(
+                      child: MyText(
+                        paddingLeft: (widget.haveSvg == true) ? 10 : 0,
+                        text: widget.buttonText,
+                        size: widget.fontSize,
+                        color: widget.fontColor,
+                        weight: widget.fontWeight,
+                        maxLines: 1,
+                        textOverflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),

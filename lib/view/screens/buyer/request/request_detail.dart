@@ -7,6 +7,7 @@ import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/offer_actionability.dart';
+import 'package:autonect/view/screens/buyer/detail/comparison.dart';
 import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/confirm_dialog.dart';
@@ -91,9 +92,34 @@ class _RequestDetailState extends State<BuyerRequestDetailPage> {
         builder: (_, r) =>
             Column(children: [_RequestHeader(request: r), _actions(r)]),
       )),
-      MyText(text: 'Offers', size: AppTextScale.title, color: kBlackColor,
-          weight: AppWeights.bold, paddingTop: AppSizes.s24,
-          paddingBottom: AppSizes.s12),
+      Padding(
+        padding: const EdgeInsets.only(top: AppSizes.s24, bottom: AppSizes.s12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            MyText(
+              text: 'Offers',
+              size: AppTextScale.title,
+              color: kBlackColor,
+              weight: AppWeights.bold,
+            ),
+            Obx(() {
+              final r = c.requestOrNull;
+              if (r == null) return const SizedBox.shrink();
+              return GestureDetector(
+                onTap: () => Get.to(() => ComparisonPage(request: r)),
+                child: MyText(
+                  text: 'Compare Offers',
+                  size: AppTextScale.body,
+                  weight: AppWeights.bold,
+                  color: kSecondaryColor,
+                  decoration: TextDecoration.underline,
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
       // `c.requestOrNull` is read HERE, never in the builder (see [StateView]):
       // read there it subscribed to nothing, so a header 'Try again' that
       // succeeded left every row holding null and its tap guard inert forever.

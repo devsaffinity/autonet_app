@@ -3,7 +3,7 @@ import 'package:autonect/controller/buyer/offers_list_controller.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/view/screens/buyer/home/widgets/buyer_offer_card.dart';
-import 'package:autonect/view/screens/buyer/request/request_detail.dart';
+import 'package:autonect/view/screens/buyer/detail/comparison.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
 import 'package:flutter/material.dart';
@@ -32,14 +32,12 @@ class _BuyerOffersListPageState extends State<BuyerOffersListPage> {
     c.refreshFirst();
   }
 
-  /// The request, not the offer alone: accepting is a decision BETWEEN offers,
-  /// and ComparisonPage is the screen that can make it. That screen needs the
-  /// whole PartRequest and this feed carries only the joined projection, so the
-  /// route goes through the detail page, which fetches it and can push onward.
+  /// Opening an offer takes the buyer to the Offers / Comparison screen for
+  /// that request, matching the Figma comp.
   void _open(Offer o) {
     final id = o.request?.id;
     if (id == null) return;
-    Get.to(() => BuyerRequestDetailPage(requestId: id));
+    Get.to(() => ComparisonPage(requestId: id));
   }
 
   @override

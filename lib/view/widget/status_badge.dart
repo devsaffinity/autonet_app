@@ -70,5 +70,5 @@ Color urgencyColor(RequestUrgency? u) => switch (u) {
 
 /// Widget-layer too: a displayName getter on OfferSupplier would put
 /// presentation on a data model, which DRY rule 5 forbids.
-String supplierDisplayName(OfferSupplier s) =>
-    s.businessName ?? s.name ?? 'Supplier';
+String supplierDisplayName(OfferSupplier? s) =>
+    s == null ? 'Supplier' : (s.businessName ?? s.name ?? 'Supplier');

@@ -4,7 +4,6 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
