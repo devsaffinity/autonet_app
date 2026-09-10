@@ -74,6 +74,24 @@ class ProfileApiRepository implements ProfileRepository {
     decode: _one,
   );
 
+  @override
+  Future<ApiResult<MeProfile>> updateProfile({
+    String? name,
+    String? location,
+    String? contact,
+    String? avatarKey,
+  }) => _c.send(
+    method: 'PUT',
+    path: '/v1/me/profile',
+    body: {
+      if (name case final v? when v.trim().isNotEmpty) 'name': v.trim(),
+      if (location case final v? when v.trim().isNotEmpty) 'location': v.trim(),
+      if (contact case final v? when v.trim().isNotEmpty) 'contact': v.trim(),
+      if (avatarKey case final v? when v.trim().isNotEmpty) 'avatarKey': v.trim(),
+    },
+    decode: _one,
+  );
+
   static MeProfile _one(Object? d) =>
       MeProfile.fromJson((d as Map).cast<String, dynamic>());
 }

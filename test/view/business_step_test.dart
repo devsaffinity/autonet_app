@@ -30,6 +30,14 @@ class _StubProfileRepository implements ProfileRepository {
   @override
   Future<ApiResult<MeProfile>> setAvatar(String avatarKey) =>
       throw UnimplementedError();
+
+  @override
+  Future<ApiResult<MeProfile>> updateProfile({
+    String? name,
+    String? location,
+    String? contact,
+    String? avatarKey,
+  }) => throw UnimplementedError();
 }
 
 void main() {

@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/view/screens/buyer/profile/buyer_profile_creation_page.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
@@ -75,8 +76,16 @@ class BuyerProfilePage extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
-
+            ProfileMenuTile(
+              icon: Icons.edit_outlined,
+              label: 'Edit Profile',
+              onTap: () async {
+                await Get.to(
+                  () => const BuyerProfileCreationPage(isInitialSetup: false),
+                );
+                ProfileController.ensure().load();
+              },
+            ),
             ProfileMenuTile(
               icon: Icons.event_note_outlined,
               label: 'My Bookings',

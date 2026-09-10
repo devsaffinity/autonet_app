@@ -1,6 +1,7 @@
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/blob_uploader.dart';
+import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
@@ -124,4 +125,72 @@ class ProfileController extends ApiController {
       uploadingAvatar.value = false;
     }
   }
+
+  final RxBool savingProfile = false.obs;
+
+  /// Updates profile details (name, location, contact, optional new avatar).
+  ///
+  /// If [newAvatar] is provided, it is uploaded to S3 first, then its key is
+  /// passed to `PUT /v1/me/profile`.
+  Future<bool> updateProfileDetails({
+    required String name,
+    String? location,
+    String? contact,
+    PickedImage? newAvatar,
+  }) async {
+    if (savingProfile.value) return false;
+    savingProfile.value = true;
+    clearErrors();
+    try {
+      String? avatarKey;
+      if (newAvatar != null) {
+        final UploadTicket ticket;
+        switch (await _repo.createAvatarUploadTicket(newAvatar.contentType)) {
+          case Err(:final error):
+            absorb(error);
+            return false;
+          case Ok(:final value):
+            ticket = value;
+        }
+
+        switch (await _uploader.put(
+          url: ticket.url,
+          bytes: newAvatar.bytes,
+          contentType: newAvatar.contentType,
+        )) {
+          case Err(:final error):
+            absorb(error);
+            return false;
+          case Ok():
+            avatarKey = ticket.key;
+            break;
+        }
+      }
+
+      switch (await _repo.updateProfile(
+        name: name,
+        location: location,
+        contact: contact,
+        avatarKey: avatarKey,
+      )) {
+        case Err(:final error):
+          absorb(error);
+          return false;
+        case Ok(:final value):
+          profile.value = Data<MeProfile>(value);
+          if (Get.isRegistered<TokenStore>()) {
+            final store = Get.find<TokenStore>();
+            final u = store.user;
+            if (u != null && value.name != null) {
+              store.updateUser(u.copyWith(name: value.name));
+            }
+          }
+          toast('Profile updated');
+          return true;
+      }
+    } finally {
+      savingProfile.value = false;
+    }
+  }
 }
+

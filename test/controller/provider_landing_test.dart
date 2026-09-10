@@ -49,6 +49,14 @@ class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<ApiResult<MeProfile>> setAvatar(String avatarKey) =>
       throw UnimplementedError();
+
+  @override
+  Future<ApiResult<MeProfile>> updateProfile({
+    String? name,
+    String? location,
+    String? contact,
+    String? avatarKey,
+  }) => throw UnimplementedError();
 }
 
 MeProfile _profile({Map<String, dynamic>? supplier}) => MeProfile.fromJson({

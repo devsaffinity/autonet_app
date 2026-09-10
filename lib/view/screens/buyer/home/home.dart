@@ -21,6 +21,7 @@ import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
 import 'package:autonect/view/screens/buyer/providers/providers_list.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/offers/offers_list.dart';
+import 'package:autonect/view/screens/buyer/profile/buyer_profile_creation_page.dart';
 import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -89,16 +90,12 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   /// routed page. We capture the shell HERE, where it is still an ancestor, and
   /// hand it down as a closure. Without this, Profile's 'My Requests' tile is a
   /// dead control.
-  void _openProfile() {
-    final shell = RoleShell.maybeOf(context);
-    Get.to(() => BuyerProfilePage(
-      onOpenRequests: shell == null
-          ? null
-          : () {
-              Get.back();
-              shell.goTo(1);
-            },
-    ));
+  void _openProfile() async {
+    await Get.to(
+      () => const BuyerProfileCreationPage(isInitialSetup: false),
+    );
+    await _profile.load();
+    if (mounted) setState(() {});
   }
 
   /// Both sections, together, so one pull refreshes the whole screen. They are

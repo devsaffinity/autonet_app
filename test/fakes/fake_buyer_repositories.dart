@@ -305,6 +305,24 @@ class FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<ApiResult<MeProfile>> setAvatar(String avatarKey) async => me();
+
+  Map<String, dynamic>? lastUpdatedProfile;
+
+  @override
+  Future<ApiResult<MeProfile>> updateProfile({
+    String? name,
+    String? location,
+    String? contact,
+    String? avatarKey,
+  }) async {
+    lastUpdatedProfile = {
+      'name': name,
+      'location': location,
+      'contact': contact,
+      'avatarKey': avatarKey,
+    };
+    return me();
+  }
 }
 
 class FakeProvidersRepository implements ProvidersRepository {

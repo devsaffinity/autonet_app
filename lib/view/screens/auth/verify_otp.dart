@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/controller/auth_controller.dart';
@@ -8,6 +9,7 @@ import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/screens/auth/login.dart';
 import 'package:autonect/view/screens/auth/register.dart';
 import 'package:autonect/view/screens/auth/reset_password.dart';
+import 'package:autonect/view/screens/buyer/profile/buyer_profile_creation_page.dart';
 import 'package:autonect/view/widget/animation_widget.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -108,7 +110,14 @@ class _VerifyOtpPageState extends State<VerifyOtpPage> {
           // Server truth before routing, same as login. A brand new supplier
           // has no profile yet, so this correctly lands them on the wizard.
           await RoleController.to.syncProviderAccess();
-          Get.offAllNamed(RoleController.to.landingRoute);
+          final role = RoleController.to.role.value;
+          if (role == AppRole.buyer) {
+            Get.offAll(
+              () => const BuyerProfileCreationPage(isInitialSetup: true),
+            );
+          } else {
+            Get.offAllNamed(RoleController.to.landingRoute);
+          }
         },
       ),
       isScrollControlled: true,

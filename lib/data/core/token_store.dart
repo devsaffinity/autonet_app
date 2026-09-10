@@ -15,6 +15,7 @@ abstract class TokenStore {
 
   Future<void> save(TokenPair pair);
   Future<void> clear();
+  void updateUser(AuthUser user);
 }
 
 class InMemoryTokenStore implements TokenStore {
@@ -48,6 +49,12 @@ class InMemoryTokenStore implements TokenStore {
     _access = null;
     _refresh = null;
     user = null;
+    _gen++;
+  }
+
+  @override
+  void updateUser(AuthUser u) {
+    user = u;
     _gen++;
   }
 }
@@ -94,6 +101,12 @@ class PrefsTokenStore implements TokenStore {
   @override
   Future<void> clear() async {
     SessionStore.clearSession();
+    _gen++;
+  }
+
+  @override
+  void updateUser(AuthUser u) {
+    SessionStore.userJson = jsonEncode(u.toJson());
     _gen++;
   }
 }

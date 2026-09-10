@@ -151,4 +151,13 @@ abstract class ProfileRepository {
   /// Step 3, after the bytes are in S3. Returns the refreshed profile, whose
   /// `avatarUrl` is a freshly presigned GET.
   Future<ApiResult<MeProfile>> setAvatar(String avatarKey);
+
+  /// Updates profile fields (`name`, `location`, `contact`, `avatarKey`)
+  /// via `PUT /v1/me/profile`. Returns the refreshed profile.
+  Future<ApiResult<MeProfile>> updateProfile({
+    String? name,
+    String? location,
+    String? contact,
+    String? avatarKey,
+  });
 }

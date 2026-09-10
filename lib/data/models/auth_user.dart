@@ -48,4 +48,16 @@ class AuthUser {
     'status': status,
     'name': name,
   };
+
+  AuthUser copyWith({
+    String? name,
+    String? status,
+  }) => AuthUser(
+    id: id,
+    email: email,
+    role: role,
+    status: status ?? this.status,
+    name: name ?? this.name,
+  );
 }
+
