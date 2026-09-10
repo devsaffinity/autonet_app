@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/accept_offer_controller.dart';
@@ -60,6 +59,8 @@ class _ComparisonPageState extends State<ComparisonPage> {
   /// Selected offers for comparison.
   final Set<String> _selected = {};
 
+  int _currentImageIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -89,7 +90,41 @@ class _ComparisonPageState extends State<ComparisonPage> {
   }
 
   Widget _vehicleBanner(PartRequest req) {
-    final hasImages = req.images.isNotEmpty;
+    final renderableImages =
+        req.images.where((img) => img.isRenderable).toList();
+
+    if (renderableImages.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: AppSizes.s16),
+        padding: const EdgeInsets.symmetric(
+            vertical: AppSizes.s24, horizontal: AppSizes.s16),
+        decoration: BoxDecoration(
+          color: kLightOrangeColor.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          border: Border.all(color: kSecondaryColor.withValues(alpha: 0.15)),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.directions_car_outlined,
+                size: 48,
+                color: kSecondaryColor.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: AppSizes.s8),
+              MyText(
+                text: 'No vehicle image uploaded',
+                size: AppTextScale.label,
+                weight: AppWeights.medium,
+                color: kGreyTextColor,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.s16),
       padding: const EdgeInsets.symmetric(
@@ -101,52 +136,54 @@ class _ComparisonPageState extends State<ComparisonPage> {
       child: Column(
         children: [
           SizedBox(
-            height: 130,
-            child: Center(
-              child: hasImages
-                  ? CommonImageView(
-                      url: req.images.first.s3Key,
-                      imagePath: Assets.imagesCar1,
-                      fit: BoxFit.contain,
-                    )
-                  : CommonImageView(
-                      imagePath: Assets.imagesCar1,
-                      fit: BoxFit.contain,
+            height: 140,
+            child: renderableImages.length == 1
+                ? Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                      child: CommonImageView(
+                        url: renderableImages.first.url,
+                        cacheKey: renderableImages.first.s3Key,
+                        fit: BoxFit.contain,
+                      ),
                     ),
+                  )
+                : PageView.builder(
+                    itemCount: renderableImages.length,
+                    onPageChanged: (i) => setState(() => _currentImageIndex = i),
+                    itemBuilder: (_, i) {
+                      final img = renderableImages[i];
+                      return Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                          child: CommonImageView(
+                            url: img.url,
+                            cacheKey: img.s3Key,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (renderableImages.length > 1) ...[
+            const SizedBox(height: AppSizes.s8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(renderableImages.length, (i) {
+                final active = i == _currentImageIndex;
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  width: active ? 20 : 8,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: active ? kSecondaryColor : kFieldBorderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                );
+              }),
             ),
-          ),
-          const SizedBox(height: AppSizes.s8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 20,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: kSecondaryColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: AppSizes.s4),
-              Container(
-                width: 10,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: kFieldBorderColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: AppSizes.s4),
-              Container(
-                width: 10,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: kFieldBorderColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
+          ],
         ],
       ),
     );

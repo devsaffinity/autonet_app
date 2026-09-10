@@ -243,10 +243,34 @@ class _RequestRow extends StatelessWidget {
               ]),
             ],
           )),
-          // The API carries no vehicle imagery — Vehicle has no image column
-          // and request photos are unsigned S3 keys — so one static render.
-          CommonImageView(imagePath: Assets.imagesCar1, width: 90,
-              fit: BoxFit.contain),
+          () {
+            final first = request.images.firstOrNull;
+            if (first != null && first.isRenderable) {
+              return CommonImageView(
+                url: first.url,
+                cacheKey: first.s3Key,
+                width: 90,
+                height: 70,
+                radius: AppSizes.radiusSm,
+                fit: BoxFit.cover,
+              );
+            }
+            return Container(
+              width: 90,
+              height: 70,
+              decoration: BoxDecoration(
+                color: kLightOrangeColor.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.directions_car_outlined,
+                  size: 32,
+                  color: kGreyTextColor,
+                ),
+              ),
+            );
+          }(),
         ]),
       ),
     );

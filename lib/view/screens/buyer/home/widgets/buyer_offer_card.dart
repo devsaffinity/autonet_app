@@ -151,8 +151,21 @@ class BuyerOfferCard extends StatelessWidget {
           width: _kThumbWidth, height: _kThumbHeight,
           radius: AppSizes.radiusSm, fit: BoxFit.cover);
     }
-    return CommonImageView(imagePath: Assets.imagesCar1,
-        width: _kThumbWidth, height: _kThumbHeight, fit: BoxFit.contain);
+    return Container(
+      width: _kThumbWidth,
+      height: _kThumbHeight,
+      decoration: BoxDecoration(
+        color: kLightOrangeColor.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.directions_car_outlined,
+          size: 26,
+          color: kGreyTextColor,
+        ),
+      ),
+    );
   }
 
   Widget _meta(String asset, String label) => Row(
