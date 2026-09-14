@@ -6,6 +6,7 @@ import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/failure_copy.dart';
+import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/screens/electrician/home/widgets/provider_booking_card.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -62,6 +63,14 @@ class _ElectricianBookingRequestPageState
           booking: b,
           onAdvance: () => _accept(b),
           onDecline: () => _decline(b),
+          onTap: () {
+            Get.to(
+              () => ElectricianBookingDetailsPage(
+                booking: b,
+                onBookingUpdated: () => c.refreshFirst(),
+              ),
+            );
+          },
         ),
       );
     }),

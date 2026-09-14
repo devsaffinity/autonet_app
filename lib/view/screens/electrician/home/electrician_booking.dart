@@ -1,13 +1,16 @@
+import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/controller/electrician/provider_bookings_controller.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/domain/select_option.dart';
+import 'package:autonect/domain/view_state.dart';
+import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/screens/electrician/home/widgets/provider_booking_card.dart';
 import 'package:autonect/view/screens/electrician/home/widgets/quote_dialog.dart';
-import 'package:autonect/view/widget/choice_chips_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -16,11 +19,6 @@ import 'package:get/get.dart';
 ///
 /// Same route the buyer's My Bookings uses; the server branches on role, so
 /// this returns the work they were booked FOR rather than what they booked.
-///
-/// The mock this replaces rendered a hardcoded Column of five fixtures with a
-/// balance figure above them. There is no earnings column anywhere — Booking
-/// carries quotedPence and finalPence and nothing sums them — so the figure
-/// is gone rather than invented.
 class ElectricianMyBookingsPage extends StatefulWidget {
   const ElectricianMyBookingsPage({super.key});
 
@@ -61,40 +59,171 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
     );
   }
 
+  Widget _buildWeeklyForecast(int count) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(AppSizes.s20, AppSizes.s8, AppSizes.s20, AppSizes.s12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [kSecondaryColor, Color(0xffD94426)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: kSecondaryColor.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Icon(
+              Icons.trending_up_rounded,
+              size: 52,
+              color: kWhiteColor.withOpacity(0.18),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MyText(
+                text: 'Weekly Schedule',
+                size: 15,
+                weight: FontWeight.w700,
+                color: kWhiteColor,
+                paddingBottom: 2,
+              ),
+              MyText(
+                text: count == 1
+                    ? '1 active callout in your diary.'
+                    : '$count active callouts in your diary.',
+                size: 12,
+                weight: FontWeight.w400,
+                color: kWhiteColor.withOpacity(0.85),
+                paddingBottom: 8,
+              ),
+              MyText(
+                text: '$count',
+                size: 26,
+                weight: FontWeight.w900,
+                color: kWhiteColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: GeneralAppBar(hasBackButton: false, title: 'My Bookings'),
-    body: Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(
-            AppSizes.s20, AppSizes.s8, AppSizes.s20, 0),
-        child: Obx(() => ChoiceChipsField<BookingStatus?>(
-          options: _filters,
-          selected: c.filter.value,
-          onSelect: c.setFilter,
-        )),
-      ),
-      Expanded(child: Obx(() {
-        final more = c.loadMoreError.value;
-        return PagedListView<Booking>(
-          state: c.state.value,
-          loadingMore: c.loadingMore.value,
-          loadMoreError: more == null ? null : userMessageFor(more),
-          hasMore: c.hasMore,
-          onLoadMore: c.loadMore,
-          onRefresh: c.refreshFirst,
-          emptyTitle: 'No bookings yet',
-          emptyBody: 'Accepted callouts appear here.',
-          itemBuilder: (_, b) => ProviderBookingCard(
-            booking: b,
-            onAdvance: () {
-              final next = ProviderBookingsController.nextStep(b.status);
-              if (next != null) c.advance(b, next);
-            },
-            onQuote: () => _quote(b),
+    body: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subtitle from Figma comp
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSizes.s20, AppSizes.s4, AppSizes.s20, AppSizes.s8),
+          child: MyText(
+            text: 'Manage your service pipeline and client schedule.',
+            size: 13,
+            weight: FontWeight.w400,
+            color: kGreyTextColor,
           ),
-        );
-      })),
-    ]),
+        ),
+
+        // Figma styled horizontal pill tabs
+        SizedBox(
+          height: 38,
+          child: Obx(() {
+            final selectedFilter = c.filter.value;
+            return ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.s20),
+              itemCount: _filters.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final opt = _filters[i];
+                final isSelected = selectedFilter == opt.value;
+                return InkWell(
+                  onTap: () => c.setFilter(opt.value),
+                borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? kSecondaryColor : const Color(0xffF2F4F7),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                    border: Border.all(
+                      color: isSelected ? kSecondaryColor : const Color(0xffEAECF0),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    opt.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? kWhiteColor : kBlackColor,
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        }),
+        ),
+
+        // Weekly schedule forecast card
+        Obx(() {
+          final count = switch (c.state.value) {
+            Data(value: final list) => list.length,
+            _ => 0,
+          };
+          if (c.filter.value == null && count > 0) {
+            return _buildWeeklyForecast(count);
+          }
+          return const SizedBox(height: AppSizes.s8);
+        }),
+
+        // Bookings list
+        Expanded(child: Obx(() {
+          final more = c.loadMoreError.value;
+          return PagedListView<Booking>(
+            state: c.state.value,
+            loadingMore: c.loadingMore.value,
+            loadMoreError: more == null ? null : userMessageFor(more),
+            hasMore: c.hasMore,
+            onLoadMore: c.loadMore,
+            onRefresh: c.refreshFirst,
+            emptyTitle: 'No bookings yet',
+            emptyBody: 'Accepted callouts appear here.',
+            itemBuilder: (_, b) => ProviderBookingCard(
+              booking: b,
+              onAdvance: () {
+                final next = ProviderBookingsController.nextStep(b.status);
+                if (next != null) c.advance(b, next);
+              },
+              onQuote: () => _quote(b),
+              onTap: () {
+                Get.to(
+                  () => ElectricianBookingDetailsPage(
+                    booking: b,
+                    onBookingUpdated: () => c.refreshFirst(),
+                  ),
+                );
+              },
+            ),
+          );
+        })),
+      ],
+    ),
   );
 }

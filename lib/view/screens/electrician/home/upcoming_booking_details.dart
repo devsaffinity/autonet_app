@@ -1,6 +1,13 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/controller/electrician/provider_bookings_controller.dart';
+import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -15,7 +22,8 @@ import 'package:get/get.dart';
 /// Every caller — the home dashboard, the bookings list and the request feed —
 /// pushes this page with the row the user actually tapped. The defaults are the
 /// original hard-coded copy, so an un-parameterised push still renders.
-class ElectricianBookingDetailsPage extends StatelessWidget {
+class ElectricianBookingDetailsPage extends StatefulWidget {
+  final Booking? booking;
   final String clientName;
   final String clientImage;
   final String? clientAvatarUrl;
@@ -40,8 +48,12 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
   /// The signed-in provider, so their own messages sit on the right.
   final String? myUserId;
 
+  final String? customerNotes;
+  final VoidCallback? onBookingUpdated;
+
   const ElectricianBookingDetailsPage({
     super.key,
+    this.booking,
     this.clientName = 'Marcus Thorne',
     this.clientImage = Assets.imagesProfileImage,
     this.clientAvatarUrl,
@@ -57,12 +69,83 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     this.isPremiumClient = true,
     this.bookingId,
     this.myUserId,
+    this.customerNotes,
+    this.onBookingUpdated,
   });
+
+  @override
+  State<ElectricianBookingDetailsPage> createState() =>
+      _ElectricianBookingDetailsPageState();
+}
+
+class _ElectricianBookingDetailsPageState
+    extends State<ElectricianBookingDetailsPage> {
+  late BookingStatus? _status;
+  bool _advancing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.booking?.status;
+  }
+
+  String get _clientName =>
+      widget.booking?.buyer?.name?.trim().isNotEmpty == true
+          ? widget.booking!.buyer!.name!.trim()
+          : widget.clientName;
+
+  String? get _clientAvatarUrl =>
+      widget.booking?.buyer?.avatarUrl ?? widget.clientAvatarUrl;
+
+  String get _service =>
+      widget.booking?.serviceType?.label ?? widget.service;
+
+  String get _date => widget.booking != null
+      ? formatDayMonthYear(widget.booking!.scheduledAt.toLocal())
+      : widget.date;
+
+  String get _time => widget.booking != null
+      ? formatClock(widget.booking!.scheduledAt.toLocal())
+      : widget.time;
+
+  String get _duration => widget.booking?.durationMins != null
+      ? '${widget.booking!.durationMins} mins'
+      : widget.duration;
+
+  String get _fee => widget.booking != null
+      ? (widget.booking!.earnedPence != null
+          ? formatPence(widget.booking!.earnedPence!)
+          : (widget.booking!.quotedPence != null
+              ? formatPence(widget.booking!.quotedPence!)
+              : 'Awaiting quote'))
+      : widget.fee;
+
+  String get _vehicle =>
+      widget.booking?.regNumber?.trim().isNotEmpty == true
+          ? widget.booking!.regNumber!.trim()
+          : widget.vehicle;
+
+  String get _vehicleYear => widget.booking?.regNumber != null
+      ? 'Reg: ${widget.booking!.regNumber}'
+      : widget.vehicleYear;
+
+  String get _location =>
+      widget.booking?.location?.trim().isNotEmpty == true
+          ? widget.booking!.location!.trim()
+          : widget.location;
+
+  String get _notes =>
+      widget.customerNotes ??
+      widget.booking?.description ??
+      'Please check my sensor wiring around the rear bumper assembly. Getting intermittent proximity warnings after the last car wash.';
+
+  String? get _bookingId => widget.booking?.id ?? widget.bookingId;
+  String? get _myUserId => widget.booking?.electricianId ?? widget.myUserId;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: GeneralAppBar(title: ""),
+      appBar: GeneralAppBar(title: "Booking Details"),
       body: Column(
         children: [
           // ── Scrollable content ─────────────────────────────────────────────
@@ -75,7 +158,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                   _buildClientHeader(),
                   const SizedBox(height: 24),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     decoration: AppStyling().myShadowStyle(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,25 +195,25 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (clientAvatarUrl != null &&
-            clientAvatarUrl!.isNotEmpty &&
-            (clientAvatarUrl!.startsWith('http://') ||
-                clientAvatarUrl!.startsWith('https://')))
+        if (_clientAvatarUrl != null &&
+            _clientAvatarUrl!.isNotEmpty &&
+            (_clientAvatarUrl!.startsWith('http://') ||
+                _clientAvatarUrl!.startsWith('https://')))
           CommonImageView(
-            url: clientAvatarUrl,
+            url: _clientAvatarUrl,
             width: 80,
             height: 80,
             radius: 18,
             fit: BoxFit.cover,
             errorWidget: InitialsAvatar(
-              name: clientName,
+              name: _clientName,
               size: 80,
               radius: 18,
             ),
           )
         else
           InitialsAvatar(
-            name: clientName,
+            name: _clientName,
             size: 80,
             radius: 18,
           ),
@@ -142,7 +225,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               MyText(
-                text: clientName,
+                text: _clientName,
                 size: 17,
                 weight: FontWeight.w800,
                 color: kBlackColor,
@@ -158,7 +241,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                   const SizedBox(width: 3),
                   Expanded(
                     child: MyText(
-                      text: location,
+                      text: _location,
                       size: 12,
                       weight: FontWeight.w400,
                       color: kGreyTextColor,
@@ -169,7 +252,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  if (isPremiumClient) ...[
+                  if (widget.isPremiumClient) ...[
                     _badge(
                       label: 'PREMIUM CLIENT',
                       bgColor: kLightOrangeColor,
@@ -179,7 +262,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   _badge(
-                    label: bookingCount,
+                    label: widget.bookingCount,
                     bgColor: kTertiaryColor,
                     textColor: kGreyTextColor,
                   ),
@@ -235,8 +318,8 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
           paddingBottom: 6,
         ),
         MyText(
-          text: service,
-          size: 30,
+          text: _service,
+          size: 26,
           weight: FontWeight.w800,
           color: kBlackColor,
         ),
@@ -253,7 +336,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             label: 'SCHEDULE',
             icon: Icons.calendar_today_outlined,
             iconColor: kSecondaryColor,
-            value: date,
+            value: _date,
           ),
         ),
         const SizedBox(width: 12),
@@ -262,7 +345,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             label: 'TIME SLOT',
             icon: Icons.access_time_rounded,
             iconColor: kSecondaryColor,
-            value: time,
+            value: _time,
           ),
         ),
       ],
@@ -330,7 +413,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                 paddingBottom: 4,
               ),
               MyText(
-                text: duration,
+                text: _duration,
                 size: 18,
                 weight: FontWeight.w800,
                 color: kBlackColor,
@@ -350,7 +433,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                 paddingBottom: 4,
               ),
               MyText(
-                text: fee,
+                text: _fee,
                 size: 22,
                 weight: FontWeight.w800,
                 color: kSecondaryColor,
@@ -398,33 +481,35 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    text: vehicle,
-                    size: 15,
-                    weight: FontWeight.w700,
-                    color: kBlackColor,
-                  ),
-                  MyText(
-                    text: vehicleYear,
-                    size: 12,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MyText(
+                      text: _vehicle,
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: kBlackColor,
+                    ),
+                    MyText(
+                      text: _vehicleYear,
+                      size: 12,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           Divider(color: kGreyTextColor.withOpacity(0.15), height: 1),
 
-          _specRow('Engine Type', 'DUAL MOTOR EV'),
+          _specRow('Registration', widget.booking?.regNumber ?? (_vehicleYear.isNotEmpty ? _vehicleYear : 'Not specified')),
           Divider(color: kGreyTextColor.withOpacity(0.15), height: 1),
-          _specRow('VIN', 'MP0AB2Y1. . . 7829'),
+          _specRow('Service Type', _service),
           Divider(color: kGreyTextColor.withOpacity(0.15), height: 1),
-          _specRow('Last Service', 'April 12, 2023'),
+          _specRow('Scheduled Date', _date),
         ],
       ),
     );
@@ -456,18 +541,18 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
   // ── Customer Notes ─────────────────────────────────────────────────────────
   Widget _buildCustomerNotes() {
     return Container(
-      height: 200,
       decoration: AppStyling().myDecoration(
         color: kWhiteColor,
         borderColor: kTertiaryColor,
         radius: 14,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Left red accent bar
           Container(
             width: 4,
+            height: 100,
             decoration: const BoxDecoration(
               color: kSecondaryColor,
               borderRadius: BorderRadius.only(
@@ -500,24 +585,17 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Container(
-                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    decoration: const BoxDecoration(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    decoration: BoxDecoration(
                       color: kLightBlueColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(14),
-                        bottomLeft: Radius.circular(14),
-                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Column(
-                      children: [
-                        MyText(
-                          text:
-                              '"Please check my sensor wiring around the rear bumper assembly. Getting intermittent proximity warnings after the last car wash. ECU coding should focus on the performance throttle map adjustment as discussed."',
-                          size: 13,
-                          weight: FontWeight.w400,
-                          color: kBlackColor,
-                        ),
-                      ],
+                    child: MyText(
+                      text: '"$_notes"',
+                      size: 13,
+                      weight: FontWeight.w400,
+                      color: kBlackColor,
                     ),
                   ),
                 ],
@@ -578,7 +656,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             right: 0,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              color: Colors.black.withOpacity(0.45),
+              color: Colors.black.withOpacity(0.55),
               child: Row(
                 children: [
                   const Icon(
@@ -587,11 +665,15 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
                     color: kWhiteColor,
                   ),
                   const SizedBox(width: 6),
-                  MyText(
-                    text: 'Route to: 422 West 42nd St, NY',
-                    size: 12,
-                    weight: FontWeight.w600,
-                    color: kWhiteColor,
+                  Expanded(
+                    child: MyText(
+                      text: 'Route to: $_location',
+                      size: 12,
+                      weight: FontWeight.w600,
+                      color: kWhiteColor,
+                      maxLines: 1,
+                      textOverflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -634,7 +716,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
             ),
             MyText(
               text:
-                  '$service for $clientName is marked complete. $fee will settle to your balance once the client confirms.',
+                  '$_service for $_clientName is marked complete. Your job record is updated.',
               size: 14,
               weight: FontWeight.w400,
               color: kGreyTextColor,
@@ -648,8 +730,48 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _advanceTo(BookingStatus next) async {
+    if (_bookingId == null) return;
+    setState(() => _advancing = true);
+    if (Get.isRegistered<BookingsRepository>()) {
+      final res = await Get.find<BookingsRepository>().advance(
+        id: _bookingId!,
+        status: next,
+      );
+      if (mounted) setState(() => _advancing = false);
+      switch (res) {
+        case Ok():
+          setState(() {
+            _status = next;
+          });
+          widget.onBookingUpdated?.call();
+          if (next == BookingStatus.completed) {
+            _confirmCompletion();
+          } else {
+            Get.snackbar(
+              'Status updated',
+              'Job status updated to ${next.label}',
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          }
+        case Err(error: final err):
+          Get.snackbar(
+            'Error',
+            err.toString(),
+            snackPosition: SnackPosition.BOTTOM,
+          );
+      }
+    } else {
+      if (mounted) setState(() => _advancing = false);
+    }
+  }
+
   // ── Bottom Action Bar ──────────────────────────────────────────────────────
   Widget _buildBottomBar(BuildContext context) {
+    final next = ProviderBookingsController.nextStep(_status);
+    final nextLabel = ProviderBookingsController.nextStepLabel(_status);
+    final isCompleted = _status == BookingStatus.completed;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
@@ -686,69 +808,91 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
           const SizedBox(width: 10),
 
           // Chat button — only when there is a real booking behind it.
-          if (bookingId != null) ...[
-          Expanded(
-            child: MyRippleEffect(
-              onTap: () => Get.to(
-                () => ChatRoomPage(
-                  contextId: bookingId!,
-                  myUserId: myUserId,
-                  title: clientName,
-                  peerAvatarUrl: clientAvatarUrl,
+          if (_bookingId != null) ...[
+            Expanded(
+              child: MyRippleEffect(
+                onTap: () => Get.to(
+                  () => ChatRoomPage(
+                    contextId: _bookingId!,
+                    myUserId: _myUserId,
+                    title: _clientName,
+                    peerAvatarUrl: _clientAvatarUrl,
+                  ),
                 ),
-              ),
-              radius: 12,
-              child: Container(
-                height: 44,
-                decoration: AppStyling().myDecoration(
-                  color: kTertiaryColor,
-                  borderColor: kTertiaryColor,
-                  radius: 12,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 18,
-                      color: kBlackColor,
-                    ),
-                    const SizedBox(width: 6),
-                    MyText(
-                      text: 'Chat',
-                      size: 14,
-                      weight: FontWeight.w600,
-                      color: kBlackColor,
-                    ),
-                  ],
+                radius: 12,
+                child: Container(
+                  height: 44,
+                  decoration: AppStyling().myDecoration(
+                    color: kTertiaryColor,
+                    borderColor: kTertiaryColor,
+                    radius: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 18,
+                        color: kBlackColor,
+                      ),
+                      const SizedBox(width: 6),
+                      MyText(
+                        text: 'Chat',
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: kBlackColor,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 10),
           ],
 
-          // Mark as Completed button
-          Expanded(
-            flex: 2,
-            child: MyButton(
-              buttonText: 'Mark as\nCompleted',
-              // The dead comment here pushed ElectricianBookingRequestPage,
-              // which is the *incoming* request feed — finishing a job must
-              // not dump the provider into a list of jobs they have not
-              // accepted. Confirm the completion, then pop back to whichever
-              // list opened this booking.
-              onTap: _confirmCompletion,
-              backgroundColor: kSecondaryColor,
-              fontColor: kWhiteColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              height: 48,
-              radius: 14,
-              icon: 'assets/images/check_icon.png',
-              haveSvg: false,
+          // Status Action button
+          if (next != null || isCompleted || _status == null)
+            Expanded(
+              flex: 2,
+              child: _advancing
+                  ? const Center(
+                      child: SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: kSecondaryColor,
+                        ),
+                      ),
+                    )
+                  : MyButton(
+                      buttonText: isCompleted
+                          ? 'Completed'
+                          : (nextLabel != null
+                              ? nextLabel.replaceAll(' ', '\n')
+                              : 'Mark as\nCompleted'),
+                      onTap: isCompleted
+                          ? null
+                          : () {
+                              if (next != null) {
+                                _advanceTo(next);
+                              } else {
+                                _confirmCompletion();
+                              }
+                            },
+                      backgroundColor:
+                          isCompleted ? kSuccessColor : kSecondaryColor,
+                      fontColor: kWhiteColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 48,
+                      radius: 14,
+                      icon: isCompleted
+                          ? 'assets/images/check_icon.png'
+                          : 'assets/images/check_icon.png',
+                      haveSvg: false,
+                    ),
             ),
-          ),
         ],
       ),
     );
