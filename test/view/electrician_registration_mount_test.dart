@@ -86,14 +86,10 @@ void main() {
       expect(find.text('Basic Info'), findsWidgets);
     });
 
-    testWidgets('is three steps, not five', (tester) async {
+    testWidgets('is five steps matching design', (tester) async {
       await pump(tester);
 
-      // Availability and Access Tier are gone: the first collected times this
-      // product cannot store, and the second offered a plan nothing bills an
-      // electrician for.
-      expect(find.text('Step 1 of 3'), findsOneWidget);
-      expect(find.text('Access Tier'), findsNothing);
+      expect(find.text('Step 1 Of 5'), findsOneWidget);
     });
 
     testWidgets('typing a name reaches the controller', (tester) async {

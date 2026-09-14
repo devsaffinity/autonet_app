@@ -95,6 +95,7 @@ class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kPrimaryColor,
       appBar: AppBar(
         backgroundColor: kPrimaryColor,
         surfaceTintColor: kPrimaryColor,
@@ -113,6 +114,51 @@ class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
           size: 18,
           weight: FontWeight.w700,
           color: kBlackColor,
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(38),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    MyText(
+                      text: "Step ${_currentStep + 1} Of ${_titles.length}",
+                      size: 12,
+                      weight: FontWeight.w700,
+                      color: kSecondaryColor,
+                    ),
+                    MyText(
+                      text: _titles[_currentStep],
+                      size: 12,
+                      weight: FontWeight.w500,
+                      color: kGreyTextColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: List.generate(_titles.length, (index) {
+                    return Expanded(
+                      child: Container(
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: index <= _currentStep
+                              ? kSecondaryColor
+                              : kSecondaryColor.withValues(alpha: .2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
         ),
       ),
       body: PageView(
