@@ -157,13 +157,20 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (avatar != null && avatar.isNotEmpty)
+            if (avatar != null &&
+                avatar.isNotEmpty &&
+                (avatar.startsWith('http://') || avatar.startsWith('https://')))
               CommonImageView(
                 url: avatar,
                 width: 32,
                 height: 32,
                 radius: 100,
                 fit: BoxFit.cover,
+                errorWidget: InitialsAvatar(
+                  name: name,
+                  size: 32,
+                  radius: 100,
+                ),
               )
             else
               InitialsAvatar(
@@ -304,13 +311,21 @@ class _Bubble extends StatelessWidget {
           if (!isMine)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: (peerAvatarUrl != null && peerAvatarUrl!.isNotEmpty)
+              child: (peerAvatarUrl != null &&
+                      peerAvatarUrl!.isNotEmpty &&
+                      (peerAvatarUrl!.startsWith('http://') ||
+                          peerAvatarUrl!.startsWith('https://')))
                   ? CommonImageView(
                       url: peerAvatarUrl,
                       width: 32,
                       height: 32,
                       radius: 100,
                       fit: BoxFit.cover,
+                      errorWidget: InitialsAvatar(
+                        name: peerName,
+                        size: 32,
+                        radius: 100,
+                      ),
                     )
                   : InitialsAvatar(
                       name: peerName,

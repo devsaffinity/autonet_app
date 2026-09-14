@@ -6,6 +6,7 @@ import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
+import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -255,6 +256,58 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.textContaining('book a provider'), findsNothing);
+    });
+
+    testWidgets('renders InitialsAvatar fallback when peer has no avatarUrl or raw S3 key', (
+      tester,
+    ) async {
+      await pumpInbox(
+        tester,
+        rows: [
+          Conversation.fromJson({
+            'id': 'c1',
+            'type': 'BOOKING',
+            'contextId': 'bk1',
+            'lastMessageAt': '2026-05-14T09:00:00.000Z',
+            'peer': {
+              'id': 'p1',
+              'name': 'Rashid Khan',
+              'avatarUrl': 'avatars/p1/some-key.jpg',
+            },
+            'unreadCount': 0,
+          }),
+        ],
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Rashid Khan'), findsOneWidget);
+      expect(find.text('RK'), findsOneWidget);
+    });
+
+    testWidgets('renders CommonImageView when peer has valid https avatarUrl', (
+      tester,
+    ) async {
+      await pumpInbox(
+        tester,
+        rows: [
+          Conversation.fromJson({
+            'id': 'c1',
+            'type': 'BOOKING',
+            'contextId': 'bk1',
+            'lastMessageAt': '2026-05-14T09:00:00.000Z',
+            'peer': {
+              'id': 'p1',
+              'name': 'Rashid Khan',
+              'avatarUrl': 'https://s3.example.com/avatar.jpg',
+            },
+            'unreadCount': 0,
+          }),
+        ],
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Rashid Khan'), findsOneWidget);
+      expect(find.byType(CommonImageView), findsWidgets);
     });
   });
 }

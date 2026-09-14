@@ -328,12 +328,27 @@ class ProviderRow extends StatelessWidget {
             SizedBox(
               height: 48,
               width: 48,
-              child: url != null && url.isNotEmpty
-                  ? CommonImageView(url: url, cacheKey: provider.id,
-                      height: 48, width: 48, radius: AppSizes.radiusPill,
-                      fit: BoxFit.cover)
-                  : InitialsAvatar(name: provider.fullName, size: 48,
-                      radius: AppSizes.radiusPill),
+              child: url != null &&
+                      url.isNotEmpty &&
+                      (url.startsWith('http://') || url.startsWith('https://'))
+                  ? CommonImageView(
+                      url: url,
+                      cacheKey: provider.id,
+                      height: 48,
+                      width: 48,
+                      radius: AppSizes.radiusPill,
+                      fit: BoxFit.cover,
+                      errorWidget: InitialsAvatar(
+                        name: provider.fullName,
+                        size: 48,
+                        radius: AppSizes.radiusPill,
+                      ),
+                    )
+                  : InitialsAvatar(
+                      name: provider.fullName,
+                      size: 48,
+                      radius: AppSizes.radiusPill,
+                    ),
             ),
             const SizedBox(width: AppSizes.s12),
             Expanded(child: Column(

@@ -112,14 +112,21 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Avatar
-        if (clientAvatarUrl != null && clientAvatarUrl!.isNotEmpty)
+        if (clientAvatarUrl != null &&
+            clientAvatarUrl!.isNotEmpty &&
+            (clientAvatarUrl!.startsWith('http://') ||
+                clientAvatarUrl!.startsWith('https://')))
           CommonImageView(
             url: clientAvatarUrl,
             width: 80,
             height: 80,
             radius: 18,
             fit: BoxFit.cover,
+            errorWidget: InitialsAvatar(
+              name: clientName,
+              size: 80,
+              radius: 18,
+            ),
           )
         else
           InitialsAvatar(

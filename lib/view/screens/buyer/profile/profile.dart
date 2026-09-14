@@ -168,12 +168,22 @@ class _AvatarEditorState extends State<_AvatarEditor> {
                       // A presigned URL when the user has uploaded one, the
                       // shipped asset otherwise — NOT an empty circle, which
                       // reads as a failed load rather than "no photo yet".
-                      child: url != null && url.isNotEmpty
+                      child: url != null &&
+                              url.isNotEmpty &&
+                              (url.startsWith('http://') ||
+                                  url.startsWith('https://'))
                           ? CommonImageView(
                               url: url,
                               cacheKey: _c.me?.id,
-                              height: 90, width: 90,
-                              fit: BoxFit.cover)
+                              height: 90,
+                              width: 90,
+                              fit: BoxFit.cover,
+                              errorWidget: InitialsAvatar(
+                                name: _c.me?.name ?? 'Buyer',
+                                size: 90,
+                                radius: 100,
+                              ),
+                            )
                           : InitialsAvatar(
                               name: _c.me?.name ?? 'Buyer',
                               size: 90,

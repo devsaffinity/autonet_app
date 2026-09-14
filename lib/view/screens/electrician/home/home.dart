@@ -240,13 +240,21 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                           ),
                           padding: const EdgeInsets.all(.3),
                           child: ClipOval(
-                            child: (avatar != null && avatar.isNotEmpty)
+                            child: (avatar != null &&
+                                    avatar.isNotEmpty &&
+                                    (avatar.startsWith('http://') ||
+                                        avatar.startsWith('https://')))
                                 ? CommonImageView(
                                     url: avatar,
                                     cacheKey: me?.id,
                                     width: 44,
                                     height: 44,
                                     fit: BoxFit.cover,
+                                    errorWidget: InitialsAvatar(
+                                      name: name,
+                                      size: 44,
+                                      radius: 100,
+                                    ),
                                   )
                                 : InitialsAvatar(
                                     name: name,
@@ -737,13 +745,21 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         child: Row(
           children: [
             // Client avatar thumbnail
-            if (buyerAvatar != null && buyerAvatar.isNotEmpty)
+            if (buyerAvatar != null &&
+                buyerAvatar.isNotEmpty &&
+                (buyerAvatar.startsWith('http://') ||
+                    buyerAvatar.startsWith('https://')))
               CommonImageView(
                 url: buyerAvatar,
                 width: 48,
                 height: 48,
                 radius: 10,
                 fit: BoxFit.cover,
+                errorWidget: InitialsAvatar(
+                  name: client,
+                  size: 48,
+                  radius: 10,
+                ),
               )
             else
               InitialsAvatar(

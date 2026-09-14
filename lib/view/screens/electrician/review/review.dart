@@ -326,14 +326,21 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar: real buyer image from S3, with InitialsAvatar fallback
-              if (avatarUrl != null && avatarUrl.isNotEmpty)
+              if (avatarUrl != null &&
+                  avatarUrl.isNotEmpty &&
+                  (avatarUrl.startsWith('http://') ||
+                      avatarUrl.startsWith('https://')))
                 CommonImageView(
                   url: avatarUrl,
                   width: 42,
                   height: 42,
                   radius: 10,
                   fit: BoxFit.cover,
+                  errorWidget: InitialsAvatar(
+                    name: reviewerName,
+                    size: 42,
+                    radius: 10,
+                  ),
                 )
               else
                 InitialsAvatar(

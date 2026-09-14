@@ -133,11 +133,27 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
       SizedBox(
         height: 96,
         width: 96,
-        child: url != null && url.isNotEmpty
-            ? CommonImageView(url: url, cacheKey: p.id, height: 96, width: 96,
-                radius: AppSizes.radiusLg, fit: BoxFit.cover)
-            : InitialsAvatar(name: p.fullName, size: 96,
-                radius: AppSizes.radiusLg),
+        child: url != null &&
+                url.isNotEmpty &&
+                (url.startsWith('http://') || url.startsWith('https://'))
+            ? CommonImageView(
+                url: url,
+                cacheKey: p.id,
+                height: 96,
+                width: 96,
+                radius: AppSizes.radiusLg,
+                fit: BoxFit.cover,
+                errorWidget: InitialsAvatar(
+                  name: p.fullName,
+                  size: 96,
+                  radius: AppSizes.radiusLg,
+                ),
+              )
+            : InitialsAvatar(
+                name: p.fullName,
+                size: 96,
+                radius: AppSizes.radiusLg,
+              ),
       ),
       const SizedBox(height: AppSizes.s8),
       // EXPERT VERIFIED.
@@ -374,13 +390,21 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
     decoration: AppStyling().myShadowStyle(),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        if (r.author?.avatarUrl != null && r.author!.avatarUrl!.isNotEmpty)
+        if (r.author?.avatarUrl != null &&
+            r.author!.avatarUrl!.isNotEmpty &&
+            (r.author!.avatarUrl!.startsWith('http://') ||
+                r.author!.avatarUrl!.startsWith('https://')))
           CommonImageView(
             url: r.author!.avatarUrl,
             width: 36,
             height: 36,
             radius: AppSizes.radiusPill,
             fit: BoxFit.cover,
+            errorWidget: InitialsAvatar(
+              name: r.author?.name ?? '',
+              size: 36,
+              radius: AppSizes.radiusPill,
+            ),
           )
         else
           InitialsAvatar(

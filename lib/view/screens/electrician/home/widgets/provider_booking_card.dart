@@ -71,13 +71,20 @@ class ProviderBookingCard extends StatelessWidget {
         const SizedBox(height: AppSizes.s12),
         Row(children: [
           if (booking.buyer?.avatarUrl != null &&
-              booking.buyer!.avatarUrl!.isNotEmpty)
+              booking.buyer!.avatarUrl!.isNotEmpty &&
+              (booking.buyer!.avatarUrl!.startsWith('http://') ||
+                  booking.buyer!.avatarUrl!.startsWith('https://')))
             CommonImageView(
               url: booking.buyer!.avatarUrl,
               width: 36,
               height: 36,
               radius: AppSizes.radiusPill,
               fit: BoxFit.cover,
+              errorWidget: InitialsAvatar(
+                name: _buyerName,
+                size: 36,
+                radius: AppSizes.radiusPill,
+              ),
             )
           else
             InitialsAvatar(

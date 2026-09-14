@@ -126,7 +126,9 @@ class ServiceProviderCard extends StatelessWidget {
     return SizedBox(
       height: size,
       width: size,
-      child: url != null && url.isNotEmpty
+      child: url != null &&
+              url.isNotEmpty &&
+              (url.startsWith('http://') || url.startsWith('https://'))
           ? CommonImageView(
               url: url,
               // The url is a short-lived presign that changes on every read, so
@@ -136,6 +138,7 @@ class ServiceProviderCard extends StatelessWidget {
               width: size,
               radius: AppSizes.radiusMd,
               fit: BoxFit.cover,
+              errorWidget: InitialsAvatar(name: provider.fullName, size: size),
             )
           : InitialsAvatar(name: provider.fullName, size: size),
     );

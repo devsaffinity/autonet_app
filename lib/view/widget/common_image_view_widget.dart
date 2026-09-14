@@ -27,6 +27,9 @@ class CommonImageView extends StatelessWidget {
   /// its expiry serves a 403. Pass the S3 object key.
   final String? cacheKey;
 
+  /// Optional fallback widget to render when network load fails or URL is invalid.
+  final Widget? errorWidget;
+
   CommonImageView({
     this.imageColor,
     this.cacheKey,
@@ -39,6 +42,7 @@ class CommonImageView extends StatelessWidget {
     this.radius = 0.0,
     this.fit = BoxFit.cover,
     this.placeHolder = 'assets/images/no_image_found.png',
+    this.errorWidget,
   });
 
   @override
@@ -93,7 +97,26 @@ class CommonImageView extends StatelessWidget {
           cacheWidth: _decodeWidth(context),
         ),
       );
-    } else if (url != null && url!.isNotEmpty) {
+    } else if (url != null &&
+        url!.isNotEmpty &&
+        (url!.startsWith('http://') || url!.startsWith('https://'))) {
+      final Widget fallbackWidget = errorWidget ??
+          (placeHolder.isNotEmpty && placeHolder != 'assets/images/no_image_found.png'
+              ? Image.asset(placeHolder, height: height, width: width, fit: fit)
+              : Container(
+                  height: height,
+                  width: width,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(radius ?? 0.0),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.person,
+                    size: (width != null ? width! * 0.5 : 24),
+                    color: Colors.grey.shade400,
+                  ),
+                ));
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius!),
         child: CachedNetworkImage(
@@ -122,9 +145,30 @@ class CommonImageView extends StatelessWidget {
               ),
             ),
           ),
-          errorWidget: (context, url, error) =>
-              Image.asset(placeHolder, height: height, width: width, fit: fit),
+          errorWidget: (context, url, error) => fallbackWidget,
         ),
+      );
+    } else if (url != null && url!.isNotEmpty) {
+      final Widget fallbackWidget = errorWidget ??
+          (placeHolder.isNotEmpty && placeHolder != 'assets/images/no_image_found.png'
+              ? Image.asset(placeHolder, height: height, width: width, fit: fit)
+              : Container(
+                  height: height,
+                  width: width,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(radius ?? 0.0),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.person,
+                    size: (width != null ? width! * 0.5 : 24),
+                    color: Colors.grey.shade400,
+                  ),
+                ));
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius!),
+        child: fallbackWidget,
       );
     } else if (imagePath != null && imagePath!.isNotEmpty) {
       return ClipRRect(

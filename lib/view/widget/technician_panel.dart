@@ -38,13 +38,16 @@ class TechnicianPanel extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppSizes.radiusSm),
     ),
     child: Row(children: [
-      if (avatarUrl != null && avatarUrl!.isNotEmpty)
+      if (avatarUrl != null &&
+          avatarUrl!.isNotEmpty &&
+          (avatarUrl!.startsWith('http://') || avatarUrl!.startsWith('https://')))
         CommonImageView(
           url: avatarUrl,
           width: 36,
           height: 36,
           radius: AppSizes.radiusPill,
           fit: BoxFit.cover,
+          errorWidget: InitialsAvatar(name: name, size: 36, radius: AppSizes.radiusPill),
         )
       else
         InitialsAvatar(name: name, size: 36, radius: AppSizes.radiusPill),

@@ -292,11 +292,21 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               child: SizedBox(
                 height: 40,
                 width: 40,
-                child: url != null && url.isNotEmpty
+                child: url != null &&
+                        url.isNotEmpty &&
+                        (url.startsWith('http://') || url.startsWith('https://'))
                     ? CommonImageView(
                         url: url,
                         cacheKey: _profile.me?.id,
-                        height: 40, width: 40, fit: BoxFit.cover)
+                        height: 40,
+                        width: 40,
+                        fit: BoxFit.cover,
+                        errorWidget: InitialsAvatar(
+                          name: _profile.me?.name ?? 'User',
+                          size: 40,
+                          radius: 100,
+                        ),
+                      )
                     : InitialsAvatar(
                         name: _profile.me?.name ?? 'User',
                         size: 40,

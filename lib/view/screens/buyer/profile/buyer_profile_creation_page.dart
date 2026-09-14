@@ -302,7 +302,9 @@ class _BuyerProfileCreationPageState extends State<BuyerProfileCreationPage> {
     }
 
     final avatarUrl = _profile.avatarUrl;
-    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+    if (avatarUrl != null &&
+        avatarUrl.isNotEmpty &&
+        (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) {
       return CommonImageView(
         url: avatarUrl,
         cacheKey: _profile.me?.id,

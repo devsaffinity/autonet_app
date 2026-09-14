@@ -135,13 +135,21 @@ class _ConversationRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            if (peer?.avatarUrl != null && peer!.avatarUrl!.isNotEmpty)
+            if (peer?.avatarUrl != null &&
+                peer!.avatarUrl!.isNotEmpty &&
+                (peer!.avatarUrl!.startsWith('http://') ||
+                    peer!.avatarUrl!.startsWith('https://')))
               CommonImageView(
                 url: peer.avatarUrl,
                 width: 52,
                 height: 52,
                 radius: 100,
                 fit: BoxFit.cover,
+                errorWidget: InitialsAvatar(
+                  name: peer?.displayName ?? 'User',
+                  size: 52,
+                  radius: 100,
+                ),
               )
             else
               InitialsAvatar(
