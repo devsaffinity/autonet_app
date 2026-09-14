@@ -150,7 +150,6 @@ class _ServiceProviderRegistrationPageState
 
   // ── Step 3 KYC Upload State ────────────────────────────────────────────────
   String? _frontDocName;
-  String? _backDocName;
   String? _licenseDocName;
 
   // ── Step 4 Availability State ──────────────────────────────────────────────
@@ -201,19 +200,42 @@ class _ServiceProviderRegistrationPageState
     if (c.brands.isEmpty) {
       c.toggleBrand('BMW');
     }
+    // Pre-load KYC status if controller is available
+    _kycCtrl?.load();
   }
 
-  void _next() {
+  Future<void> _next() async {
     if (_currentStep == 0) {
-      if (_nameCtrl.text.trim().isEmpty) {
+      final name = _nameCtrl.text.trim();
+      if (name.isEmpty) {
         displayToast(msg: 'Please enter your full name');
         return;
       }
+      final phone = _phoneCtrl.text.trim();
+      if (phone.isNotEmpty && phone.length < 7) {
+        displayToast(msg: 'Please enter a valid phone number (at least 7 digits)');
+        return;
+      }
+      c.fullName.value = name;
+      c.phone.value = phone;
+      c.location.value = _locationCtrl.text.trim();
     } else if (_currentStep == 1) {
       if (c.services.isEmpty) {
         displayToast(msg: 'Pick at least one service you offer');
         return;
       }
+      c.fullName.value = _nameCtrl.text.trim();
+      c.phone.value = _phoneCtrl.text.trim();
+      c.location.value = _locationCtrl.text.trim();
+
+      // Ensure profile exists in PostgreSQL before moving to KYC step,
+      // so S3 presigned tickets and document confirmations succeed.
+      final profile = await c.submit();
+      if (profile == null) {
+        displayToast(msg: c.formError.value ?? 'Please check your information');
+        return;
+      }
+      _kycCtrl?.load();
     }
 
     if (_currentStep < _stepTitles.length - 1) {
@@ -223,6 +245,9 @@ class _ServiceProviderRegistrationPageState
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+      if (_currentStep == 2) {
+        _kycCtrl?.load();
+      }
     } else {
       _finish();
     }
@@ -776,6 +801,8 @@ class _ServiceProviderRegistrationPageState
   // STEP 3 — KYC
   // ───────────────────────────────────────────────
   Widget _buildStep3() {
+    final kyc = _kycCtrl;
+
     return Column(
       children: [
         Expanded(
@@ -801,6 +828,39 @@ class _ServiceProviderRegistrationPageState
                 ),
                 const SizedBox(height: 20),
 
+                // Error message banner if any
+                if (kyc != null)
+                  Obx(() {
+                    final err = kyc.formError.value;
+                    if (err == null) return const SizedBox.shrink();
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: kRedColor.withValues(alpha: .08),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: kRedColor.withValues(alpha: .4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: kRedColor, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: MyText(
+                              text: err,
+                              size: 11,
+                              color: kRedColor,
+                              weight: FontWeight.w500,
+                              lineHeight: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
                 // Section 1: Identity Document
                 _buildKycHeader(
                   icon: Icons.badge_outlined,
@@ -809,30 +869,46 @@ class _ServiceProviderRegistrationPageState
                 ),
                 const SizedBox(height: 14),
 
-                // Upload Box 1: Front Side
-                _buildUploadDashedBox(
-                  label: _frontDocName ?? "Front Side",
-                  isUploaded: _frontDocName != null,
-                  onTap: () async {
-                    await _kycCtrl?.pickAndUpload(KycDocType.id);
-                    setState(() {
-                      _frontDocName = "Front Side Uploaded ✓";
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
+                if (kyc != null)
+                  Obx(() {
+                    final idDoc = kyc.current?.documentFor(KycDocType.id);
+                    final isUploaded = idDoc?.uploaded ?? false;
+                    final isBusy = kyc.uploading.value == KycDocType.id ||
+                        kyc.picking.value == KycDocType.id;
 
-                // Upload Box 2: Back Side
-                _buildUploadDashedBox(
-                  label: _backDocName ?? "Back Side",
-                  isUploaded: _backDocName != null,
-                  onTap: () async {
-                    await _kycCtrl?.pickAndUpload(KycDocType.id);
-                    setState(() {
-                      _backDocName = "Back Side Uploaded ✓";
-                    });
-                  },
-                ),
+                    return _buildUploadDashedBox(
+                      label: isBusy
+                          ? "Uploading ID document..."
+                          : isUploaded
+                              ? (idDoc?.fileName ?? "Identity Document Uploaded ✓")
+                              : (_frontDocName ?? "Click to upload ID (Passport or Driver's License)"),
+                      hint: isUploaded
+                          ? (idDoc?.displaySize != null
+                              ? "Size: ${idDoc!.displaySize} • Tap to replace"
+                              : "Tap to replace document")
+                          : "PDF, JPEG or PNG (Max 10MB)",
+                      isUploaded: isUploaded || _frontDocName != null,
+                      isLoading: isBusy,
+                      isLarge: true,
+                      onTap: () async {
+                        await kyc.pickAndUpload(KycDocType.id);
+                        if (kyc.current?.hasUploaded(KycDocType.id) ?? false) {
+                          setState(() {
+                            _frontDocName = "Identity Document Uploaded ✓";
+                          });
+                        }
+                      },
+                    );
+                  })
+                else
+                  _buildUploadDashedBox(
+                    label: _frontDocName ?? "Click to upload ID document",
+                    hint: "PDF, JPEG or PNG (Max 10MB)",
+                    isUploaded: _frontDocName != null,
+                    isLarge: true,
+                    onTap: () {},
+                  ),
+
                 const SizedBox(height: 14),
 
                 // Info warning box
@@ -873,19 +949,47 @@ class _ServiceProviderRegistrationPageState
                 ),
                 const SizedBox(height: 14),
 
-                // Upload Box 3: License
-                _buildUploadDashedBox(
-                  label: _licenseDocName ?? "Click to upload document",
-                  hint: "PDF, JPEG or PNG (Max 10MB)",
-                  isLarge: true,
-                  isUploaded: _licenseDocName != null,
-                  onTap: () async {
-                    await _kycCtrl?.pickAndUpload(KycDocType.license);
-                    setState(() {
-                      _licenseDocName = "Business License Uploaded ✓";
-                    });
-                  },
-                ),
+                if (kyc != null)
+                  Obx(() {
+                    final licenseDoc =
+                        kyc.current?.documentFor(KycDocType.license);
+                    final isUploaded = licenseDoc?.uploaded ?? false;
+                    final isBusy = kyc.uploading.value == KycDocType.license ||
+                        kyc.picking.value == KycDocType.license;
+
+                    return _buildUploadDashedBox(
+                      label: isBusy
+                          ? "Uploading Licence..."
+                          : isUploaded
+                              ? (licenseDoc?.fileName ?? "Business License Uploaded ✓")
+                              : (_licenseDocName ?? "Click to upload document"),
+                      hint: isUploaded
+                          ? (licenseDoc?.displaySize != null
+                              ? "Size: ${licenseDoc!.displaySize} • Tap to replace"
+                              : "Tap to replace document")
+                          : "PDF, JPEG or PNG (Max 10MB)",
+                      isLarge: true,
+                      isUploaded: isUploaded || _licenseDocName != null,
+                      isLoading: isBusy,
+                      onTap: () async {
+                        await kyc.pickAndUpload(KycDocType.license);
+                        if (kyc.current?.hasUploaded(KycDocType.license) ??
+                            false) {
+                          setState(() {
+                            _licenseDocName = "Business License Uploaded ✓";
+                          });
+                        }
+                      },
+                    );
+                  })
+                else
+                  _buildUploadDashedBox(
+                    label: _licenseDocName ?? "Click to upload document",
+                    hint: "PDF, JPEG or PNG (Max 10MB)",
+                    isLarge: true,
+                    isUploaded: _licenseDocName != null,
+                    onTap: () {},
+                  ),
                 const SizedBox(height: 24),
               ],
             ),
@@ -959,6 +1063,7 @@ class _ServiceProviderRegistrationPageState
     required String label,
     String? hint,
     required bool isUploaded,
+    bool isLoading = false,
     bool isLarge = false,
     required VoidCallback onTap,
   }) {
@@ -969,7 +1074,7 @@ class _ServiceProviderRegistrationPageState
           : kGreyTextColor.withValues(alpha: .4),
       strokeWidth: 1.2,
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           width: double.infinity,
@@ -984,21 +1089,32 @@ class _ServiceProviderRegistrationPageState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                isUploaded
-                    ? Icons.check_circle
-                    : (isLarge
-                        ? Icons.cloud_upload_outlined
-                        : Icons.cloud_upload_outlined),
-                size: isLarge ? 32 : 24,
-                color: isUploaded ? kSecondaryColor : kSecondaryColor,
-              ),
+              if (isLoading)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: kSecondaryColor,
+                  ),
+                )
+              else
+                Icon(
+                  isUploaded
+                      ? Icons.check_circle
+                      : (isLarge
+                          ? Icons.cloud_upload_outlined
+                          : Icons.cloud_upload_outlined),
+                  size: isLarge ? 32 : 24,
+                  color: isUploaded ? kSecondaryColor : kSecondaryColor,
+                ),
               const SizedBox(height: 6),
               MyText(
                 text: label,
                 size: 12,
                 weight: FontWeight.w600,
                 color: isUploaded ? kSecondaryColor : kBlackColor,
+                textAlign: TextAlign.center,
               ),
               if (hint != null) ...[
                 const SizedBox(height: 2),
@@ -1006,7 +1122,10 @@ class _ServiceProviderRegistrationPageState
                   text: hint,
                   size: 10,
                   weight: FontWeight.w400,
-                  color: kGreyTextColor,
+                  color: isUploaded
+                      ? kSecondaryColor.withValues(alpha: .8)
+                      : kGreyTextColor,
+                  textAlign: TextAlign.center,
                 ),
               ],
             ],

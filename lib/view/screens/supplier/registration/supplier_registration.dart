@@ -35,7 +35,11 @@ class _SupplierRegistrationPageState extends State<SupplierRegistrationPage> {
     'Subscription',
   ];
 
-  void _next() {
+  Future<void> _next() async {
+    if (_currentStep == 0) {
+      final profile = await _c.submit();
+      if (profile == null) return;
+    }
     if (_currentStep < _titles.length - 1) {
       setState(() => _currentStep++);
       _pageController.animateToPage(
