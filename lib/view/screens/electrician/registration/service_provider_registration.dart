@@ -15,6 +15,7 @@ import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/dashed_border.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -439,6 +440,7 @@ class _ServiceProviderRegistrationPageState
                 MyTextField(
                   controller: _nameCtrl,
                   labelText: 'Full Name',
+                  isRequired: true,
                   hintText: 'e.g. Jack Brennan',
                   onChanged: (v) => c.fullName.value = v,
                 ),
@@ -543,8 +545,9 @@ class _ServiceProviderRegistrationPageState
                   color: kBlackColor,
                 ),
                 const SizedBox(height: 16),
-                MyText(
+                const FieldLabel(
                   text: "Services Offered",
+                  isRequired: true,
                   size: 16,
                   weight: FontWeight.w700,
                   color: kBlackColor,
@@ -866,6 +869,7 @@ class _ServiceProviderRegistrationPageState
                   icon: Icons.badge_outlined,
                   title: "Identity Document (ID)",
                   subtitle: "Passport or National ID Card",
+                  isRequired: true,
                 ),
                 const SizedBox(height: 14),
 
@@ -946,6 +950,7 @@ class _ServiceProviderRegistrationPageState
                   icon: Icons.description_outlined,
                   title: "Business License / Proof",
                   subtitle: "Tax certificate or Operating Permit",
+                  isRequired: true,
                 ),
                 const SizedBox(height: 14),
 
@@ -1024,6 +1029,7 @@ class _ServiceProviderRegistrationPageState
     required IconData icon,
     required String title,
     required String subtitle,
+    bool isRequired = false,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1041,8 +1047,9 @@ class _ServiceProviderRegistrationPageState
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MyText(
+            FieldLabel(
               text: title,
+              isRequired: isRequired,
               size: 15,
               weight: FontWeight.w700,
               color: kBlackColor,

@@ -10,6 +10,7 @@ import 'package:autonect/view/screens/supplier/registration/widgets/category_gri
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
@@ -70,12 +71,14 @@ class _SupplierBusinessStepState extends State<SupplierBusinessStep> {
               MyTextField(
                 controller: _name,
                 labelText: 'Business Name',
+                isRequired: true,
                 hintText: 'e.g. JIN Motors',
                 onChanged: (v) => _c.businessName.value = v,
               ),
               MyTextField(
                 controller: _address,
                 labelText: 'Address',
+                isRequired: true,
                 hintText: 'e.g. 14 Bole Road, Manchester',
                 onChanged: (v) => _c.address.value = v,
               ),
@@ -84,6 +87,7 @@ class _SupplierBusinessStepState extends State<SupplierBusinessStep> {
               // the nearest real value is West Midlands.
               Obx(() => EnumSelectField<Region>(
                 title: 'Region Served',
+                isRequired: true,
                 hint: 'Select a region',
                 value: _c.region,
                 options: [
@@ -105,7 +109,7 @@ class _SupplierBusinessStepState extends State<SupplierBusinessStep> {
                 onAdd: _promptAddBrand,
               )),
               const SizedBox(height: AppSizes.s20),
-              _sectionLabel('Part Categories'),
+              _sectionLabel('Part Categories', isRequired: true),
               Obx(() {
                 // BOTH reads happen HERE, synchronously inside the Obx closure.
                 // categoryIds used to be read from StateView's `builder`, which
@@ -139,8 +143,9 @@ class _SupplierBusinessStepState extends State<SupplierBusinessStep> {
     ],
   );
 
-  Widget _sectionLabel(String text) => MyText(
+  Widget _sectionLabel(String text, {bool isRequired = false}) => FieldLabel(
     text: text,
+    isRequired: isRequired,
     size: AppTextScale.body,
     weight: AppWeights.semibold,
     color: kSecondaryColor,

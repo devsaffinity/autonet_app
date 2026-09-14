@@ -5,6 +5,7 @@ import 'package:autonect/controller/supplier/supplier_kyc_controller.dart';
 import 'package:autonect/data/models/kyc_status.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/dashed_border.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
@@ -195,8 +196,13 @@ class _DocumentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MyText(text: type.label, size: AppTextScale.body,
-                weight: AppWeights.bold, color: kBlackColor),
+            FieldLabel(
+              text: type.label,
+              isRequired: true,
+              size: AppTextScale.body,
+              weight: AppWeights.bold,
+              color: kBlackColor,
+            ),
             // label (12), not caption (10): every sibling card subtitle in
             // this wizard uses 12, and caption is the tertiary tier here.
             // Uncapped because nothing below is height-constrained, so a cap

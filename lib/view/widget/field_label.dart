@@ -15,7 +15,8 @@ import 'package:flutter/material.dart';
 class FieldLabel extends StatelessWidget {
   const FieldLabel({
     super.key, required this.text, this.isRequired = false, this.size,
-    this.weight, this.color, this.paddingBottom,
+    this.weight, this.color, this.paddingBottom, this.paddingTop,
+    this.letterSpacing,
   });
 
   final String text;
@@ -28,7 +29,7 @@ class FieldLabel extends StatelessWidget {
 
   /// All null by default so a caller that passes nothing renders exactly what a
   /// bare [MyText] would, and no existing label moves.
-  final double? size, paddingBottom;
+  final double? size, paddingBottom, paddingTop, letterSpacing;
   final FontWeight? weight;
   final Color? color;
 
@@ -45,11 +46,24 @@ class FieldLabel extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      MyText(text: text, size: size, weight: weight, color: color,
-          paddingBottom: paddingBottom),
+      MyText(
+        text: text,
+        size: size,
+        weight: weight,
+        color: color,
+        paddingTop: paddingTop ?? 0,
+        paddingBottom: paddingBottom ?? 0,
+        letterSpacing: letterSpacing,
+      ),
       if (isRequired)
-        MyText(text: ' *', size: size, weight: weight, color: kRedColor,
-            paddingBottom: paddingBottom),
+        MyText(
+          text: ' *',
+          size: size,
+          weight: weight,
+          color: kRedColor,
+          paddingTop: paddingTop ?? 0,
+          paddingBottom: paddingBottom ?? 0,
+        ),
     ],
   );
 }

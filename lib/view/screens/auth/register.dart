@@ -101,6 +101,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     () => MyTextField(
                       controller: _name,
                       labelText: "Name",
+                      isRequired: true,
                       hintText: "e.g John",
                       keyboardType: TextInputType.name,
                       textCapitalization: TextCapitalization.words,
@@ -114,6 +115,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     () => MyTextField(
                       controller: _email,
                       labelText: "Email Address",
+                      isRequired: true,
                       hintText: "example@domain.com",
                       keyboardType: TextInputType.emailAddress,
                       textCapitalization: TextCapitalization.none,
@@ -127,6 +129,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     () => PasswordTextField(
                       controller: _password,
                       labelText: "Password",
+                      isRequired: true,
                       isObSecure: isObSecure1,
                       errorText: c.fieldErrorFor('password'),
                       // Mirrors auth.dto.ts so the user is not round-tripped
@@ -143,6 +146,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   PasswordTextField(
                     controller: _confirm,
                     labelText: "Confirm Password",
+                    isRequired: true,
                     hintText: "Re-enter your password",
                     isObSecure: isObSecure1,
                     textInputAction: TextInputAction.done,

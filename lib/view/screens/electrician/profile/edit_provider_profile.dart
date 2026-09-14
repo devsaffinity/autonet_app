@@ -8,9 +8,9 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/select_option.dart';
-import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
+import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -125,6 +125,7 @@ class _EditProviderProfilePageState extends State<EditProviderProfilePage> {
                 MyTextField(
                   controller: _nameCtrl,
                   labelText: 'Full Name',
+                  isRequired: true,
                   onChanged: (v) => c.fullName.value = v,
                 ),
                 MyTextField(
@@ -168,7 +169,7 @@ class _EditProviderProfilePageState extends State<EditProviderProfilePage> {
                   onChanged: (r) => c.region.value = r,
                 ),
 
-                _label('WHAT YOU DO'),
+                _label('WHAT YOU DO', isRequired: true),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -254,8 +255,9 @@ class _EditProviderProfilePageState extends State<EditProviderProfilePage> {
     'Mercedes-Benz',
   ];
 
-  Widget _label(String text) => MyText(
+  Widget _label(String text, {bool isRequired = false}) => FieldLabel(
     text: text,
+    isRequired: isRequired,
     size: 10,
     weight: FontWeight.w700,
     color: kSecondaryColor,

@@ -1,4 +1,4 @@
-// ignore: must_be_immutable
+// ignore_for_file: must_be_immutable
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_fonts.dart';
 import 'package:autonect/view/widget/field_label.dart';
@@ -233,6 +233,7 @@ class PasswordTextField extends StatelessWidget {
     this.hintText,
     this.keyboardType,
     this.textInputAction = TextInputAction.next,
+    this.isRequired = false,
   });
 
   /// true means "currently revealed". The eye toggles it; the field below
@@ -247,6 +248,7 @@ class PasswordTextField extends StatelessWidget {
   final String? hintText;
   final TextInputType? keyboardType;
   final TextInputAction textInputAction;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -254,6 +256,7 @@ class PasswordTextField extends StatelessWidget {
       // Was commented out, so the field never obscured and every password was
       // rendered in clear text.
       isObSecure: !isObSecure,
+      isRequired: isRequired,
       controller: controller,
       validator: validator,
       onChanged: onChanged,
