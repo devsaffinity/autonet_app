@@ -37,6 +37,9 @@ class ProfileController extends ApiController {
           permanent: true,
         );
 
+  static ProfileController? maybeFind() =>
+      Get.isRegistered<ProfileController>() ? Get.find<ProfileController>() : null;
+
   final ProfileRepository _repo;
 
   final BlobUploader? _injectedUploader;

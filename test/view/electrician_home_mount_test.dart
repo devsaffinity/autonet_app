@@ -207,4 +207,14 @@ void main() {
     expect(find.text('OFF TODAY'), findsOneWidget);
     expect(find.text('ONLINE'), findsNothing);
   });
+
+  testWidgets('top bar avatar options sheet opens on tap', (tester) async {
+    await _pump(tester);
+
+    await tester.tap(find.bySemanticsLabel('Profile options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Change Profile Photo'), findsOneWidget);
+    expect(find.text('View Full Profile'), findsOneWidget);
+  });
 }

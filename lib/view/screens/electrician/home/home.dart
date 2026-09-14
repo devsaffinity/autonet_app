@@ -17,6 +17,8 @@ import 'package:autonect/view/screens/electrician/dash_board/manage_services.dar
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
 import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/view/screens/electrician/profile/profile.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -55,28 +57,139 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
     {'label': 'View Reports', 'icon': Assets.imagesQmC},
   ];
 
+  Future<void> _refresh() async {
+    await Future.wait([
+      _profile.load(),
+      _dashboard.load(),
+      _bookings.refreshFirst(),
+      _availability.load(),
+    ]);
+  }
+
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning,';
+    if (hour < 17) return 'Good afternoon,';
+    return 'Good evening,';
+  }
+
+  void _openProfile() {
+    final shell = RoleShell.maybeOf(context);
+    if (shell != null) {
+      shell.goTo(4);
+    } else {
+      Get.to(() => const ElectricianProfilePage());
+    }
+  }
+
+  void _onAvatarTap() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kPrimaryColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: kGreyTextColor.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: kSecondaryColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: kSecondaryColor,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Change Profile Photo',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+                subtitle: const Text(
+                  'Upload a new avatar from gallery or camera',
+                  style: TextStyle(fontSize: 12, color: kGreyTextColor),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _profile.changeAvatar();
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: kSecondaryColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_outline_rounded,
+                    color: kSecondaryColor,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'View Full Profile',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+                subtitle: const Text(
+                  'Manage your services, availability and bio',
+                  style: TextStyle(fontSize: 12, color: kGreyTextColor),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openProfile();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopBar(),
-              const SizedBox(height: 16),
-              _buildPerformanceCard(),
-              const SizedBox(height: 12),
-              _buildEarningsCard(),
-              const SizedBox(height: 20),
-              _buildQuickManagement(),
-              const SizedBox(height: 20),
-              _buildUpcomingBookings(),
-              const SizedBox(height: 20),
-              _buildMessages(),
-              const SizedBox(height: 24),
-            ],
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(),
+                const SizedBox(height: 16),
+                _buildPerformanceCard(),
+                const SizedBox(height: 12),
+                _buildEarningsCard(),
+                const SizedBox(height: 20),
+                _buildQuickManagement(),
+                const SizedBox(height: 20),
+                _buildUpcomingBookings(),
+                const SizedBox(height: 20),
+                _buildMessages(),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -91,60 +204,135 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         Obx(() {
           final me = _profile.me;
           final avatar = me?.avatarUrl;
+          final storeName = Get.isRegistered<TokenStore>()
+              ? Get.find<TokenStore>().user?.name
+              : null;
           final name =
-              me?.electricianProfile?.fullName ?? me?.name ?? 'Provider';
-          if (avatar != null && avatar.isNotEmpty) {
-            return Container(
-              width: 44,
-              height: 44,
-              decoration: AppStyling().myDecoration(
-                color: kSecondaryColor,
-                borderColor: kSecondaryColor,
-                radius: 100,
-              ),
-              padding: const EdgeInsets.all(.3),
-              child: ClipOval(
-                child: CommonImageView(
-                  url: avatar,
-                  width: 44,
-                  height: 44,
-                  fit: BoxFit.cover,
+              (me?.electricianProfile?.fullName?.trim().isNotEmpty == true)
+                  ? me!.electricianProfile!.fullName.trim()
+                  : (me?.name?.trim().isNotEmpty == true)
+                      ? me!.name!.trim()
+                      : (storeName?.trim().isNotEmpty == true)
+                          ? storeName!.trim()
+                          : 'Provider';
+          final busy = _profile.uploadingAvatar.value;
+
+          return Semantics(
+            button: true,
+            label: 'Profile options',
+            child: InkWell(
+              onTap: _onAvatarTap,
+              customBorder: const CircleBorder(),
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: AppStyling().myDecoration(
+                            color: kSecondaryColor,
+                            borderColor: kSecondaryColor,
+                            radius: 100,
+                          ),
+                          padding: const EdgeInsets.all(.3),
+                          child: ClipOval(
+                            child: (avatar != null && avatar.isNotEmpty)
+                                ? CommonImageView(
+                                    url: avatar,
+                                    cacheKey: me?.id,
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.cover,
+                                  )
+                                : InitialsAvatar(
+                                    name: name,
+                                    size: 44,
+                                    radius: 100,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      if (busy)
+                        const Positioned.fill(
+                          child: Center(
+                            child: SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: kSecondaryColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: kSecondaryColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: kPrimaryColor, width: 1.5),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            size: 10,
+                            color: kWhiteColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            );
-          }
-          return InitialsAvatar(
-            name: name,
-            size: 44,
-            radius: 100,
+            ),
           );
         }),
         const SizedBox(width: 10),
 
         // Greeting
         Expanded(
-          child: Obx(() {
-            final me = _profile.me;
-            final name =
-                me?.electricianProfile?.fullName ?? me?.name ?? 'Provider';
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MyText(
-                  text: 'Good day,',
-                  size: 14,
-                  weight: FontWeight.w400,
-                  color: kGreyTextColor,
-                ),
-                MyText(
-                  text: name,
-                  size: 16,
-                  weight: FontWeight.w700,
-                  color: kBlackColor,
-                ),
-              ],
-            );
-          }),
+          child: InkWell(
+            onTap: _openProfile,
+            borderRadius: BorderRadius.circular(8),
+            child: Obx(() {
+              final me = _profile.me;
+              final storeName = Get.isRegistered<TokenStore>()
+                  ? Get.find<TokenStore>().user?.name
+                  : null;
+              final name =
+                  (me?.electricianProfile?.fullName?.trim().isNotEmpty == true)
+                      ? me!.electricianProfile!.fullName.trim()
+                      : (me?.name?.trim().isNotEmpty == true)
+                          ? me!.name!.trim()
+                          : (storeName?.trim().isNotEmpty == true)
+                              ? storeName!.trim()
+                              : 'Provider';
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MyText(
+                    text: _greeting,
+                    size: 14,
+                    weight: FontWeight.w400,
+                    color: kGreyTextColor,
+                  ),
+                  MyText(
+                    text: name,
+                    size: 16,
+                    weight: FontWeight.w700,
+                    color: kBlackColor,
+                  ),
+                ],
+              );
+            }),
+          ),
         ),
 
         // Online toggle
