@@ -165,28 +165,79 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
 
       return Row(
         children: [
-          Container(
-            width: 66,
-            height: 66,
-            decoration: AppStyling().myDecoration(
-              color: kSecondaryColor,
-              borderColor: kSecondaryColor,
-              radius: 100,
-            ),
-            padding: const EdgeInsets.all(.3),
-            child: ClipOval(
-              child: (avatar != null && avatar.isNotEmpty)
-                  ? CommonImageView(
-                      url: avatar,
-                      width: 66,
-                      height: 66,
-                      fit: BoxFit.cover,
-                    )
-                  : InitialsAvatar(
-                      name: name,
-                      size: 66,
-                      radius: 100,
-                    ),
+          Semantics(
+            button: true,
+            label: 'Change profile photo',
+            child: InkWell(
+              onTap: _profile.changeAvatar,
+              customBorder: const CircleBorder(),
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 66,
+                          height: 66,
+                          decoration: AppStyling().myDecoration(
+                            color: kSecondaryColor,
+                            borderColor: kSecondaryColor,
+                            radius: 100,
+                          ),
+                          padding: const EdgeInsets.all(.3),
+                          child: ClipOval(
+                            child: (avatar != null && avatar.isNotEmpty)
+                                ? CommonImageView(
+                                    url: avatar,
+                                    cacheKey: me?.id,
+                                    width: 66,
+                                    height: 66,
+                                    fit: BoxFit.cover,
+                                  )
+                                : InitialsAvatar(
+                                    name: name,
+                                    size: 66,
+                                    radius: 100,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      if (_profile.uploadingAvatar.value)
+                        const Positioned.fill(
+                          child: Center(
+                            child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: kSecondaryColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: kSecondaryColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: kPrimaryColor, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            size: 12,
+                            color: kWhiteColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),

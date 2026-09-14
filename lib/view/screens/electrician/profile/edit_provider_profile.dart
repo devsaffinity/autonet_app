@@ -8,10 +8,12 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/select_option.dart';
+import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
 import 'package:autonect/view/widget/field_label.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -121,6 +123,106 @@ class _EditProviderProfilePageState extends State<EditProviderProfilePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (error != null) _errorBanner(error),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 8),
+                    child: Semantics(
+                      button: true,
+                      label: 'Change profile photo',
+                      child: InkWell(
+                        onTap: _profile.changeAvatar,
+                        customBorder: const CircleBorder(),
+                        child: ExcludeSemantics(
+                          child: SizedBox(
+                            height: 96,
+                            width: 96,
+                            child: Obx(() {
+                              final me = _profile.me;
+                              final url = me?.avatarUrl;
+                              final busy = _profile.uploadingAvatar.value;
+                              final name = me?.electricianProfile?.fullName ??
+                                  me?.name ??
+                                  'Provider';
+
+                              return Stack(
+                                children: [
+                                  Center(
+                                    child: ClipOval(
+                                      child: SizedBox(
+                                        height: 88,
+                                        width: 88,
+                                        child: url != null && url.isNotEmpty
+                                            ? CommonImageView(
+                                                url: url,
+                                                cacheKey: me?.id,
+                                                height: 88,
+                                                width: 88,
+                                                fit: BoxFit.cover,
+                                              )
+                                            : InitialsAvatar(
+                                                name: name,
+                                                size: 88,
+                                                radius: 100,
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (busy)
+                                    const Positioned.fill(
+                                      child: Center(
+                                        child: SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: kSecondaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    right: 2,
+                                    bottom: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: kSecondaryColor,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: kPrimaryColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt_rounded,
+                                        size: 14,
+                                        color: kWhiteColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 18),
+                    child: GestureDetector(
+                      onTap: _profile.changeAvatar,
+                      child: MyText(
+                        text: 'Change Profile Photo',
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: kSecondaryColor,
+                      ),
+                    ),
+                  ),
+                ),
                 _label('YOUR NAME'),
                 MyTextField(
                   controller: _nameCtrl,

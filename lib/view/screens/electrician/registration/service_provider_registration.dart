@@ -1,6 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/loading_animation.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/controller/electrician/availability_controller.dart';
 import 'package:autonect/controller/electrician/electrician_registration_controller.dart';
@@ -16,6 +17,7 @@ import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/dashed_border.dart';
 import 'package:autonect/view/widget/enum_select_field.dart';
 import 'package:autonect/view/widget/field_label.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -53,6 +55,14 @@ class _ServiceProviderRegistrationPageState
   SupplierKycController? get _kycCtrl {
     try {
       return SupplierKycController.ensure();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ProfileController? get _profileCtrl {
+    try {
+      return ProfileController.ensure();
     } catch (_) {
       return null;
     }
@@ -179,6 +189,7 @@ class _ServiceProviderRegistrationPageState
   @override
   void initState() {
     super.initState();
+    _profileCtrl?.load();
     _nameCtrl.text = c.fullName.value;
     _phoneCtrl.text = c.phone.value;
     _locationCtrl.text = c.location.value;
@@ -437,6 +448,121 @@ class _ServiceProviderRegistrationPageState
                   color: kGreyTextColor,
                   paddingBottom: 24,
                 ),
+                if (_profileCtrl != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Obx(() {
+                        final ctrl = _profileCtrl;
+                        if (ctrl == null) return const SizedBox.shrink();
+                        final me = ctrl.me;
+                        final url = me?.avatarUrl;
+                        final busy = ctrl.uploadingAvatar.value;
+
+                        return Column(
+                          children: [
+                            Semantics(
+                              button: true,
+                              label: 'Upload profile photo',
+                              child: InkWell(
+                                onTap: ctrl.changeAvatar,
+                                customBorder: const CircleBorder(),
+                                child: ExcludeSemantics(
+                                  child: SizedBox(
+                                    width: 90,
+                                    height: 90,
+                                    child: Stack(
+                                      children: [
+                                        Center(
+                                          child: Container(
+                                            width: 84,
+                                            height: 84,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: kSecondaryColor
+                                                    .withValues(alpha: 0.3),
+                                                width: 2,
+                                              ),
+                                            ),
+                                            child: ClipOval(
+                                              child: (url != null &&
+                                                      url.isNotEmpty)
+                                                  ? CommonImageView(
+                                                      url: url,
+                                                      cacheKey: me?.id,
+                                                      width: 84,
+                                                      height: 84,
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                  : const Center(
+                                                      child: Icon(
+                                                        Icons
+                                                            .add_a_photo_outlined,
+                                                        size: 32,
+                                                        color: kSecondaryColor,
+                                                      ),
+                                                    ),
+                                            ),
+                                          ),
+                                        ),
+                                        if (busy)
+                                          const Positioned.fill(
+                                            child: Center(
+                                              child: SizedBox(
+                                                height: 22,
+                                                width: 22,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: kSecondaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        Positioned(
+                                          right: 2,
+                                          bottom: 2,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(5),
+                                            decoration: BoxDecoration(
+                                              color: kSecondaryColor,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: kPrimaryColor,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.camera_alt_rounded,
+                                              size: 14,
+                                              color: kWhiteColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: ctrl.changeAvatar,
+                              child: MyText(
+                                text: (url != null && url.isNotEmpty)
+                                    ? 'Change Photo'
+                                    : 'Upload Profile Photo (Optional)',
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: kSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
                 MyTextField(
                   controller: _nameCtrl,
                   labelText: 'Full Name',

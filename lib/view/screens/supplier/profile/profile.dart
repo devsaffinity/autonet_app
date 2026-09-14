@@ -53,20 +53,73 @@ class SupplierProfilePage extends StatelessWidget {
               return SupplierCard(
                 child: Row(
                   children: [
-                    if (avatar != null && avatar.isNotEmpty)
-                      CommonImageView(
-                        url: avatar,
-                        height: 56,
-                        width: 56,
-                        radius: 100,
-                        fit: BoxFit.cover,
-                      )
-                    else
-                      InitialsAvatar(
-                        name: business,
-                        size: 56,
-                        radius: 100,
+                    Semantics(
+                      button: true,
+                      label: 'Change profile photo',
+                      child: InkWell(
+                        onTap: profile.changeAvatar,
+                        customBorder: const CircleBorder(),
+                        child: ExcludeSemantics(
+                          child: SizedBox(
+                            width: 60,
+                            height: 60,
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: (avatar != null && avatar.isNotEmpty)
+                                      ? CommonImageView(
+                                          url: avatar,
+                                          cacheKey: me?.id,
+                                          height: 56,
+                                          width: 56,
+                                          radius: 100,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : InitialsAvatar(
+                                          name: business,
+                                          size: 56,
+                                          radius: 100,
+                                        ),
+                                ),
+                                if (profile.uploadingAvatar.value)
+                                  const Positioned.fill(
+                                    child: Center(
+                                      child: SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: kSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color: kSecondaryColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: kWhiteColor,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 10,
+                                      color: kWhiteColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
