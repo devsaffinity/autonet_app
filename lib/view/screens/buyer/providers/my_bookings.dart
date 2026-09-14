@@ -277,8 +277,11 @@ class _BookingCard extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: AppSizes.s12),
-        TechnicianPanel(name: _providerName,
-            headline: booking.provider?.headline),
+        TechnicianPanel(
+          name: _providerName,
+          headline: booking.provider?.headline,
+          avatarUrl: booking.provider?.avatarUrl,
+        ),
         const SizedBox(height: AppSizes.s12),
         // EQUAL THIRDS, and the row is guaranteed to stay a row.
         //
@@ -301,6 +304,7 @@ class _BookingCard extends StatelessWidget {
                       contextId: booking.id,
                       myUserId: booking.buyerId,
                       title: _providerName,
+                      peerAvatarUrl: booking.provider?.avatarUrl,
                     ),
                   ))),
           const SizedBox(width: AppSizes.s8),

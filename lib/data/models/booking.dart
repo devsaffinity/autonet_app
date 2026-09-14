@@ -14,6 +14,7 @@ class BookingProvider {
     this.fullName,
     this.headline,
     this.phone,
+    this.avatarUrl,
   });
 
   final String id;
@@ -23,6 +24,7 @@ class BookingProvider {
   /// actually booked somebody may call them, but browsing must not hand out
   /// every provider's number.
   final String? phone;
+  final String? avatarUrl;
 
   factory BookingProvider.fromJson(Map<String, dynamic> j) {
     final profile = j['electricianProfile'];
@@ -33,23 +35,26 @@ class BookingProvider {
       fullName: p['fullName'] as String?,
       headline: p['headline'] as String?,
       phone: p['phone'] as String?,
+      avatarUrl: j['avatarUrl'] as String?,
     );
   }
 }
 
 /// The buyer on a booking — `booking.buyer` on the wire.
 ///
-/// NAME ONLY, matching the server's projection. A provider has to know who
-/// booked them, but a booking is not a reason to hold their email or phone;
-/// contact belongs to the thread a booking opens.
+/// Holds id, name and avatarUrl from the server's projection.
 class BookingBuyer {
-  const BookingBuyer({required this.id, this.name});
+  const BookingBuyer({required this.id, this.name, this.avatarUrl});
 
   final String id;
   final String? name;
+  final String? avatarUrl;
 
-  factory BookingBuyer.fromJson(Map<String, dynamic> j) =>
-      BookingBuyer(id: jsonString(j, 'id'), name: j['name'] as String?);
+  factory BookingBuyer.fromJson(Map<String, dynamic> j) => BookingBuyer(
+        id: jsonString(j, 'id'),
+        name: j['name'] as String?,
+        avatarUrl: j['avatarUrl'] as String?,
+      );
 }
 
 /// One entry in a booking's status history.

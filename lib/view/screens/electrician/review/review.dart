@@ -1,22 +1,22 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_styling.dart';
-import 'package:autonect/view/widget/general_appbar.dart';
-import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_text_widget.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
+import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/review.dart';
+import 'package:autonect/data/repositories/reviews_repository.dart';
+import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
+import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Usage:
-//   body: ElectricianReviewPage()
-// ─────────────────────────────────────────────────────────────────────────────
+import 'package:get/get.dart';
 
 class ElectricianReviewPage extends StatefulWidget {
-  const ElectricianReviewPage({super.key});
+  const ElectricianReviewPage({super.key, this.targetId});
+
+  final String? targetId;
 
   @override
   State<ElectricianReviewPage> createState() => _ElectricianReviewPageState();
@@ -33,93 +33,134 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
   ];
   int _selectedFilter = 0;
 
-  // ── Rating breakdown ───────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _ratingBreakdown = [
-    {'star': 5, 'percent': 0.92, 'label': '92%'},
-    {'star': 4, 'percent': 0.06, 'label': '6%'},
-    {'star': 3, 'percent': 0.02, 'label': '2%'},
-    {'star': 2, 'percent': 0.0, 'label': '0%'},
-    {'star': 1, 'percent': 0.0, 'label': '0%'},
-  ];
+  bool _loading = true;
+  double _average = 0.0;
+  int _total = 0;
+  Map<int, int> _counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+  List<Review> _realReviews = [];
 
-  // ── Review data ────────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _reviews = [
-    {
-      'name': 'Alex Thompson',
-      'avatar': Assets.imagesProfileImage,
-      'rating': 5,
-      'timeAgo': '2 Days Ago',
-      'review':
-          'Alex Is The Best Coder In London! The Technical Architecture Was Flawless And The Delivery Was Ahead Of Schedule. Truly Professional Experience From Start To Finish.',
-      'extraCount': '+12',
-      'reply': null,
-    },
-    {
-      'name': 'James Wilson',
-      'avatar': Assets.imagesProfileImage,
-      'rating': 4,
-      'timeAgo': '1 Week Ago',
-      'review':
-          'Solid Engineering Work. Very Clean Code And Great Documentation. One Star Off Only Because Of A Slight Delay In Initial Communication, But The Work Itself Is 5 Stars.',
-      'extraCount': null,
-      'reply':
-          '"Thanks For The Feedback, James! We\'ve Improved Our Intake Process To Ensure Faster Initial Contact Moving Forward!"',
-    },
-    {
-      'name': 'Alex Thompson',
-      'avatar': Assets.imagesProfileImage,
-      'rating': 5,
-      'timeAgo': '2 Days Ago',
-      'review':
-          'Alex Is The Best Coder In London! The Technical Architecture Was Flawless And The Delivery Was Ahead Of Schedule. Truly Professional Experience From Start To Finish.',
-      'extraCount': '+12',
-      'reply': null,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadReviews();
+  }
+
+  Future<void> _loadReviews() async {
+    final myId = widget.targetId ?? ProfileController.ensure().me?.id;
+    if (myId == null || myId.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    if (Get.isRegistered<ReviewsRepository>()) {
+      final res = await Get.find<ReviewsRepository>()
+          .forTarget(targetId: myId, limit: 50);
+      if (mounted && res is Ok<ReviewsPage>) {
+        setState(() {
+          _realReviews = res.value.items;
+          _average = res.value.summary.average;
+          _total = res.value.meta.total;
+          _counts = res.value.summary.counts;
+          _loading = false;
+        });
+        return;
+      }
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  List<Review> get _filteredReviews {
+    switch (_selectedFilter) {
+      case 1:
+        return _realReviews.where((r) => r.rating == 5).toList();
+      case 2:
+        return _realReviews.where((r) => r.rating == 4).toList();
+      case 3:
+        return _realReviews.where((r) => r.rating == 3).toList();
+      case 4:
+        return _realReviews.where((r) => r.rating <= 2).toList();
+      default:
+        return _realReviews;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final reviews = _filteredReviews;
+
     return Scaffold(
       appBar: GeneralAppBar(title: "Reviews"),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Overall quality ──────────────────────────────────────
-                  _buildOverallQuality(),
-                  const SizedBox(height: 20),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: kSecondaryColor),
+            )
+          : RefreshIndicator(
+              color: kSecondaryColor,
+              onRefresh: _loadReviews,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Overall quality ──────────────────────────────────────
+                    _buildOverallQuality(),
+                    const SizedBox(height: 20),
 
-                  // ── Rating breakdown ─────────────────────────────────────
-                  _buildRatingBreakdown(),
-                  const SizedBox(height: 24),
+                    // ── Rating breakdown ─────────────────────────────────────
+                    _buildRatingBreakdown(),
+                    const SizedBox(height: 24),
 
-                  // ── Filter chips ─────────────────────────────────────────
-                  _buildFilterChips(),
-                  const SizedBox(height: 20),
+                    // ── Filter chips ─────────────────────────────────────────
+                    _buildFilterChips(),
+                    const SizedBox(height: 20),
 
-                  // ── Review cards ─────────────────────────────────────────
-                  ..._reviews.map((r) => _buildReviewCard(r)),
-                  const SizedBox(height: 80),
-                ],
+                    // ── Review cards ─────────────────────────────────────────
+                    if (reviews.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 32, horizontal: 16),
+                        alignment: Alignment.center,
+                        child: Column(
+                          children: [
+                            const Icon(Icons.rate_review_outlined,
+                                size: 48, color: kGreyTextColor),
+                            const SizedBox(height: 12),
+                            MyText(
+                              text: _realReviews.isEmpty
+                                  ? 'No reviews yet'
+                                  : 'No reviews matching this filter',
+                              size: 15,
+                              weight: FontWeight.w600,
+                              color: kBlackColor,
+                            ),
+                            const SizedBox(height: 6),
+                            MyText(
+                              text: _realReviews.isEmpty
+                                  ? 'Reviews from your clients will appear here once bookings are completed.'
+                                  : 'Try selecting a different filter above.',
+                              size: 13,
+                              weight: FontWeight.w400,
+                              color: kGreyTextColor,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ...reviews.map((r) => _buildReviewCard(r)),
+                    const SizedBox(height: 80),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-
-      // ── Bottom View More button ──────────────────────────────────────────
-      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
   // ── Overall Quality ────────────────────────────────────────────────────────
   Widget _buildOverallQuality() {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       width: Get.width,
       decoration: AppStyling().myShadowDecoration(
         color: kWhiteColor,
@@ -136,17 +177,17 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
             paddingBottom: 6,
           ),
           MyText(
-            text: '4.9',
+            text: _total == 0 ? '0.0' : _average.toStringAsFixed(1),
             size: 48,
             weight: FontWeight.w800,
             color: kBlackColor,
             textAlign: TextAlign.center,
             paddingBottom: 6,
           ),
-          _buildStars(5, size: 28),
+          _buildStars(_average.round(), size: 28),
           const SizedBox(height: 6),
           MyText(
-            text: 'Based On 128 Reviews',
+            text: 'Based On $_total ${_total == 1 ? 'Review' : 'Reviews'}',
             size: 13,
             weight: FontWeight.w400,
             color: kGreyTextColor,
@@ -160,14 +201,18 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
   // ── Rating Breakdown ───────────────────────────────────────────────────────
   Widget _buildRatingBreakdown() {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       width: Get.width,
       decoration: AppStyling().myShadowDecoration(
         color: kWhiteColor,
         radius: 15,
       ),
       child: Column(
-        children: _ratingBreakdown.map((r) {
+        children: [5, 4, 3, 2, 1].map((star) {
+          final count = _counts[star] ?? 0;
+          final percent = _total > 0 ? (count / _total).clamp(0.0, 1.0) : 0.0;
+          final label = _total > 0 ? '${(percent * 100).round()}%' : '0%';
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
@@ -176,7 +221,7 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                 SizedBox(
                   width: 12,
                   child: MyText(
-                    text: '${r['star']}',
+                    text: '$star',
                     size: 13,
                     weight: FontWeight.w600,
                     color: kBlackColor,
@@ -188,13 +233,11 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(100),
                     child: LinearProgressIndicator(
-                      value: r['percent'] as double,
+                      value: percent,
                       minHeight: 7,
                       backgroundColor: kTertiaryColor,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        (r['percent'] as double) > 0
-                            ? kSecondaryColor
-                            : kTertiaryColor,
+                        percent > 0 ? kSecondaryColor : kTertiaryColor,
                       ),
                     ),
                   ),
@@ -204,7 +247,7 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                 SizedBox(
                   width: 30,
                   child: MyText(
-                    text: r['label'],
+                    text: label,
                     size: 12,
                     weight: FontWeight.w500,
                     color: kGreyTextColor,
@@ -261,12 +304,16 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
   }
 
   // ── Review Card ────────────────────────────────────────────────────────────
-  Widget _buildReviewCard(Map<String, dynamic> r) {
-    final hasReply = r['reply'] != null;
+  Widget _buildReviewCard(Review r) {
+    final hasReply = r.reply != null;
+    final reviewerName = r.author?.name?.trim().isNotEmpty == true
+        ? r.author!.name!.trim()
+        : 'Anonymous Buyer';
+    final avatarUrl = r.author?.avatarUrl;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       width: Get.width,
       decoration: AppStyling().myShadowDecoration(
         color: kWhiteColor,
@@ -279,14 +326,21 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar
-              CommonImageView(
-                imagePath: r['avatar'],
-                width: 42,
-                height: 42,
-                radius: 10,
-                fit: BoxFit.cover,
-              ),
+              // Avatar: real buyer image from S3, with InitialsAvatar fallback
+              if (avatarUrl != null && avatarUrl.isNotEmpty)
+                CommonImageView(
+                  url: avatarUrl,
+                  width: 42,
+                  height: 42,
+                  radius: 10,
+                  fit: BoxFit.cover,
+                )
+              else
+                InitialsAvatar(
+                  name: reviewerName,
+                  size: 42,
+                  radius: 10,
+                ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -295,14 +349,18 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        MyText(
-                          text: r['name'],
-                          size: 14,
-                          weight: FontWeight.w700,
-                          color: kBlackColor,
+                        Flexible(
+                          child: MyText(
+                            text: reviewerName,
+                            size: 14,
+                            weight: FontWeight.w700,
+                            color: kBlackColor,
+                            maxLines: 1,
+                            textOverflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         MyText(
-                          text: r['timeAgo'],
+                          text: formatDayMonthYear(r.createdAt.toLocal()),
                           size: 11,
                           weight: FontWeight.w400,
                           color: kGreyTextColor,
@@ -310,7 +368,7 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    _buildStars(r['rating'] as int, size: 14),
+                    _buildStars(r.rating, size: 14),
                   ],
                 ),
               ),
@@ -319,13 +377,14 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
           const SizedBox(height: 12),
 
           // ── Review text ────────────────────────────────────────────────────
-          MyText(
-            text: r['review'],
-            size: 13,
-            weight: FontWeight.w400,
-            color: kBlackColor,
-            paddingBottom: 12,
-          ),
+          if (r.text != null && r.text!.isNotEmpty)
+            MyText(
+              text: r.text!,
+              size: 13,
+              weight: FontWeight.w400,
+              color: kBlackColor,
+              paddingBottom: 12,
+            ),
 
           // ── Your Reply box ─────────────────────────────────────────────────
           if (hasReply) ...[
@@ -357,7 +416,7 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                   ),
                   const SizedBox(height: 6),
                   MyText(
-                    text: r['reply'],
+                    text: r.reply!.text,
                     size: 13,
                     weight: FontWeight.w400,
                     color: kBlackColor,
@@ -367,66 +426,6 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
             ),
             const SizedBox(height: 12),
           ],
-
-          // ── Bottom row: extra count + reply/edit button ────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Extra count badge
-              if (r['extraCount'] != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: kTertiaryColor,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: MyText(
-                    text: r['extraCount'],
-                    size: 12,
-                    weight: FontWeight.w600,
-                    color: kGreyTextColor,
-                  ),
-                )
-              else
-                const SizedBox(),
-
-              // Reply / Edit Reply button
-              MyRippleEffect(
-                onTap: () {},
-                radius: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: kLightOrangeColor,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        hasReply ? Icons.edit_outlined : Icons.reply_rounded,
-                        size: 13,
-                        color: kSecondaryColor,
-                      ),
-                      const SizedBox(width: 4),
-                      MyText(
-                        text: hasReply ? 'Edit Reply' : 'Reply',
-                        size: 12,
-                        weight: FontWeight.w700,
-                        color: kSecondaryColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -443,24 +442,6 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
           color: i < count ? const Color(0xffFFB800) : kTertiaryColor,
         );
       }),
-    );
-  }
-
-  // ── Bottom Bar ─────────────────────────────────────────────────────────────
-  Widget _buildBottomBar() {
-    return Padding(
-      padding: EdgeInsetsGeometry.only(left: 20, bottom: 30, right: 20),
-      child: MyButton(
-        buttonText: 'View More Reviews',
-        onTap: () {},
-        backgroundColor: kPrimaryColor,
-        fontColor: kBlackColor,
-        outlineColor: kSecondaryColor,
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-        height: 52,
-        radius: 100,
-      ),
     );
   }
 }

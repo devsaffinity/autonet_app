@@ -374,10 +374,20 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
     decoration: AppStyling().myShadowStyle(),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        // author is nullable on the wire; the initials tile falls back to a
-        // glyph on an empty name rather than rendering a blank square.
-        InitialsAvatar(name: r.author?.name ?? '', size: 36,
-            radius: AppSizes.radiusPill),
+        if (r.author?.avatarUrl != null && r.author!.avatarUrl!.isNotEmpty)
+          CommonImageView(
+            url: r.author!.avatarUrl,
+            width: 36,
+            height: 36,
+            radius: AppSizes.radiusPill,
+            fit: BoxFit.cover,
+          )
+        else
+          InitialsAvatar(
+            name: r.author?.name ?? '',
+            size: 36,
+            radius: AppSizes.radiusPill,
+          ),
         const SizedBox(width: AppSizes.s8),
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

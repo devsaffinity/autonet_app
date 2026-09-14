@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
@@ -17,6 +16,7 @@ import 'package:autonect/view/screens/electrician/profile/edit_provider_profile.
 import 'package:autonect/view/screens/electrician/review/review.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/profile_menu_tile.dart';
@@ -156,97 +156,95 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
 
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    return Row(
-      children: [
-        Container(
-          width: 66,
-          height: 66,
-          decoration: AppStyling().myDecoration(
-            color: kSecondaryColor,
-            borderColor: kSecondaryColor,
-            radius: 100,
-          ),
-          padding: const EdgeInsets.all(.3),
-          child: ClipOval(
-            child: CommonImageView(
-              imagePath: Assets.imagesProfileImage,
-              width: 66,
-              height: 66,
-              fit: BoxFit.cover,
+    return Obx(() {
+      final me = _profile.me;
+      final provider = me?.electricianProfile;
+      final avatar = me?.avatarUrl;
+      final name = provider?.fullName ?? me?.name ?? 'Your profile';
+      final approved = provider?.approved ?? false;
+
+      return Row(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: AppStyling().myDecoration(
+              color: kSecondaryColor,
+              borderColor: kSecondaryColor,
+              radius: 100,
+            ),
+            padding: const EdgeInsets.all(.3),
+            child: ClipOval(
+              child: (avatar != null && avatar.isNotEmpty)
+                  ? CommonImageView(
+                      url: avatar,
+                      width: 66,
+                      height: 66,
+                      fit: BoxFit.cover,
+                    )
+                  : InitialsAvatar(
+                      name: name,
+                      size: 66,
+                      radius: 100,
+                    ),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Obx(() {
-                final me = _profile.me;
-                final provider = me?.electricianProfile;
-                // The badge was UNCONDITIONAL — every provider read as
-                // "VERIFIED PROVIDER" whether an admin had approved them or
-                // not, including one still waiting. It now says which they are.
-                final approved = provider?.approved ?? false;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    MyText(
-                      text: provider?.fullName ?? me?.name ?? 'Your profile',
-                      size: 20,
-                      weight: FontWeight.w800,
-                      color: kBlackColor,
-                      paddingBottom: 4,
-                    ),
-                    MyText(
-                      // Their own headline. 'Electrician / Coder • London' was
-                      // a literal, and the field that holds it is exactly what
-                      // the buyer's directory card renders.
-                      text: provider?.headline ?? 'No headline yet',
-                      size: 12,
-                      weight: FontWeight.w400,
-                      color: kGreyTextColor,
-                      paddingBottom: 8,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  text: name,
+                  size: 20,
+                  weight: FontWeight.w800,
+                  color: kBlackColor,
+                  paddingBottom: 4,
+                ),
+                MyText(
+                  text: provider?.headline ?? 'No headline yet',
+                  size: 12,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
+                  paddingBottom: 8,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: approved ? kLightOrangeColor : kTertiaryColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        approved
+                            ? Icons.verified_rounded
+                            : Icons.hourglass_empty_rounded,
+                        size: 11,
+                        color: approved ? kSecondaryColor : kGreyTextColor,
                       ),
-                      decoration: BoxDecoration(
-                        color: approved ? kLightOrangeColor : kTertiaryColor,
-                        borderRadius: BorderRadius.circular(20),
+                      const SizedBox(width: 3),
+                      MyText(
+                        text: approved
+                            ? 'VERIFIED PROVIDER'
+                            : 'AWAITING APPROVAL',
+                        size: 10,
+                        weight: FontWeight.w700,
+                        color: approved ? kSecondaryColor : kGreyTextColor,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            approved
-                                ? Icons.verified_rounded
-                                : Icons.hourglass_empty_rounded,
-                            size: 11,
-                            color: approved ? kSecondaryColor : kGreyTextColor,
-                          ),
-                          const SizedBox(width: 3),
-                          MyText(
-                            text: approved
-                                ? 'VERIFIED PROVIDER'
-                                : 'AWAITING APPROVAL',
-                            size: 10,
-                            weight: FontWeight.w700,
-                            color: approved ? kSecondaryColor : kGreyTextColor,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   // ── Stats ──────────────────────────────────────────────────────────────────

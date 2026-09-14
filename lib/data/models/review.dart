@@ -4,13 +4,17 @@ import 'package:autonect/data/models/page_meta.dart';
 
 /// The `{id, name}` author projection. [name] is nullable — render a fallback.
 class ReviewAuthor {
-  const ReviewAuthor({required this.id, this.name});
+  const ReviewAuthor({required this.id, this.name, this.avatarUrl});
 
   final String id;
   final String? name;
+  final String? avatarUrl;
 
-  factory ReviewAuthor.fromJson(Map<String, dynamic> j) =>
-      ReviewAuthor(id: jsonString(j, 'id'), name: j['name'] as String?);
+  factory ReviewAuthor.fromJson(Map<String, dynamic> j) => ReviewAuthor(
+        id: jsonString(j, 'id'),
+        name: j['name'] as String?,
+        avatarUrl: j['avatarUrl'] as String?,
+      );
 }
 
 /// The reviewed supplier's single reply. A buyer client can read it but never

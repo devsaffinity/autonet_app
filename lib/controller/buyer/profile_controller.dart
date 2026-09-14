@@ -1,4 +1,5 @@
 import 'package:autonect/controller/base/api_controller.dart';
+import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/blob_uploader.dart';
 import 'package:autonect/data/core/token_store.dart';
@@ -27,8 +28,14 @@ class ProfileController extends ApiController {
 
   static ProfileController ensure() => Get.isRegistered<ProfileController>()
       ? Get.find<ProfileController>()
-      : Get.put(ProfileController(Get.find<ProfileRepository>()),
-          permanent: true);
+      : Get.put(
+          ProfileController(
+            Get.isRegistered<ProfileRepository>()
+                ? Get.find<ProfileRepository>()
+                : const _StubProfileRepository(),
+          ),
+          permanent: true,
+        );
 
   final ProfileRepository _repo;
 
@@ -192,5 +199,42 @@ class ProfileController extends ApiController {
       savingProfile.value = false;
     }
   }
+}
+
+/// Fallback repository used when ProfileController is instantiated in isolated
+/// widget tests that did not bind a ProfileRepository.
+class _StubProfileRepository implements ProfileRepository {
+  const _StubProfileRepository();
+
+  @override
+  Future<ApiResult<MeProfile>> me() async =>
+      const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<MeProfile>> registerSupplierBusiness(
+    SupplierBusinessDraft draft,
+  ) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<MeProfile>> registerElectrician(
+    ElectricianRegistrationDraft draft,
+  ) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<UploadTicket>> createAvatarUploadTicket(
+    String contentType,
+  ) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<MeProfile>> setAvatar(String avatarKey) async =>
+      const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<MeProfile>> updateProfile({
+    String? name,
+    String? location,
+    String? contact,
+    String? avatarKey,
+  }) async => const Err(ApiError.malformed('Profile repository not registered'));
 }
 

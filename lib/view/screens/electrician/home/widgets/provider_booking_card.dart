@@ -7,6 +7,7 @@ import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/view/widget/app_card.dart';
+import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -69,8 +70,21 @@ class ProviderBookingCard extends StatelessWidget {
         ],
         const SizedBox(height: AppSizes.s12),
         Row(children: [
-          InitialsAvatar(name: _buyerName, size: 36,
-              radius: AppSizes.radiusPill),
+          if (booking.buyer?.avatarUrl != null &&
+              booking.buyer!.avatarUrl!.isNotEmpty)
+            CommonImageView(
+              url: booking.buyer!.avatarUrl,
+              width: 36,
+              height: 36,
+              radius: AppSizes.radiusPill,
+              fit: BoxFit.cover,
+            )
+          else
+            InitialsAvatar(
+              name: _buyerName,
+              size: 36,
+              radius: AppSizes.radiusPill,
+            ),
           const SizedBox(width: AppSizes.s8),
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

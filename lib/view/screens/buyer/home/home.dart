@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/buyer_home_controller.dart';
@@ -21,6 +20,7 @@ import 'package:autonect/view/screens/buyer/notifications/notifications_page.dar
 import 'package:autonect/view/screens/buyer/offers/offers_list.dart';
 import 'package:autonect/view/screens/buyer/profile/buyer_profile_creation_page.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/search_field.dart';
 import 'package:autonect/view/widget/section_header.dart';
@@ -297,9 +297,11 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                         url: url,
                         cacheKey: _profile.me?.id,
                         height: 40, width: 40, fit: BoxFit.cover)
-                    : CommonImageView(
-                        imagePath: Assets.imagesProfileImage,
-                        height: 40, width: 40, fit: BoxFit.cover),
+                    : InitialsAvatar(
+                        name: _profile.me?.name ?? 'User',
+                        size: 40,
+                        radius: 100,
+                      ),
               ),
             );
           }),

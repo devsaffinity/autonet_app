@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
@@ -9,6 +8,7 @@ import 'package:autonect/view/screens/buyer/notifications/notifications_page.dar
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/profile_menu_tile.dart';
 import 'package:flutter/material.dart';
@@ -174,9 +174,11 @@ class _AvatarEditorState extends State<_AvatarEditor> {
                               cacheKey: _c.me?.id,
                               height: 90, width: 90,
                               fit: BoxFit.cover)
-                          : CommonImageView(
-                              imagePath: Assets.imagesProfileImage,
-                              height: 90, width: 90, fit: BoxFit.cover),
+                          : InitialsAvatar(
+                              name: _c.me?.name ?? 'Buyer',
+                              size: 90,
+                              radius: 100,
+                            ),
                     ),
                   ),
                 ),

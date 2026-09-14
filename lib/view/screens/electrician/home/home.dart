@@ -10,12 +10,14 @@ import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/view_state.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibilty_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
 import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/role_shell.dart';
@@ -30,6 +32,7 @@ class ElectricianHomePage extends StatefulWidget {
 }
 
 class _ElectricianHomePageState extends State<ElectricianHomePage> {
+  final ProfileController _profile = ProfileController.ensure();
   final ProviderDashboardController _dashboard =
       ProviderDashboardController.ensure();
   final ProviderBookingsController _bookings =
@@ -39,8 +42,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
   @override
   void initState() {
     super.initState();
-    // Three independent reads, each with its own slot, so a slow one never
-    // holds up the rest of the screen.
+    _profile.load();
     _dashboard.load();
     _bookings.refreshFirst();
     _availability.load();
@@ -86,45 +88,63 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
     return Row(
       children: [
         // Avatar
-        Container(
-          width: 44,
-          height: 44,
-          decoration: AppStyling().myDecoration(
-            color: kSecondaryColor,
-            borderColor: kSecondaryColor,
-            radius: 100,
-          ),
-          padding: EdgeInsets.all(.3),
-          child: ClipOval(
-            child: CommonImageView(
-              imagePath: Assets.imagesProfileImage,
+        Obx(() {
+          final me = _profile.me;
+          final avatar = me?.avatarUrl;
+          final name =
+              me?.electricianProfile?.fullName ?? me?.name ?? 'Provider';
+          if (avatar != null && avatar.isNotEmpty) {
+            return Container(
               width: 44,
               height: 44,
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
+              decoration: AppStyling().myDecoration(
+                color: kSecondaryColor,
+                borderColor: kSecondaryColor,
+                radius: 100,
+              ),
+              padding: const EdgeInsets.all(.3),
+              child: ClipOval(
+                child: CommonImageView(
+                  url: avatar,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            );
+          }
+          return InitialsAvatar(
+            name: name,
+            size: 44,
+            radius: 100,
+          );
+        }),
         const SizedBox(width: 10),
 
         // Greeting
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              MyText(
-                text: 'Good morning,',
-                size: 14,
-                weight: FontWeight.w400,
-                color: kGreyTextColor,
-              ),
-              MyText(
-                text: 'Alex Chen',
-                size: 16,
-                weight: FontWeight.w700,
-                color: kBlackColor,
-              ),
-            ],
-          ),
+          child: Obx(() {
+            final me = _profile.me;
+            final name =
+                me?.electricianProfile?.fullName ?? me?.name ?? 'Provider';
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  text: 'Good day,',
+                  size: 14,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
+                ),
+                MyText(
+                  text: name,
+                  size: 16,
+                  weight: FontWeight.w700,
+                  color: kBlackColor,
+                ),
+              ],
+            );
+          }),
         ),
 
         // Online toggle
@@ -499,6 +519,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
     // fee is not.
     final name = booking.buyer?.name?.trim();
     final client = (name == null || name.isEmpty) ? 'Customer' : name;
+    final buyerAvatar = booking.buyer?.avatarUrl;
     final vehicle = booking.regNumber?.trim().isNotEmpty == true
         ? booking.regNumber!.trim()
         : 'Vehicle not given';
@@ -514,7 +535,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
           Get.to(
             () => ElectricianBookingDetailsPage(
               clientName: client,
-              clientImage: Assets.imagesProfileImage,
+              clientAvatarUrl: buyerAvatar,
               service: service,
               vehicle: vehicle,
               time: formatClock(booking.scheduledAt.toLocal()),
@@ -527,24 +548,21 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         },
         child: Row(
           children: [
-            // Car image thumbnail
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: kTertiaryColor,
-                borderRadius: BorderRadius.circular(10),
+            // Client avatar thumbnail
+            if (buyerAvatar != null && buyerAvatar.isNotEmpty)
+              CommonImageView(
+                url: buyerAvatar,
+                width: 48,
+                height: 48,
+                radius: 10,
+                fit: BoxFit.cover,
+              )
+            else
+              InitialsAvatar(
+                name: client,
+                size: 48,
+                radius: 10,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: CommonImageView(
-                  imagePath: Assets.imagesProfileImage,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

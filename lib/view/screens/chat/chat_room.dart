@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/controller/chat/chat_room_controller.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/domain/date_format.dart';
-import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
@@ -29,6 +28,7 @@ class ChatRoomPage extends StatefulWidget {
     this.type = ConversationType.booking,
     this.myUserId,
     this.title,
+    this.peerAvatarUrl,
   });
 
   /// The booking or offer this thread belongs to.
@@ -42,6 +42,9 @@ class ChatRoomPage extends StatefulWidget {
   /// A name to show before the thread resolves — the caller usually knows it
   /// already, and an empty app bar for a second reads as a broken screen.
   final String? title;
+
+  /// A presigned avatar URL passed from the caller, if known before open resolves.
+  final String? peerAvatarUrl;
 
   @override
   State<ChatRoomPage> createState() => _ChatRoomPageState();
@@ -118,8 +121,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     vertical: 12,
                   ),
                   itemCount: messages.length,
-                  itemBuilder: (_, i) =>
-                      _Bubble(message: messages[i], isMine: mine(messages[i])),
+                  itemBuilder: (_, i) {
+                    final peer = c.conversation.value?.peer;
+                    return _Bubble(
+                      message: messages[i],
+                      isMine: mine(messages[i]),
+                      peerAvatarUrl: peer?.avatarUrl ?? widget.peerAvatarUrl,
+                      peerName: peer?.displayName ?? widget.title ?? 'User',
+                    );
+                  },
                 ),
               );
             }),
@@ -142,14 +152,37 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       ),
       title: Obx(() {
         final peer = c.conversation.value?.peer;
-        return MyText(
-          // 'Active Now' is gone: presence has an endpoint but nothing polls
-          // it, and a green 'Active Now' under every name is a claim about
-          // somebody being there that we cannot make.
-          text: peer?.displayName ?? widget.title ?? 'Conversation',
-          size: 15,
-          weight: FontWeight.w700,
-          color: kBlackColor,
+        final name = peer?.displayName ?? widget.title ?? 'Conversation';
+        final avatar = peer?.avatarUrl ?? widget.peerAvatarUrl;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (avatar != null && avatar.isNotEmpty)
+              CommonImageView(
+                url: avatar,
+                width: 32,
+                height: 32,
+                radius: 100,
+                fit: BoxFit.cover,
+              )
+            else
+              InitialsAvatar(
+                name: name,
+                size: 32,
+                radius: 100,
+              ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: MyText(
+                text: name,
+                size: 15,
+                weight: FontWeight.w700,
+                color: kBlackColor,
+                maxLines: 1,
+                textOverflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         );
       }),
       bottom: PreferredSize(
@@ -246,10 +279,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.isMine});
+  const _Bubble({
+    required this.message,
+    required this.isMine,
+    this.peerAvatarUrl,
+    this.peerName = 'User',
+  });
 
   final ChatMessage message;
   final bool isMine;
+  final String? peerAvatarUrl;
+  final String peerName;
 
   @override
   Widget build(BuildContext context) {
@@ -264,13 +304,19 @@ class _Bubble extends StatelessWidget {
           if (!isMine)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: CommonImageView(
-                imagePath: Assets.imagesProfileImage,
-                width: 32,
-                height: 32,
-                radius: 100,
-                fit: BoxFit.cover,
-              ),
+              child: (peerAvatarUrl != null && peerAvatarUrl!.isNotEmpty)
+                  ? CommonImageView(
+                      url: peerAvatarUrl,
+                      width: 32,
+                      height: 32,
+                      radius: 100,
+                      fit: BoxFit.cover,
+                    )
+                  : InitialsAvatar(
+                      name: peerName,
+                      size: 32,
+                      radius: 100,
+                    ),
             ),
           Flexible(
             child: Container(

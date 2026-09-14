@@ -1,5 +1,4 @@
 import 'package:autonect/constants/app_colors.dart';
-import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:autonect/data/models/conversation.dart';
@@ -8,6 +7,7 @@ import 'package:autonect/view/screens/buyer/request/request_status_tracking.dart
 import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
@@ -108,6 +108,7 @@ class _ChatHomePageState extends State<ChatHomePage> {
         type: conversation.type ?? ConversationType.booking,
         myUserId: widget.myUserId,
         title: conversation.peer?.displayName,
+        peerAvatarUrl: conversation.peer?.avatarUrl,
       ),
       // Re-reads the inbox on the way back so an unread count the room just
       // cleared does not sit there stale.
@@ -134,19 +135,20 @@ class _ConversationRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            CommonImageView(
-              // The peer's own avatar when they have one. The bundled asset is
-              // a neutral placeholder, not a stock photo of a person standing
-              // in for them.
-              url: peer?.avatarUrl,
-              imagePath: peer?.avatarUrl == null
-                  ? Assets.imagesProfileImage
-                  : null,
-              width: 52,
-              height: 52,
-              radius: 100,
-              fit: BoxFit.cover,
-            ),
+            if (peer?.avatarUrl != null && peer!.avatarUrl!.isNotEmpty)
+              CommonImageView(
+                url: peer.avatarUrl,
+                width: 52,
+                height: 52,
+                radius: 100,
+                fit: BoxFit.cover,
+              )
+            else
+              InitialsAvatar(
+                name: peer?.displayName ?? 'User',
+                size: 52,
+                radius: 100,
+              ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(

@@ -159,8 +159,11 @@ class BookingConfirmedPage extends StatelessWidget {
             lineHeight: 1.5),
       ],
       const SizedBox(height: AppSizes.s12),
-      TechnicianPanel(name: _providerName,
-          headline: booking.provider?.headline),
+      TechnicianPanel(
+        name: _providerName,
+        headline: booking.provider?.headline,
+        avatarUrl: booking.provider?.avatarUrl,
+      ),
     ]),
   );
 

@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -17,6 +18,7 @@ import 'package:get/get.dart';
 class ElectricianBookingDetailsPage extends StatelessWidget {
   final String clientName;
   final String clientImage;
+  final String? clientAvatarUrl;
   final String location;
   final String service;
   final String date;
@@ -42,6 +44,7 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
     super.key,
     this.clientName = 'Marcus Thorne',
     this.clientImage = Assets.imagesProfileImage,
+    this.clientAvatarUrl,
     this.location = 'Downtown District, Sector 7',
     this.service = 'ECU Coding',
     this.date = 'Oct 24, 2023',
@@ -110,13 +113,20 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // Avatar
-        CommonImageView(
-          imagePath: clientImage,
-          width: 80,
-          height: 80,
-          radius: 18,
-          fit: BoxFit.cover,
-        ),
+        if (clientAvatarUrl != null && clientAvatarUrl!.isNotEmpty)
+          CommonImageView(
+            url: clientAvatarUrl,
+            width: 80,
+            height: 80,
+            radius: 18,
+            fit: BoxFit.cover,
+          )
+        else
+          InitialsAvatar(
+            name: clientName,
+            size: 80,
+            radius: 18,
+          ),
         const SizedBox(width: 12),
 
         // Name + location + badges
@@ -673,7 +683,12 @@ class ElectricianBookingDetailsPage extends StatelessWidget {
           Expanded(
             child: MyRippleEffect(
               onTap: () => Get.to(
-                () => ChatRoomPage(contextId: bookingId!, myUserId: myUserId),
+                () => ChatRoomPage(
+                  contextId: bookingId!,
+                  myUserId: myUserId,
+                  title: clientName,
+                  peerAvatarUrl: clientAvatarUrl,
+                ),
               ),
               radius: 12,
               child: Container(
