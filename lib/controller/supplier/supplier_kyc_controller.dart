@@ -50,6 +50,10 @@ class SupplierKycController extends ApiController {
   /// global busy flag would blank all three.
   final Rxn<KycDocType> uploading = Rxn<KycDocType>();
 
+  /// Slot identifier (e.g. 'id_front', 'id_back', 'license') when multiple
+  /// cards share the same KycDocType.
+  final Rxn<String> uploadingSlot = Rxn<String>();
+
   /// Which document has the system file sheet open.
   ///
   /// SEPARATE from [uploading] on purpose. The picker await used to sit outside
@@ -59,6 +63,9 @@ class SupplierKycController extends ApiController {
   /// [uploading] for it would fix that but make the card claim an upload is in
   /// flight for as long as the sheet is open, then snap back on cancel.
   final Rxn<KycDocType> picking = Rxn<KycDocType>();
+
+  /// Slot identifier for the card that currently has the picker sheet open.
+  final Rxn<String> pickingSlot = Rxn<String>();
 
   /// Any document operation in flight. One at a time across ALL cards: the
   /// backend deletes the previous row inside the ticket call, so overlapping
@@ -86,7 +93,11 @@ class SupplierKycController extends ApiController {
   /// Every early return leaves [uploading] cleared, which is why the whole body
   /// sits in a try/finally: an exception on any of the three calls would
   /// otherwise strand that card in a permanent spinner with no way back.
-  Future<void> pickAndUpload(KycDocType type) async {
+  Future<void> pickAndUpload(
+    KycDocType type, {
+    String? fileNamePrefix,
+    String? slot,
+  }) async {
     if (isLatched) {
       // Never a bare return: every caller is a control the user just tapped,
       // and silence reads as a broken button.
@@ -96,10 +107,12 @@ class SupplierKycController extends ApiController {
 
     final DocumentPickResult picked;
     picking.value = type;
+    pickingSlot.value = slot;
     try {
       picked = await _picker.pickDocument();
     } finally {
       picking.value = null;
+      pickingSlot.value = null;
     }
 
     final doc = picked.document;
@@ -118,16 +131,20 @@ class SupplierKycController extends ApiController {
     }
 
     uploading.value = type;
+    uploadingSlot.value = slot;
     // A failure from a previous attempt must not sit under a new one.
     clearErrors();
     try {
+      final uploadFileName = fileNamePrefix != null
+          ? '$fileNamePrefix - ${doc.fileName}'
+          : doc.fileName;
       final UploadTicket ticket;
       switch (await _repo.createUploadTicket(
         KycUploadRequest(
           type: type,
           contentType: doc.contentType,
           sizeBytes: doc.sizeBytes,
-          fileName: doc.fileName,
+          fileName: uploadFileName,
         ),
       )) {
         // EVERY failure arm re-reads. The ticket call DELETES the previous
@@ -169,6 +186,7 @@ class SupplierKycController extends ApiController {
       }
     } finally {
       uploading.value = null;
+      uploadingSlot.value = null;
     }
   }
 

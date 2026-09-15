@@ -107,6 +107,36 @@ class KycState {
     return null;
   }
 
+  /// Document for ID front side (or first ID document if no side prefix).
+  KycDocument? idFrontDoc() {
+    for (final d in documents) {
+      if (d.type == KycDocType.id &&
+          (d.fileName?.toLowerCase().contains('front') ?? false)) {
+        return d;
+      }
+    }
+    final ids = documents.where((d) => d.type == KycDocType.id).toList();
+    if (ids.length == 1 &&
+        !(ids.first.fileName?.toLowerCase().contains('back') ?? false)) {
+      return ids.first;
+    }
+    return null;
+  }
+
+  /// Document for ID back side.
+  KycDocument? idBackDoc() {
+    for (final d in documents) {
+      if (d.type == KycDocType.id &&
+          (d.fileName?.toLowerCase().contains('back') ?? false)) {
+        return d;
+      }
+    }
+    return null;
+  }
+
+  /// Document for Business License / Proof.
+  KycDocument? licenseDoc() => documentFor(KycDocType.license);
+
   bool hasUploaded(KycDocType type) => documentFor(type)?.uploaded ?? false;
 
   /// Every required document present. The server decides SUBMITTED off exactly
