@@ -1,4 +1,5 @@
 import 'package:autonect/controller/base/api_controller.dart';
+import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
@@ -25,7 +26,13 @@ class ChatInboxController extends ApiController {
 
   static ChatInboxController ensure() => Get.isRegistered<ChatInboxController>()
       ? Get.find<ChatInboxController>()
-      : Get.put(ChatInboxController(Get.find<ChatRepository>()));
+      : Get.put(
+          ChatInboxController(
+            Get.isRegistered<ChatRepository>()
+                ? Get.find<ChatRepository>()
+                : const _StubChatRepository(),
+          ),
+        );
 
   final Rx<ViewState<List<Conversation>>> state =
       Rx<ViewState<List<Conversation>>>(const Loading());
@@ -98,4 +105,41 @@ class ChatInboxController extends ApiController {
       loadingMore.value = false;
     }
   }
+}
+
+class _StubChatRepository implements ChatRepository {
+  const _StubChatRepository();
+
+  @override
+  Future<ApiResult<CursorPage<Conversation>>> inbox({
+    String? cursor,
+    int limit = 30,
+  }) async =>
+      const Ok(CursorPage([], null));
+
+  @override
+  Future<ApiResult<Conversation>> openForBooking(String bookingId) async =>
+      const Err(ApiError(code: ApiErrorCode.internal, message: 'Not implemented in stub'));
+
+  @override
+  Future<ApiResult<Conversation>> openForOffer(String offerId) async =>
+      const Err(ApiError(code: ApiErrorCode.internal, message: 'Not implemented in stub'));
+
+  @override
+  Future<ApiResult<CursorPage<ChatMessage>>> messages(
+    String conversationId, {
+    String? cursor,
+    int limit = 50,
+  }) async =>
+      const Ok(CursorPage([], null));
+
+  @override
+  Future<ApiResult<ChatMessage>> send({
+    required String conversationId,
+    required String body,
+  }) async =>
+      const Err(ApiError(code: ApiErrorCode.internal, message: 'Not implemented in stub'));
+
+  @override
+  Future<ApiResult<int>> markRead(String conversationId) async => const Ok(0);
 }

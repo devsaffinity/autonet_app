@@ -17,7 +17,10 @@ import 'package:autonect/view/screens/electrician/dash_board/manage_services.dar
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
 import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/conversation.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/electrician/profile/profile.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -40,6 +43,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
   final ProviderBookingsController _bookings =
       ProviderBookingsController.ensure();
   final AvailabilityController _availability = AvailabilityController.ensure();
+  final ChatInboxController _chat = ChatInboxController.ensure();
 
   @override
   void initState() {
@@ -48,6 +52,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
     _dashboard.load();
     _bookings.refreshFirst();
     _availability.load();
+    _chat.load();
   }
 
   // ── Quick Management actions ─────
@@ -63,6 +68,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
       _dashboard.load(),
       _bookings.refreshFirst(),
       _availability.load(),
+      _chat.load(),
     ]);
   }
 
@@ -730,6 +736,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         onTap: () {
           Get.to(
             () => ElectricianBookingDetailsPage(
+              booking: booking,
               clientName: client,
               clientAvatarUrl: buyerAvatar,
               service: service,
@@ -739,6 +746,11 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               date: formatShortDate(booking.scheduledAt.toLocal()),
               bookingId: booking.id,
               myUserId: booking.electricianId,
+              customerNotes: booking.description,
+              onBookingUpdated: () {
+                _bookings.refreshFirst();
+                _dashboard.load();
+              },
             ),
           );
         },
@@ -814,141 +826,269 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            MyText(
-              text: 'Messages',
-              size: 16,
-              weight: FontWeight.w700,
-              color: kBlackColor,
+            Row(
+              children: [
+                MyText(
+                  text: 'Messages',
+                  size: 16,
+                  weight: FontWeight.w700,
+                  color: kBlackColor,
+                ),
+                Obx(() {
+                  final state = _chat.state.value;
+                  if (state is Data<List<Conversation>>) {
+                    final unreadCount = state.value.fold<int>(
+                      0,
+                      (sum, c) => sum + c.unreadCount,
+                    );
+                    if (unreadCount > 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: kSecondaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: MyText(
+                            text: '$unreadCount',
+                            size: 10,
+                            weight: FontWeight.w700,
+                            color: kWhiteColor,
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                  return const SizedBox.shrink();
+                }),
+              ],
             ),
-            // The unread badge said '2' unconditionally. Nothing counts
-            // unread messages, so a badge here can only ever be wrong; it
-            // comes back with the chat client.
+            MyRippleEffect(
+              onTap: () => RoleShell.maybeOf(context)?.goTo(3),
+              radius: 6,
+              child: MyText(
+                text: 'View All',
+                size: 13,
+                weight: FontWeight.w600,
+                color: kSecondaryColor,
+                decoration: TextDecoration.underline,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
         Container(
-          padding: EdgeInsetsGeometry.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: AppStyling().myShadowDecoration(
             color: kGreyTextColor.withValues(alpha: .1),
             radius: 14,
             borderColor: kTransperentColor,
           ),
-          child: Column(
-            children: [
-              // The three conversations here were fabricated — named people
-              // with quoted messages nobody sent. Chat has no client yet
-              // (sending is socket-only server-side), so this says nothing
-              // rather than something false; the section stays so the wiring
-              // is a fill, not a rebuild.
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 18,
-                ),
-                child: MyText(
-                  text: 'No messages yet.',
-                  size: 13,
-                  weight: FontWeight.w400,
-                  color: kGreyTextColor,
-                ),
-              ),
-              const Divider(height: 1, color: kTertiaryColor),
-              // Go to Messenger
-              MyRippleEffect(
-                onTap: () => RoleShell.maybeOf(context)?.goTo(3),
-                radius: 0,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: Center(
+          child: Obx(() {
+            final state = _chat.state.value;
+            final conversations = state is Data<List<Conversation>>
+                ? state.value.take(3).toList()
+                : const <Conversation>[];
+
+            return Column(
+              children: [
+                if (conversations.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 18,
+                    ),
                     child: MyText(
-                      text: 'Go to Messenger',
-                      size: 14,
-                      weight: FontWeight.w600,
-                      color: kSecondaryColor,
+                      text: state is Loading<List<Conversation>>
+                          ? 'Loading messages…'
+                          : 'No messages yet.',
+                      size: 13,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: conversations.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _buildConversationItem(conversations[i]),
+                  ),
+                const Divider(height: 1, color: kTertiaryColor),
+                // Go to Messenger
+                MyRippleEffect(
+                  onTap: () => RoleShell.maybeOf(context)?.goTo(3),
+                  radius: 0,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Center(
+                      child: MyText(
+                        text: 'Go to Messenger',
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: kSecondaryColor,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          }),
         ),
       ],
     );
   }
 
-  Widget _buildMessageRow(Map<String, String> msg) {
+  Widget _buildConversationItem(Conversation conversation) {
+    final peer = conversation.peer;
+    final last = conversation.lastMessage;
+    final unread = conversation.unreadCount;
+    final peerName = peer?.displayName ?? 'Autonect user';
+
     return Container(
-      margin: EdgeInsets.only(bottom: 10),
       decoration: AppStyling().myDecoration(
         color: kWhiteColor,
         borderColor: kTransperentColor,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            // Left accent bar
-            Container(
-              width: 3,
-              height: 40,
-              decoration: BoxDecoration(
-                color: kSecondaryColor,
-                borderRadius: BorderRadius.circular(4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () {
+            Get.to(
+              () => ChatRoomPage(
+                contextId: conversation.contextId,
+                type: conversation.type ?? ConversationType.booking,
+                myUserId: _profile.me?.id,
+                title: peer?.displayName,
+                peerAvatarUrl: peer?.avatarUrl,
               ),
-            ),
-            const SizedBox(width: 10),
-            // Avatar
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: kTertiaryColor,
-              ),
-              child: ClipOval(
-                child: CommonImageView(
-                  imagePath: msg['image'],
-                  width: 40,
+            )?.then((_) => _chat.load());
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                // Left accent bar
+                Container(
+                  width: 3,
                   height: 40,
-                  fit: BoxFit.cover,
+                  decoration: BoxDecoration(
+                    color: unread > 0 ? kSecondaryColor : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(width: 10),
+                // Avatar
+                ClipOval(
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: (peer?.avatarUrl != null &&
+                            peer!.avatarUrl!.isNotEmpty &&
+                            (peer!.avatarUrl!.startsWith('http://') ||
+                                peer!.avatarUrl!.startsWith('https://')))
+                        ? CommonImageView(
+                            url: peer.avatarUrl,
+                            cacheKey: peer.id,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorWidget: InitialsAvatar(
+                              name: peerName,
+                              size: 40,
+                              radius: 100,
+                            ),
+                          )
+                        : InitialsAvatar(
+                            name: peerName,
+                            size: 40,
+                            radius: 100,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      MyText(
-                        text: msg['name']!,
-                        size: 14,
-                        weight: FontWeight.w600,
-                        color: kBlackColor,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: MyText(
+                              text: peerName,
+                              size: 14,
+                              weight: unread > 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: kBlackColor,
+                              maxLines: 1,
+                              textOverflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          MyText(
+                            text: formatClock(conversation.lastMessageAt.toLocal()),
+                            size: 11,
+                            weight: FontWeight.w400,
+                            color: kGreyTextColor,
+                          ),
+                        ],
                       ),
-                      MyText(
-                        text: msg['time']!,
-                        size: 11,
-                        weight: FontWeight.w400,
-                        color: kGreyTextColor,
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: MyText(
+                              text: last?.body ?? 'No messages yet',
+                              size: 12,
+                              weight: unread > 0
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: unread > 0
+                                  ? kBlackColor
+                                  : kGreyTextColor,
+                              maxLines: 1,
+                              textOverflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (unread > 0) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: kSecondaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: MyText(
+                                text: '$unread',
+                                size: 10,
+                                weight: FontWeight.w700,
+                                color: kWhiteColor,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  MyText(
-                    text: msg['preview']!,
-                    size: 12,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
