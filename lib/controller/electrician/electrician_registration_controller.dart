@@ -63,6 +63,9 @@ class ElectricianRegistrationController extends ApiController {
   /// not said — claiming zero vehicles serviced is worse than saying nothing.
   final Rxn<int> vehiclesServiced = Rxn<int>();
 
+  /// Access tier preference ('FREE', 'PRO', 'PAY_PER_LEAD').
+  final RxString tier = 'FREE'.obs;
+
   // ── Result ─────────────────────────────────────────────────────────────────
   /// What the server returned. Its `approved` flag decides the landing screen,
   /// so the wizard reads this rather than assuming registration means approved
@@ -98,6 +101,7 @@ class ElectricianRegistrationController extends ApiController {
     headline.value = p.headline ?? '';
     bio.value = p.bio ?? '';
     vehiclesServiced.value = p.vehiclesServiced;
+    tier.value = p.tier;
   }
 
   ElectricianRegistrationDraft get draft => ElectricianRegistrationDraft(
@@ -111,6 +115,7 @@ class ElectricianRegistrationController extends ApiController {
     headline: headline.value,
     bio: bio.value,
     vehiclesServiced: vehiclesServiced.value,
+    tier: tier.value,
     // Derived from the services rather than collected twice: neither screen has
     // a free-text skills field, and inventing one would put words in the
     // provider's mouth.

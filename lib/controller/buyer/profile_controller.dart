@@ -21,6 +21,8 @@ class ProfileController extends ApiController {
     BlobUploader? uploader,
     ImagePickerService? picker,
     super.toast,
+    super.showBusy,
+    super.hideBusy,
   }) : _injectedUploader = uploader,
        _injectedPicker = picker;
 
@@ -202,6 +204,19 @@ class ProfileController extends ApiController {
       savingProfile.value = false;
     }
   }
+
+  /// Updates the electrician's access tier preference ('FREE', 'PRO', 'PAY_PER_LEAD').
+  Future<bool> updateElectricianTier(String tier) => run<MeProfile, bool>(
+    null,
+    () => _repo.updateElectricianTier(tier),
+    (r) {
+      if (r case Ok(:final value)) {
+        profile.value = Data<MeProfile>(value);
+        return true;
+      }
+      return false;
+    },
+  );
 }
 
 /// Fallback repository used when ProfileController is instantiated in isolated
@@ -222,6 +237,10 @@ class _StubProfileRepository implements ProfileRepository {
   Future<ApiResult<MeProfile>> registerElectrician(
     ElectricianRegistrationDraft draft,
   ) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<MeProfile>> updateElectricianTier(String tier) async =>
+      const Err(ApiError.malformed('Profile repository not registered'));
 
   @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(

@@ -1,7 +1,6 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +16,10 @@ class AccessTier extends StatelessWidget {
   /// wherever the widget is only being displayed (e.g. a pricing sheet).
   final ValueChanged<String>? onPlanSelected;
 
-  const AccessTier({super.key, this.onPlanSelected});
+  /// The active plan for the user ('FREE', 'PRO', 'PAY_PER_LEAD'), if any.
+  final String? currentTier;
+
+  const AccessTier({super.key, this.onPlanSelected, this.currentTier});
 
   @override
   Widget build(BuildContext context) {
@@ -37,8 +39,9 @@ class AccessTier extends StatelessWidget {
               _Feature(label: 'Standard Email Support', enabled: true),
               _Feature(label: 'Direct Client Leads', enabled: false),
             ],
-            buttonText: 'Choose Basic',
+            buttonText: currentTier == 'FREE' ? 'Current Plan' : 'Choose Basic',
             isHighlighted: false,
+            isCurrent: currentTier == 'FREE',
             onTap: () => onPlanSelected?.call('FREE'),
           ),
           const SizedBox(height: 16),
@@ -56,9 +59,10 @@ class AccessTier extends StatelessWidget {
               _Feature(label: 'Advanced Analytics Dashboard', enabled: true),
               _Feature(label: '24/7 Priority Concierge', enabled: true),
             ],
-            buttonText: 'Start Pro Trial',
+            buttonText: currentTier == 'PRO' ? 'Current Plan' : 'Start Pro Trial',
             isHighlighted: true,
-            showBestValue: true,
+            showBestValue: currentTier != 'PRO',
+            isCurrent: currentTier == 'PRO',
             onTap: () => onPlanSelected?.call('PRO'),
           ),
           const SizedBox(height: 16),
@@ -76,8 +80,9 @@ class AccessTier extends StatelessWidget {
               _Feature(label: 'Select Leads Manually', enabled: true),
               _Feature(label: 'Top-Up Credits Anytime', enabled: true),
             ],
-            buttonText: 'Choose Credits',
+            buttonText: currentTier == 'PAY_PER_LEAD' ? 'Current Plan' : 'Choose Credits',
             isHighlighted: false,
+            isCurrent: currentTier == 'PAY_PER_LEAD',
             onTap: () => onPlanSelected?.call('PAY_PER_LEAD'),
           ),
 
@@ -110,6 +115,7 @@ class _PricingCard extends StatelessWidget {
   final String buttonText;
   final bool isHighlighted;
   final bool showBestValue;
+  final bool isCurrent;
   final VoidCallback onTap;
 
   const _PricingCard({
@@ -123,6 +129,7 @@ class _PricingCard extends StatelessWidget {
     required this.isHighlighted,
     required this.onTap,
     this.showBestValue = false,
+    this.isCurrent = false,
   });
 
   @override
@@ -131,12 +138,12 @@ class _PricingCard extends StatelessWidget {
     final Color titleColor = isHighlighted ? kWhiteColor : kBlackColor;
     final Color priceColor = isHighlighted ? kWhiteColor : kBlackColor;
     final Color periodColor = isHighlighted
-        ? kWhiteColor.withOpacity(0.75)
+        ? kWhiteColor.withValues(alpha: 0.75)
         : kGreyTextColor;
     final Color featureColor = isHighlighted ? kWhiteColor : kBlackColor;
     final Color iconColor = isHighlighted ? kWhiteColor : kSecondaryColor;
     final Color disabledColor = isHighlighted
-        ? kWhiteColor.withOpacity(0.4)
+        ? kWhiteColor.withValues(alpha: 0.4)
         : kGreyTextColor;
 
     return Container(
@@ -210,10 +217,14 @@ class _PricingCard extends StatelessWidget {
                 MyButton(
                   buttonText: buttonText,
                   onTap: onTap,
-                  backgroundColor: isHighlighted
-                      ? kPrimaryColor
-                      : kSecondaryColor,
-                  fontColor: isHighlighted ? kSecondaryColor : kWhiteColor,
+                  backgroundColor: isCurrent
+                      ? (isHighlighted
+                          ? kWhiteColor.withValues(alpha: 0.25)
+                          : kSecondaryColor.withValues(alpha: 0.12))
+                      : (isHighlighted ? kPrimaryColor : kSecondaryColor),
+                  fontColor: isCurrent
+                      ? (isHighlighted ? kWhiteColor : kSecondaryColor)
+                      : (isHighlighted ? kSecondaryColor : kWhiteColor),
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   height: 50,
@@ -223,8 +234,32 @@ class _PricingCard extends StatelessWidget {
             ),
           ),
 
-          // ── "Best Value" badge ───────────────────────────────────────────
-          if (showBestValue)
+          // ── "Best Value" / "Current Plan" badge ──────────────────────────
+          if (isCurrent)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isHighlighted ? kWhiteColor : kSecondaryColor,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                  ),
+                ),
+                child: MyText(
+                  text: 'Current Plan',
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: isHighlighted ? kSecondaryColor : kWhiteColor,
+                ),
+              ),
+            )
+          else if (showBestValue)
             Positioned(
               top: 0,
               right: 0,
@@ -286,8 +321,8 @@ class _FeatureRow extends StatelessWidget {
             color: enabled
                 ? enabledColor
                 : isHighlighted
-                ? kWhiteColor.withOpacity(0.35)
-                : kGreyTextColor.withOpacity(0.5),
+                ? kWhiteColor.withValues(alpha: 0.35)
+                : kGreyTextColor.withValues(alpha: 0.5),
           ),
           const SizedBox(width: 10),
           Expanded(

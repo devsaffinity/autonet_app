@@ -81,6 +81,7 @@ class ElectricianRegistrationDraft {
     this.headline,
     this.bio,
     this.vehiclesServiced,
+    this.tier,
   });
 
   final String fullName;
@@ -98,6 +99,9 @@ class ElectricianRegistrationDraft {
   /// has not told us leaves it out rather than claiming zero.
   final int? vehiclesServiced;
 
+  /// The selected access tier preference ('FREE', 'PRO', 'PAY_PER_LEAD').
+  final String? tier;
+
   bool get isComplete => fullName.trim().isNotEmpty;
 
   Map<String, Object?> toBody() => {
@@ -107,7 +111,7 @@ class ElectricianRegistrationDraft {
     if (phone case final v? when v.trim().isNotEmpty) 'phone': v.trim(),
     if (location case final v? when v.trim().isNotEmpty) 'location': v.trim(),
     if (region case final r?) 'region': r.wire,
-    if (yearsExperience case final y?) 'yearsExperience': y,
+    if (yearsExperience != null) 'yearsExperience': yearsExperience,
     // Scalar lists are always sent, including empty: the column cannot be
     // null, so "not sent" and "none selected" must land on the same value.
     'brands': brands,
@@ -115,7 +119,8 @@ class ElectricianRegistrationDraft {
     'skills': skills,
     if (headline case final v? when v.trim().isNotEmpty) 'headline': v.trim(),
     if (bio case final v? when v.trim().isNotEmpty) 'bio': v.trim(),
-    if (vehiclesServiced case final n?) 'vehiclesServiced': n,
+    if (vehiclesServiced != null) 'vehiclesServiced': vehiclesServiced,
+    if (tier case final t? when t.trim().isNotEmpty) 'tier': t.trim(),
   };
 }
 
@@ -140,6 +145,9 @@ abstract class ProfileRepository {
   Future<ApiResult<MeProfile>> registerElectrician(
     ElectricianRegistrationDraft draft,
   );
+
+  /// Updates the electrician's access tier preference directly via `PATCH /v1/electrician/tier`.
+  Future<ApiResult<MeProfile>> updateElectricianTier(String tier);
 
   /// Step 1 of 3 for a new profile photo: a presigned PUT.
   ///

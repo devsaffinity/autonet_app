@@ -296,6 +296,14 @@ class FakeProfileRepository implements ProfileRepository {
     return me();
   }
 
+  String? lastUpdatedTier;
+
+  @override
+  Future<ApiResult<MeProfile>> updateElectricianTier(String tier) async {
+    lastUpdatedTier = tier;
+    return me();
+  }
+
   @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(
     String contentType,

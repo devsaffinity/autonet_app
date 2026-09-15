@@ -114,12 +114,14 @@ class ElectricianProfile {
     this.region,
     this.yearsExperience,
     this.vehiclesServiced,
+    this.tier = 'FREE',
     this.brands = const [],
     this.skills = const [],
     this.services = const [],
   });
 
   final String fullName;
+  final String tier;
 
   /// The ONLY field that grants shell access, exactly as on the supplier side.
   /// `kycStatus == APPROVED` is not a substitute: an admin can revoke
@@ -177,6 +179,7 @@ class ElectricianProfile {
         region: Region.fromWire(j['region'] as String?),
         yearsExperience: (j['yearsExperience'] as num?)?.toInt(),
         vehiclesServiced: (j['vehiclesServiced'] as num?)?.toInt(),
+        tier: (j['tier'] as String?) ?? 'FREE',
         brands: _strings(j['brands']),
         skills: _strings(j['skills']),
         services: _strings(j['services'])

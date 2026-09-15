@@ -53,6 +53,14 @@ class ProfileApiRepository implements ProfileRepository {
   );
 
   @override
+  Future<ApiResult<MeProfile>> updateElectricianTier(String tier) => _c.send(
+    method: 'PATCH',
+    path: '/v1/electrician/tier',
+    body: {'tier': tier},
+    decode: (d) => MeProfile.fromJson((d as Map).cast<String, dynamic>()),
+  );
+
+  @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>
       _c.send(
         method: 'POST',

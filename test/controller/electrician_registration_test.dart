@@ -1,3 +1,4 @@
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/electrician/electrician_registration_controller.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
@@ -117,5 +118,34 @@ void main() {
     c.toggleService(BookingServiceType.repair);
     c.toggleService(BookingServiceType.repair);
     expect(c.services, isEmpty);
+  });
+
+  test('submits selected tier in draft to body and defaults to FREE', () async {
+    final repo = FakeProfileRepository();
+    final c = _controller(repo);
+    c.fullName.value = 'Jack Brennan';
+    c.toggleService(BookingServiceType.repair);
+
+    expect(c.tier.value, 'FREE');
+    expect(c.draft.toBody()['tier'], 'FREE');
+
+    c.tier.value = 'PRO';
+    final profile = await c.submit();
+    expect(profile, isNotNull);
+    expect(repo.electricianDraft!.tier, 'PRO');
+    expect(repo.electricianDraft!.toBody()['tier'], 'PRO');
+  });
+
+  test('ProfileController updates electrician tier via repository', () async {
+    final repo = FakeProfileRepository();
+    final pc = ProfileController(
+      repo,
+      toast: (_) {},
+      showBusy: () {},
+      hideBusy: () {},
+    );
+    final ok = await pc.updateElectricianTier('PAY_PER_LEAD');
+    expect(ok, isTrue);
+    expect(repo.lastUpdatedTier, 'PAY_PER_LEAD');
   });
 }

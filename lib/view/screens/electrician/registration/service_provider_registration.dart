@@ -2243,11 +2243,20 @@ class _ServiceProviderRegistrationPageState
                   lineHeight: 1.4,
                 ),
                 const SizedBox(height: 20),
-                AccessTier(
-                  onPlanSelected: (plan) {
-                    displayToast(msg: 'Selected $plan tier');
-                    _finish();
-                  },
+                Obx(
+                  () => AccessTier(
+                    currentTier: c.tier.value,
+                    onPlanSelected: (plan) {
+                      c.tier.value = plan;
+                      final tierName = switch (plan) {
+                        'PRO' => 'Pro',
+                        'PAY_PER_LEAD' => 'Pay-Per-Lead',
+                        _ => 'Free',
+                      };
+                      displayToast(msg: 'Selected $tierName tier');
+                      _finish();
+                    },
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -2259,7 +2268,10 @@ class _ServiceProviderRegistrationPageState
           color: kPrimaryColor,
           child: MyButton(
             buttonText: 'Skip for Now',
-            onTap: _finish,
+            onTap: () {
+              c.tier.value = 'FREE';
+              _finish();
+            },
           ),
         ),
       ],

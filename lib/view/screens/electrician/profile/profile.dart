@@ -13,6 +13,7 @@ import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart'
 import 'package:autonect/view/screens/electrician/home/electrician_booking.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/electrician/profile/edit_provider_profile.dart';
+import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
 import 'package:autonect/view/screens/electrician/review/review.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -88,6 +89,23 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
               label: 'Manage Services',
               onTap: () => Get.to(() => const ManageServicesPage()),
             ),
+            Obx(() {
+              final tier = _profile.me?.electricianProfile?.tier ?? 'FREE';
+              final tierLabel = switch (tier) {
+                'PRO' => 'Pro',
+                'PAY_PER_LEAD' => 'Pay-Per-Lead',
+                _ => 'Free',
+              };
+              return ProfileMenuTile(
+                icon: Icons.workspace_premium_outlined,
+                label: 'Access Tier',
+                trailingText: tierLabel,
+                onTap: () async {
+                  await Get.to<void>(() => const ElectricianAccessTierPage());
+                  await _profile.load();
+                },
+              );
+            }),
             ProfileMenuTile(
               icon: Icons.calendar_today_outlined,
               label: 'Availability',
