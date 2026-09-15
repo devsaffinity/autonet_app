@@ -195,6 +195,11 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
                                     width: 66,
                                     height: 66,
                                     fit: BoxFit.cover,
+                                    errorWidget: InitialsAvatar(
+                                      name: name,
+                                      size: 66,
+                                      radius: 100,
+                                    ),
                                   )
                                 : InitialsAvatar(
                                     name: name,

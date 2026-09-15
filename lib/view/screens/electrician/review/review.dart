@@ -332,6 +332,7 @@ class _ElectricianReviewPageState extends State<ElectricianReviewPage> {
                       avatarUrl.startsWith('https://')))
                 CommonImageView(
                   url: avatarUrl,
+                  cacheKey: r.author?.id ?? r.id,
                   width: 42,
                   height: 42,
                   radius: 10,

@@ -113,6 +113,7 @@ class ProviderBookingCard extends StatelessWidget {
                     booking.buyer!.avatarUrl!.startsWith('https://')))
               CommonImageView(
                 url: booking.buyer!.avatarUrl,
+                cacheKey: booking.buyer?.id,
                 width: 44,
                 height: 44,
                 radius: AppSizes.radiusPill,

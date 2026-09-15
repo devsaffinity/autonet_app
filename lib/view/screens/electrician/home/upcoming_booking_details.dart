@@ -236,6 +236,7 @@ class _ElectricianBookingDetailsPageState
                             _clientAvatarUrl!.startsWith('https://')))
                     ? CommonImageView(
                         url: _clientAvatarUrl,
+                        cacheKey: _currentBooking?.buyer?.id ?? _bookingId,
                         width: 70,
                         height: 70,
                         fit: BoxFit.cover,

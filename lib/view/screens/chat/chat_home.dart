@@ -141,6 +141,7 @@ class _ConversationRow extends StatelessWidget {
                     peer!.avatarUrl!.startsWith('https://')))
               CommonImageView(
                 url: peer.avatarUrl,
+                cacheKey: peer?.id,
                 width: 52,
                 height: 52,
                 radius: 100,

@@ -158,6 +158,11 @@ class _EditProviderProfilePageState extends State<EditProviderProfilePage> {
                                                 height: 88,
                                                 width: 88,
                                                 fit: BoxFit.cover,
+                                                errorWidget: InitialsAvatar(
+                                                  name: name,
+                                                  size: 88,
+                                                  radius: 100,
+                                                ),
                                               )
                                             : InitialsAvatar(
                                                 name: name,

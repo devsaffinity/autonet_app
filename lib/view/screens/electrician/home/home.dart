@@ -751,6 +751,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                     buyerAvatar.startsWith('https://')))
               CommonImageView(
                 url: buyerAvatar,
+                cacheKey: booking.buyer?.id ?? booking.id,
                 width: 48,
                 height: 48,
                 radius: 10,
