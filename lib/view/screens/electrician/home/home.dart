@@ -11,6 +11,7 @@ import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibilty_page.dart';
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
@@ -44,6 +45,8 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
       ProviderBookingsController.ensure();
   final AvailabilityController _availability = AvailabilityController.ensure();
   final ChatInboxController _chat = ChatInboxController.ensure();
+  final NotificationsController _notifications =
+      NotificationsController.ensure();
 
   @override
   void initState() {
@@ -53,6 +56,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
     _bookings.refreshFirst();
     _availability.load();
     _chat.load();
+    _notifications.refreshUnread();
   }
 
   // ── Quick Management actions ─────
@@ -69,6 +73,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
       _bookings.refreshFirst(),
       _availability.load(),
       _chat.load(),
+      _notifications.refreshUnread(),
     ]);
   }
 
@@ -214,12 +219,12 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
               ? Get.find<TokenStore>().user?.name
               : null;
           final name =
-              (me?.electricianProfile?.fullName?.trim().isNotEmpty == true)
+              (me?.electricianProfile?.fullName.trim().isNotEmpty == true)
                   ? me!.electricianProfile!.fullName.trim()
                   : (me?.name?.trim().isNotEmpty == true)
                       ? me!.name!.trim()
-                      : (storeName?.trim().isNotEmpty == true)
-                          ? storeName!.trim()
+                      : (storeName != null && storeName.trim().isNotEmpty)
+                          ? storeName.trim()
                           : 'Provider';
           final busy = _profile.uploadingAvatar.value;
 
@@ -320,12 +325,12 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                   ? Get.find<TokenStore>().user?.name
                   : null;
               final name =
-                  (me?.electricianProfile?.fullName?.trim().isNotEmpty == true)
+                  (me?.electricianProfile?.fullName.trim().isNotEmpty == true)
                       ? me!.electricianProfile!.fullName.trim()
                       : (me?.name?.trim().isNotEmpty == true)
                           ? me!.name!.trim()
-                          : (storeName?.trim().isNotEmpty == true)
-                              ? storeName!.trim()
+                          : (storeName != null && storeName.trim().isNotEmpty)
+                              ? storeName.trim()
                               : 'Provider';
 
               return Column(
@@ -403,12 +408,37 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         ),
         const SizedBox(width: 10),
 
-        // Bell — was a dead tap.
-        MyRippleEffect(
-          onTap: () => Get.to(() => const NotificationsPage()),
-          radius: 20,
-          child: CommonImageView(svgPath: Assets.imagesNotification),
-        ),
+        // Bell with dynamic unread indicator dot
+        Obx(() {
+          final unread = _notifications.unread.value;
+          return MyRippleEffect(
+            onTap: () async {
+              await Get.to(() => const NotificationsPage());
+              _notifications.refreshUnread();
+            },
+            radius: 20,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CommonImageView(svgPath: Assets.imagesNotification),
+                if (unread > 0)
+                  Positioned(
+                    right: -1,
+                    top: -1,
+                    child: Container(
+                      height: 8,
+                      width: 8,
+                      decoration: BoxDecoration(
+                        color: const Color(0xffD94D2F),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: kPrimaryColor, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -457,7 +487,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
             child: Icon(
               Icons.calendar_month,
               size: 90,
-              color: kWhiteColor.withOpacity(0.1),
+              color: kWhiteColor.withValues(alpha: 0.1),
             ),
           ),
           Column(
@@ -700,7 +730,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: rows.length,
-                    separatorBuilder: (_, _) => Divider(
+                    separatorBuilder: (_, _) => const Divider(
                       height: 1,
                       color: kTertiaryColor,
                       indent: 16,
@@ -995,8 +1025,8 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                     height: 40,
                     child: (peer?.avatarUrl != null &&
                             peer!.avatarUrl!.isNotEmpty &&
-                            (peer!.avatarUrl!.startsWith('http://') ||
-                                peer!.avatarUrl!.startsWith('https://')))
+                            (peer.avatarUrl!.startsWith('http://') ||
+                                peer.avatarUrl!.startsWith('https://')))
                         ? CommonImageView(
                             url: peer.avatarUrl,
                             cacheKey: peer.id,

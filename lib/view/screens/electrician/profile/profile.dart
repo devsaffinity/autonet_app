@@ -11,6 +11,7 @@ import 'package:autonect/view/screens/electrician/dash_board/electrician_avalibi
 import 'package:autonect/view/screens/electrician/dash_board/manage_services.dart';
 import 'package:autonect/view/screens/electrician/dash_board/total_balance.dart';
 import 'package:autonect/view/screens/electrician/home/electrician_booking.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/electrician/profile/edit_provider_profile.dart';
 import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
@@ -43,6 +44,8 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
   final ProfileController _profile = ProfileController.ensure();
   final ProviderDashboardController _dashboard =
       ProviderDashboardController.ensure();
+  final NotificationsController _notifications =
+      NotificationsController.ensure();
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
     // JOBS DONE comes from the same dashboard the earnings screen reads,
     // rather than a second count that could disagree with it.
     _dashboard.load();
+    _notifications.refreshUnread();
   }
 
   @override
@@ -152,13 +156,18 @@ class _ElectricianProfilePageState extends State<ElectricianProfilePage> {
               letterSpacing: 1,
               paddingBottom: 12,
             ),
-            ProfileMenuTile(
-              icon: Icons.notifications_none_rounded,
-              label: 'Notifications',
-              // Was a dead tap. NotificationsPage reads its own controller and
-              // is not buyer-specific, so it serves a provider unchanged.
-              onTap: () => Get.to(() => const NotificationsPage()),
-            ),
+            Obx(() {
+              final unread = _notifications.unread.value;
+              return ProfileMenuTile(
+                icon: Icons.notifications_none_rounded,
+                label: 'Notifications',
+                trailingText: unread > 0 ? (unread > 99 ? '99+ new' : '$unread new') : null,
+                onTap: () async {
+                  await Get.to(() => const NotificationsPage());
+                  _notifications.refreshUnread();
+                },
+              );
+            }),
             ProfileMenuTile(
               icon: Icons.logout_rounded,
               label: 'Log out',

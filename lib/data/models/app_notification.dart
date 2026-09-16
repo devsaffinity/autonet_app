@@ -30,6 +30,8 @@ class AppNotification {
   /// The entity this points at, when the payload names one. Used to deep-link.
   String? get requestId => _idFor('requestId');
   String? get orderId => _idFor('orderId');
+  String? get bookingId => _idFor('bookingId');
+  String? get conversationId => _idFor('conversationId');
 
   String? _idFor(String key) {
     final v = data?[key];

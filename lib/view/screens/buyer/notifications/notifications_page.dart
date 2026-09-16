@@ -2,9 +2,17 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/notifications_controller.dart';
+import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/app_notification.dart';
+import 'package:autonect/data/models/booking.dart';
+import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/view/screens/buyer/detail/order_status.dart';
+import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
+import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/screens/buyer/request/request_detail.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
+import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:autonect/view/widget/confirm_dialog.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -181,6 +189,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
     if (n.requestId case final id?) {
       Get.to(() => BuyerRequestDetailPage(requestId: id));
+      return;
+    }
+    if (n.bookingId case final id?) {
+      final role = Get.isRegistered<TokenStore>()
+          ? Get.find<TokenStore>().user?.role
+          : null;
+      if (role == 'ELECTRICIAN') {
+        Get.to(() => ElectricianBookingDetailsPage(bookingId: id));
+        return;
+      }
+      if (Get.isRegistered<BookingsRepository>()) {
+        final res = await Get.find<BookingsRepository>().byId(id);
+        if (res is Ok<Booking> && mounted) {
+          Get.to(() => BookingDetailPage(booking: res.value));
+          return;
+        }
+      }
+      Get.to(() => const MyBookingsPage());
+      return;
+    }
+    if (n.conversationId case final id?) {
+      Get.to(() => ChatRoomPage(contextId: id));
+      return;
     }
     // No payload: the row itself carried the whole message, and there is
     // nothing to open.
@@ -285,6 +316,10 @@ class _NotificationTile extends StatelessWidget {
   /// rather than rendering nothing — the server can add a type at any time and
   /// an older build must still show the notification.
   static IconData _glyphFor(String type) {
+    if (type.startsWith('booking')) return Icons.calendar_today_outlined;
+    if (type.startsWith('message') || type.startsWith('chat')) {
+      return Icons.chat_bubble_outline_rounded;
+    }
     if (type.startsWith('offer')) return Icons.local_offer_outlined;
     if (type.startsWith('order')) return Icons.receipt_long_outlined;
     if (type.startsWith('kyc')) return Icons.verified_user_outlined;
