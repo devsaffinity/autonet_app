@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/my_bookings_controller.dart';
+import 'package:autonect/controller/buyer/receipt_controller.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
@@ -18,6 +19,7 @@ import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
 import 'package:autonect/view/widget/status_badge.dart';
+import 'package:autonect/view/widget/submitted_review_line.dart';
 import 'package:autonect/view/widget/technician_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -34,11 +36,10 @@ import 'package:get/get.dart';
 /// is the version that fits, and it is the same control My Requests already
 /// uses.
 ///
-/// 'Save Receipt' is drawn and DISABLED. Nothing in this product receipts a
-/// booking: quotedPence and finalPence are nullable and no payment is ever
-/// recorded against one, so the button would be reporting a price nobody has
-/// named. See BookingConfirmedPage, which carries the same control and prints
-/// the reason under it.
+/// 'Save Receipt' is LIVE once a booking is COMPLETED and PRICED — the rule the
+/// server applies before it issues one — and visibly unavailable until then.
+/// The receipt itself is the server's frozen snapshot, rendered as a PDF by
+/// ReceiptController.
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
 
@@ -117,6 +118,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           onOpen: () => _open(b),
           onCancel: () => _confirmCancel(b),
           onReview: () => _review(b),
+          onReceipt: () => ReceiptController.ensure().open(b),
         ),
       );
     }),
@@ -209,12 +211,14 @@ class _BookingCard extends StatelessWidget {
     required this.onOpen,
     required this.onCancel,
     required this.onReview,
+    required this.onReceipt,
   });
 
   final Booking booking;
   final VoidCallback onOpen;
   final VoidCallback onCancel;
   final VoidCallback onReview;
+  final VoidCallback onReceipt;
 
   String get _providerName =>
       booking.provider?.fullName ?? booking.provider?.name ?? 'Provider';
@@ -310,28 +314,44 @@ class _BookingCard extends StatelessWidget {
           const SizedBox(width: AppSizes.s8),
           Expanded(child: _CardAction(label: 'View Booking', onTap: onOpen)),
           const SizedBox(width: AppSizes.s8),
-          const Expanded(child: _CardAction(
-            label: 'Save Receipt',
-            // Permanently unavailable, not merely unavailable yet on this
-            // row: no booking in this product has a receipt. The tooltip is
-            // the explanation — a caption under every card in a list would
-            // repeat the same sentence down the whole page.
-            tooltip: 'Receipts arrive once your provider has quoted and the '
-                'job is complete',
-          )),
+          // LIVE once the job is COMPLETED and PRICED — the same rule the
+          // server applies, so the button is only tappable when tapping it can
+          // succeed. Until then it stays visibly unavailable, and the tooltip
+          // says why rather than a caption repeated down the list.
+          //
+          // Its OWN Obx: cards are built lazily by the list, outside the page's
+          // Obx, so a read of `working` up there would never rebuild this.
+          Expanded(child: booking.canHaveReceipt
+              ? Obx(() {
+                  final busy =
+                      ReceiptController.ensure().working.value == booking.id;
+                  return _CardAction(
+                    label: busy ? 'Preparing…' : 'Save Receipt',
+                    onTap: busy ? null : onReceipt,
+                  );
+                })
+              : const _CardAction(
+                  label: 'Save Receipt',
+                  tooltip: 'A receipt is available once the job is complete '
+                      'and your provider has recorded the price',
+                )),
         ]),
-        // COMPLETED is the only state a review is accepted from, so the
-        // control appears exactly there. A second review earns a 409, but the
-        // server is the authority on that and the toast says so.
+        // A REVIEW IS FINAL. Offered only on a COMPLETED booking the buyer has
+        // not yet reviewed; once left, their review is shown read-only in its
+        // place. There is no edit — the server has no update route and
+        // refuses a second review — so a button here could only earn a 409.
         if (booking.status == BookingStatus.completed) ...[
           const SizedBox(height: AppSizes.s12),
-          MyButton(
-            buttonText: 'Rate this provider',
-            fontSize: AppTextScale.label,
-            height: 40,
-            radius: AppSizes.radiusMd,
-            onTap: onReview,
-          ),
+          if (booking.buyerReview case final review?)
+            SubmittedReviewLine(review: review)
+          else
+            MyButton(
+              buttonText: 'Rate this provider',
+              fontSize: AppTextScale.label,
+              height: 40,
+              radius: AppSizes.radiusMd,
+              onTap: onReview,
+            ),
         ],
         // Shown only while the server would accept it. Past IN_PROGRESS the
         // provider has travelled and started, so this would only earn a 409.

@@ -25,6 +25,7 @@ import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/vehicle.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/booking_receipt.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
@@ -445,6 +446,7 @@ class FakeBookingsRepository implements BookingsRepository {
   ApiResult<Booking>? quoteResult;
   ApiResult<ProviderSchedule>? scheduleResult;
   ApiResult<ProviderDashboard>? dashboardResult;
+  ApiResult<BookingReceipt>? receiptResult;
   ApiResult<ProviderSchedule>? setScheduleResult;
 
   @override
@@ -510,6 +512,12 @@ class FakeBookingsRepository implements BookingsRepository {
   }) async {
     calls.add('bookings:$page:$limit:${status?.wire}');
     return listResult ?? _none('bookings.listMine');
+  }
+
+  @override
+  Future<ApiResult<BookingReceipt>> receipt(String bookingId) async {
+    calls.add('receipt:$bookingId');
+    return receiptResult ?? _none('bookings.receipt');
   }
 
   @override

@@ -58,6 +58,35 @@ class BookingBuyer {
 }
 
 /// One entry in a booking's status history.
+/// The review left on a booking — `booking.reviews[]` on the wire.
+///
+/// REVIEWS ARE FINAL. The server has no update route and refuses a second
+/// review of the same booking, so once this exists the app shows it read-only
+/// rather than offering a button whose only outcome would be a 409.
+class SubmittedReview {
+  const SubmittedReview({
+    required this.id,
+    required this.authorId,
+    required this.rating,
+    required this.createdAt,
+    this.text,
+  });
+
+  final String id;
+  final String authorId;
+  final int rating;
+  final String? text;
+  final DateTime createdAt;
+
+  factory SubmittedReview.fromJson(Map<String, dynamic> j) => SubmittedReview(
+    id: jsonString(j, 'id'),
+    authorId: jsonString(j, 'authorId'),
+    rating: (j['rating'] as num?)?.toInt() ?? 0,
+    text: j['text'] as String?,
+    createdAt: DateTime.parse(jsonString(j, 'createdAt')),
+  );
+}
+
 class BookingEvent {
   const BookingEvent({required this.status, required this.at, this.note});
 
@@ -81,6 +110,8 @@ class Booking {
     required this.scheduledAt,
     required this.createdAt,
     required this.events,
+    this.reviews = const [],
+    this.receiptIssued = false,
     this.serviceType,
     this.status,
     this.region,
@@ -130,6 +161,30 @@ class Booking {
 
   final List<BookingEvent> events;
 
+  /// Every review on this booking. In practice at most one, by the buyer.
+  final List<SubmittedReview> reviews;
+
+  /// Whether a receipt has been issued. Once true the price is LOCKED server
+  /// side, so the provider app must not offer to change it.
+  final bool receiptIssued;
+
+  /// The buyer's own review, if they have left one — the thing that decides
+  /// whether to show "Leave a review" or their review read-only.
+  SubmittedReview? get buyerReview {
+    for (final r in reviews) {
+      if (r.authorId == buyerId) return r;
+    }
+    return null;
+  }
+
+  bool get isReviewed => buyerReview != null;
+
+  /// Whether a receipt can be produced: the job is finished AND a price was
+  /// recorded. Mirrors the server's rule so the button is only enabled when
+  /// tapping it can succeed — the server stays the authority.
+  bool get canHaveReceipt =>
+      status == BookingStatus.completed && earnedPence != null;
+
   bool get isQuoted => quotedPence != null;
 
   /// Mirrors the server's rule so the UI does not offer a control that could
@@ -175,6 +230,13 @@ class Booking {
                 .map((e) => BookingEvent.fromJson((e as Map).cast<String, dynamic>()))
                 .toList(growable: false)
           : const <BookingEvent>[],
+      reviews: j['reviews'] is List
+          ? (j['reviews'] as List)
+                .map((e) => SubmittedReview.fromJson((e as Map).cast<String, dynamic>()))
+                .toList(growable: false)
+          : const <SubmittedReview>[],
+      // Presence is the signal; the server sends { number, issuedAt } or null.
+      receiptIssued: j['receipt'] is Map,
     );
   }
 }

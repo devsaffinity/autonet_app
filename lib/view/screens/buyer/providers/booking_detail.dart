@@ -1,6 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/controller/buyer/receipt_controller.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/domain/date_format.dart';
@@ -11,6 +12,7 @@ import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/status_badge.dart';
+import 'package:autonect/view/widget/submitted_review_line.dart';
 import 'package:autonect/view/widget/technician_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -82,7 +84,12 @@ class BookingDetailPage extends StatelessWidget {
                   ),
                 )
           ),
-          if (onReview case final review?
+          // A review is FINAL: offered only until the buyer has left one, and
+          // shown read-only from then on — never an edit.
+          if (booking.buyerReview case final submitted?) ...[
+            const SizedBox(height: AppSizes.s12),
+            SubmittedReviewLine(review: submitted),
+          ] else if (onReview case final review?
               when booking.status == BookingStatus.completed) ...[
             const SizedBox(height: AppSizes.s12),
             MyButton(
@@ -94,6 +101,25 @@ class BookingDetailPage extends StatelessWidget {
               outlineColor: kSecondaryColor,
               onTap: review,
             ),
+          ],
+          // The receipt, once the job is COMPLETED and PRICED — the server's
+          // own rule, so the button only appears when tapping it can succeed.
+          if (booking.canHaveReceipt) ...[
+            const SizedBox(height: AppSizes.s12),
+            Obx(() {
+              final receipts = ReceiptController.ensure();
+              final busy = receipts.working.value == booking.id;
+              return MyButton(
+                buttonText: busy ? 'Preparing receipt…' : 'Download Receipt',
+                iconData: Icons.download_rounded,
+                radius: AppSizes.radiusMd,
+                backgroundColor: kWhiteColor,
+                fontColor: kSecondaryColor,
+                outlineColor: kSecondaryColor,
+                enabled: !busy,
+                onTap: () => receipts.open(booking),
+              );
+            }),
           ],
           // Shown only while the server would accept it. Past IN_PROGRESS the
           // provider has travelled and started, so this would earn a 409.

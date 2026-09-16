@@ -1,6 +1,7 @@
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/booking_receipt.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
@@ -72,6 +73,14 @@ abstract class BookingsRepository {
   });
 
   Future<ApiResult<Booking>> byId(String id);
+
+  /// The receipt for a COMPLETED, PRICED booking — issued on first request,
+  /// frozen after that. Either party may ask.
+  ///
+  /// A 409 is a real, expected answer: the job is not finished yet, or the
+  /// provider has not recorded a price. Its message says which, so a caller
+  /// shows it rather than a generic failure.
+  Future<ApiResult<BookingReceipt>> receipt(String bookingId);
 
   /// [note] is MANDATORY — the server requires a reason, and only PENDING or
   /// CONFIRMED can be cancelled. Past that the provider has travelled and

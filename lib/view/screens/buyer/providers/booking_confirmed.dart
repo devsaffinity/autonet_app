@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
+import 'package:autonect/controller/buyer/receipt_controller.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
@@ -21,26 +22,14 @@ const double _kMarkCard = 80, _kMarkDisc = 48;
 /// and the status all come back from the create, so what a buyer reads here
 /// is what actually exists.
 ///
-/// TWO OF THE COMP'S THREE BUTTONS ARE FULLY WIRED AND THE THIRD IS SHOWN
-/// DISABLED, which is a deliberate distinction rather than an unfinished one:
+/// All three of the comp's buttons are wired:
 ///
-///   * `Chat with <name>` opens the Messages tab, not this booking's thread.
-///     `POST /v1/conversations` accepts type OFFER only — ConversationType
-///     .BOOKING is in the schema and not in the DTO — so a booking has no
-///     conversation to open. Same limit, same single call site, as the
-///     profile's 'Chat Now'.
-///   * 'Download Receipt' is rendered UNAVAILABLE, with the reason under it.
-///     Nothing in this product receipts a booking, and that is not a missing
-///     endpoint so much as a missing event: a Booking carries quotedPence and
-///     finalPence, both NULL on everything this screen can be reached with,
-///     and no payment is ever recorded against one — money for a callout is
-///     settled between the buyer and the provider, off the platform. A button
-///     that produced a document for a price nobody has named and a payment
-///     nobody has taken would not be a stub, it would be a fabrication.
-///
-/// A disabled control with its reason printed is the honest shape here. It
-/// occupies the comp's third slot, it does not invite the tap that proves it
-/// does nothing, and the day a receipt exists it is one method that changes.
+///   * `Chat with <name>` opens THIS booking's thread.
+///   * 'View my Bookings' replaces this screen with the list.
+///   * 'Download Receipt' works once the booking is COMPLETED and PRICED, the
+///     rule the server applies before issuing one. A booking has neither just
+///     after it is made, so here it is almost always shown unavailable, with
+///     the reason printed under it rather than a tap that can only fail.
 class BookingConfirmedPage extends StatelessWidget {
   const BookingConfirmedPage({super.key, required this.booking});
 
@@ -195,28 +184,48 @@ class BookingConfirmedPage extends StatelessWidget {
     ]),
   );
 
-  /// The comp's third button, shown UNAVAILABLE. See the class doc: a booking
-  /// has no price and no payment, so there is nothing a receipt could report.
+  /// The comp's third button: LIVE once the booking is COMPLETED and PRICED,
+  /// visibly unavailable with the reason under it until then.
   ///
   /// Its own colours rather than MyButton's disabled treatment, which dims the
   /// BACKGROUND — on an outlined button that is white already, so the border
   /// and label would stay at full strength and the control would read as live.
-  Widget _receiptButton() => Column(children: [
-    MyButton(
-      buttonText: 'Download Receipt',
-      iconData: Icons.download_rounded,
-      radius: AppSizes.radiusMd,
-      enabled: false,
-      backgroundColor: kWhiteColor,
-      fontColor: kGreyTextColor,
-      outlineColor: kFieldBorderColor,
-    ),
-    const SizedBox(height: AppSizes.s8),
-    MyText(
-      text: 'Receipts arrive once your provider has quoted and the job is '
-          'complete.',
-      size: AppTextScale.caption, color: kGreyTextColor,
-      textAlign: TextAlign.center,
-    ),
-  ]);
+  Widget _receiptButton() {
+    if (!booking.canHaveReceipt) {
+      return Column(children: [
+        MyButton(
+          buttonText: 'Download Receipt',
+          iconData: Icons.download_rounded,
+          radius: AppSizes.radiusMd,
+          enabled: false,
+          backgroundColor: kWhiteColor,
+          fontColor: kGreyTextColor,
+          outlineColor: kFieldBorderColor,
+        ),
+        const SizedBox(height: AppSizes.s8),
+        MyText(
+          text: 'Your receipt will be ready once the job is complete and your '
+              'provider has recorded the price.',
+          size: AppTextScale.caption, color: kGreyTextColor,
+          textAlign: TextAlign.center,
+        ),
+      ]);
+    }
+    // Only a booking that CAN have a receipt touches the controller — on this
+    // screen, shown straight after booking, that is almost never.
+    return Obx(() {
+      final receipts = ReceiptController.ensure();
+      final busy = receipts.working.value == booking.id;
+      return MyButton(
+        buttonText: busy ? 'Preparing receipt…' : 'Download Receipt',
+        iconData: Icons.download_rounded,
+        radius: AppSizes.radiusMd,
+        enabled: !busy,
+        backgroundColor: kWhiteColor,
+        fontColor: kSecondaryColor,
+        outlineColor: kSecondaryColor,
+        onTap: () => receipts.open(booking),
+      );
+    });
+  }
 }

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:autonect/controller/buyer/my_bookings_controller.dart';
 import 'package:autonect/controller/buyer/new_booking_controller.dart';
+import 'package:autonect/controller/buyer/receipt_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/booking_receipt.dart';
 import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/service_provider.dart';
@@ -56,6 +60,7 @@ Booking _booking({
   String status = 'PENDING',
   int? quotedPence,
   String scheduledAt = '2026-09-10T08:00:00.000Z',
+  int? buyerRating,
 }) => Booking.fromJson({
   'id': 'bk-1', 'buyerId': 'b1', 'electricianId': 'prov-1',
   'scheduledAt': scheduledAt, 'createdAt': '2026-09-09T10:00:00.000Z',
@@ -66,7 +71,24 @@ Booking _booking({
     'electricianProfile': {'fullName': 'Jack Brennan', 'headline': 'ECU Specialist'},
   },
   'events': [{'status': 'PENDING', 'at': '2026-09-09T10:00:00.000Z'}],
+  'reviews': [
+    if (buyerRating != null)
+      {'id': 'rv-1', 'authorId': 'b1', 'rating': buyerRating,
+       'text': 'Sorted it', 'createdAt': '2026-09-11T10:00:00.000Z'},
+  ],
 });
+
+/// A bookings repository whose receipt call waits until the test says so,
+/// which is the only way to see the button while the receipt is on its way.
+class _HeldReceipts extends FakeBookingsRepository {
+  final held = Completer<ApiResult<BookingReceipt>>();
+
+  @override
+  Future<ApiResult<BookingReceipt>> receipt(String bookingId) {
+    calls.add('receipt:$bookingId');
+    return held.future;
+  }
+}
 
 PageMeta _meta(int n) => PageMeta(
   page: 1, limit: 20, pageSize: n, total: n,
@@ -241,7 +263,7 @@ void main() {
       expect(find.text('ECU Tuning'), findsOneWidget);
     });
 
-    testWidgets("the comp's three actions, and only two of them live", (
+    testWidgets("the comp's three actions; the receipt waits for the job", (
       tester,
     ) async {
       await _pumpTall(tester, BookingConfirmedPage(booking: _booking()));
@@ -251,15 +273,27 @@ void main() {
       expect(find.text('View my Bookings'), findsOneWidget);
       expect(find.text('Download Receipt'), findsOneWidget);
 
-      // Nothing receipts a booking: quotedPence and finalPence are null on
-      // everything this screen can be reached with, and no payment is ever
-      // recorded against one. The control says so rather than fabricating a
-      // document for a price nobody has named.
+      // A just-made booking is neither completed nor priced, and the server
+      // issues no receipt until it is both. The control says so rather than
+      // offering a tap that can only fail.
       final receipt = tester.widget<MyButton>(
           find.widgetWithText(MyButton, 'Download Receipt'));
       expect(receipt.enabled, isFalse);
-      expect(find.textContaining('once your provider has quoted'),
-          findsOneWidget);
+      expect(find.textContaining('once the job is complete'), findsOneWidget);
+    });
+
+    testWidgets('a completed, priced booking offers its receipt', (
+      tester,
+    ) async {
+      Get.put<BookingsRepository>(FakeBookingsRepository());
+      await _pumpTall(tester, BookingConfirmedPage(
+          booking: _booking(status: 'COMPLETED', quotedPence: 12500)));
+
+      final receipt = tester.widget<MyButton>(
+          find.widgetWithText(MyButton, 'Download Receipt'));
+      expect(receipt.enabled, isTrue);
+      expect(find.textContaining('once the job is complete'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('Chat opens the thread for THIS booking', (tester) async {
@@ -396,26 +430,90 @@ void main() {
       expect(c.filter.value, isNull);
     });
 
-    testWidgets('Save Receipt is drawn but not offered', (tester) async {
+    testWidgets('Save Receipt waits for a completed, priced job', (
+      tester,
+    ) async {
       final repo = FakeBookingsRepository()
-        ..listResult = Ok(Paged<Booking>(
-            [_booking(status: 'COMPLETED', quotedPence: 12500)], _meta(1)));
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)));
       Get.put<BookingsRepository>(repo);
       Get.put(MyBookingsController(repo,
           toast: (_) {}, showBusy: () {}, hideBusy: () {}));
 
       await _pumpTall(tester, const MyBookingsPage());
 
-      // Even on a COMPLETED, QUOTED booking. Nothing in this product
-      // receipts a callout — no payment is ever recorded against one — so
-      // the control carries its reason rather than a tap target.
-      // Matched on the PREFIX rather than the whole sentence: the copy is
-      // the screen's to reword, the fact that a reason is attached is not.
+      // The control carries its reason rather than a tap target. Matched on
+      // the PREFIX rather than the whole sentence: the copy is the screen's
+      // to reword, the fact that a reason is attached is not.
       expect(
-        find.byWidgetPredicate((w) =>
-            w is Tooltip && (w.message ?? '').startsWith('Receipts arrive')),
+        find.byWidgetPredicate((w) => w is Tooltip &&
+            (w.message ?? '').startsWith('A receipt is available')),
         findsOneWidget,
       );
+      await tester.tap(find.text('Save Receipt'));
+      await tester.pump();
+      expect(repo.calls.where((x) => x.startsWith('receipt:')), isEmpty);
+    });
+
+    testWidgets("Save Receipt fetches THIS booking's receipt, and says so", (
+      tester,
+    ) async {
+      final repo = _HeldReceipts()
+        ..listResult = Ok(Paged<Booking>(
+            [_booking(status: 'COMPLETED', quotedPence: 12500)], _meta(1)));
+      final toasts = <String>[];
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+      Get.put(ReceiptController(repo,
+          share: (_, _) async {},
+          toast: toasts.add, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+      await tester.tap(find.text('Save Receipt'));
+      await tester.pump();
+
+      expect(repo.calls, contains('receipt:bk-1'));
+      // On its way: the button says so, and a second tap does nothing.
+      expect(find.text('Preparing…'), findsOneWidget);
+      await tester.tap(find.text('Preparing…'));
+      await tester.pump();
+      expect(repo.calls.where((x) => x == 'receipt:bk-1'), hasLength(1));
+
+      // The server's own reason reaches the buyer, and the button comes back.
+      repo.held.complete(const Err(ApiError(
+        code: ApiErrorCode.conflict,
+        statusCode: 409,
+        message: 'The provider has not recorded a price for this job yet',
+      )));
+      await tester.pump();
+      await tester.pump();
+      expect(toasts, ['The provider has not recorded a price for this job yet']);
+      expect(find.text('Save Receipt'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a reviewed booking shows the review, never a second one', (
+      tester,
+    ) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([
+          _booking(status: 'COMPLETED', quotedPence: 12500, buyerRating: 4),
+        ], _meta(1)));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+      final semantics = tester.ensureSemantics();
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      // A review is FINAL: the server has no edit and refuses a second one.
+      expect(find.text('Rate this provider'), findsNothing);
+      expect(find.text('You rated this provider'), findsOneWidget);
+      // The stars as one sentence for a screen reader.
+      expect(find.bySemanticsLabel('You rated this provider 4 out of 5'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
     });
 
     testWidgets('View Booking opens the detail, with what the row holds',
@@ -499,6 +597,46 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('No bookings yet'), findsOneWidget);
+    });
+  });
+
+  group('BookingDetailPage', () {
+    testWidgets('a reviewed, priced job: the review read-only, and a receipt',
+        (tester) async {
+      Get.put<BookingsRepository>(FakeBookingsRepository());
+      await _pumpTall(tester, BookingDetailPage(
+        booking: _booking(status: 'COMPLETED', quotedPence: 12500, buyerRating: 5),
+        onReview: () {},
+      ));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Rate this provider'), findsNothing);
+      expect(find.text('You rated this provider'), findsOneWidget);
+      expect(find.text('Download Receipt'), findsOneWidget);
+    });
+
+    testWidgets('a completed job not yet reviewed offers the review', (
+      tester,
+    ) async {
+      Get.put<BookingsRepository>(FakeBookingsRepository());
+      await _pumpTall(tester, BookingDetailPage(
+        booking: _booking(status: 'COMPLETED', quotedPence: 12500),
+        onReview: () {},
+      ));
+
+      expect(find.text('Rate this provider'), findsOneWidget);
+      expect(find.text('You rated this provider'), findsNothing);
+    });
+
+    testWidgets('an unfinished job offers neither', (tester) async {
+      await _pumpTall(tester, BookingDetailPage(
+        booking: _booking(status: 'CONFIRMED', quotedPence: 12500),
+        onReview: () {},
+      ));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Rate this provider'), findsNothing);
+      expect(find.text('Download Receipt'), findsNothing);
     });
   });
 

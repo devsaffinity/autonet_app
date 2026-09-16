@@ -3,6 +3,7 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/booking_receipt.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
@@ -133,6 +134,13 @@ class BookingsApiRepository implements BookingsRepository {
   @override
   Future<ApiResult<Booking>> byId(String id) =>
       _c.send(method: 'GET', path: '/v1/bookings/$id', decode: _one);
+
+  @override
+  Future<ApiResult<BookingReceipt>> receipt(String bookingId) => _c.send(
+    method: 'GET',
+    path: '/v1/bookings/$bookingId/receipt',
+    decode: (d) => BookingReceipt.fromJson((d as Map).cast<String, dynamic>()),
+  );
 
   /// Throws [ArgumentError] BEFORE the wire when neither price is given: the
   /// server's refine rejects an empty body, and a round trip to learn that is
