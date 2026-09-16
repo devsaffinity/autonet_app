@@ -193,4 +193,35 @@ void main() {
     expect(c.created.value, isNull);
     expect(requests.createCalls, 1);
   });
+
+  test('custom vehicle entry sets VehicleCustom and toBody emits all vehicle fields', () async {
+    c.switchToCustomVehicle();
+    expect(c.draft.isCustomVehicle, isTrue);
+    expect(c.vehicle.value, isA<VehicleCustom>());
+    expect(c.vehicle.value.canAdvance, isTrue);
+
+    c.setCustomVehicleDetails(
+      regNumber: 'WM68ABC',
+      make: 'BMW',
+      model: '3 Series',
+      year: 2018,
+      fuel: 'DIESEL',
+      colour: 'BLACK',
+    );
+
+    expect(c.draft.regNumber, 'WM68ABC');
+    expect(c.draft.vehicleMake, 'BMW');
+    expect(c.draft.vehicleModel, '3 Series');
+    expect(c.draft.vehicleYear, 2018);
+    expect(c.draft.vehicleFuel, 'DIESEL');
+    expect(c.draft.vehicleColour, 'BLACK');
+
+    fillValidDraft();
+    final body = c.draft.toBody();
+    expect(body['vehicleMake'], 'BMW');
+    expect(body['vehicleModel'], '3 Series');
+    expect(body['vehicleYear'], 2018);
+    expect(body['vehicleFuel'], 'DIESEL');
+    expect(body['vehicleColour'], 'BLACK');
+  });
 }

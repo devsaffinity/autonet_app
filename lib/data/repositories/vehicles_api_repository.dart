@@ -24,4 +24,26 @@ class VehiclesApiRepository implements VehiclesRepository {
     body: {'regNumber': normaliseReg(regNumber)},
     decode: (d) => VehicleLookup.fromJson((d as Map).cast<String, dynamic>()),
   );
+
+  @override
+  Future<ApiResult<VehicleLookup>> saveCustom({
+    required String regNumber,
+    required String make,
+    required String model,
+    int? year,
+    String? fuel,
+    String? colour,
+  }) => _c.send(
+    method: 'POST',
+    path: '/v1/vehicles/custom',
+    body: {
+      'regNumber': normaliseReg(regNumber),
+      'make': make.trim(),
+      'model': model.trim(),
+      if (year != null) 'year': year,
+      if (fuel != null && fuel.trim().isNotEmpty) 'fuel': fuel.trim(),
+      if (colour != null && colour.trim().isNotEmpty) 'colour': colour.trim(),
+    },
+    decode: (d) => VehicleLookup.fromJson((d as Map).cast<String, dynamic>()),
+  );
 }

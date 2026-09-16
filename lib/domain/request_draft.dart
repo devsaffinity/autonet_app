@@ -15,6 +15,11 @@ class RequestDraft {
     this.urgency,
     this.description,
     this.vehicleModel,
+    this.vehicleMake,
+    this.vehicleYear,
+    this.vehicleFuel,
+    this.vehicleColour,
+    this.isCustomVehicle = false,
     this.manualModelRequired = false,
     List<PendingImage>? images,
     this.step = 0,
@@ -34,6 +39,11 @@ class RequestDraft {
   RequestUrgency? urgency;
   String? description;
   String? vehicleModel;
+  String? vehicleMake;
+  int? vehicleYear;
+  String? vehicleFuel;
+  String? vehicleColour;
+  bool isCustomVehicle;
   bool manualModelRequired;
   List<PendingImage> images;
   int step;
@@ -88,7 +98,16 @@ class RequestDraft {
     }
     if (condition == null) e['condition'] = 'Choose a part condition';
     if (urgency == null) e['urgency'] = 'Choose how urgent this is';
-    if (manualModelRequired) {
+    if (isCustomVehicle) {
+      final make = vehicleMake?.trim() ?? '';
+      if (make.isEmpty) {
+        e['vehicleMake'] = 'Enter the vehicle make';
+      }
+      final model = vehicleModel?.trim() ?? '';
+      if (model.isEmpty) {
+        e['vehicleModel'] = 'Enter the vehicle model';
+      }
+    } else if (manualModelRequired) {
       final model = vehicleModel?.trim() ?? '';
       if (model.isEmpty) {
         e['vehicleModel'] = 'Enter the vehicle model';
@@ -100,14 +119,7 @@ class RequestDraft {
   }
 
   /// The ONE place `POST /v1/requests` body is constructed; call it only when
-  /// [validate] returned an empty map. Omissions are deliberate: `partNumber: ""` fails the server's `min(1)` and
-  /// 400s; `description: ""` persists an empty string where null is meant.
-  /// `imageKeys` is ALWAYS sent — `[]` is explicitly valid via `.default([])`.
-  ///
-  /// WHY `vehicleModel` goes only when the human typed it: vehicles are keyed by
-  /// `regNumber @unique`, so sending it writes onto the SHARED vehicle row, flips
-  /// `source` to MANUAL and rewrites a 30-day cache — one buyer's typo then
-  /// becomes every buyer's model for that plate.
+  /// [validate] returned an empty map.
   Map<String, dynamic> toBody() {
     final categoryId = this.categoryId;
     final region = this.region;
@@ -120,6 +132,9 @@ class RequestDraft {
     final number = partNumber?.trim() ?? '';
     final desc = description?.trim() ?? '';
     final model = vehicleModel?.trim() ?? '';
+    final make = vehicleMake?.trim() ?? '';
+    final fuel = vehicleFuel?.trim() ?? '';
+    final colour = vehicleColour?.trim() ?? '';
     return {
       'regNumber': normaliseReg(regNumber),
       'categoryId': categoryId,
@@ -129,7 +144,11 @@ class RequestDraft {
       'urgency': urgency.wire,
       if (number.isNotEmpty) 'partNumber': number,
       if (desc.isNotEmpty) 'description': desc,
-      if (manualModelRequired && model.isNotEmpty) 'vehicleModel': model,
+      if ((manualModelRequired || isCustomVehicle) && model.isNotEmpty) 'vehicleModel': model,
+      if (isCustomVehicle && make.isNotEmpty) 'vehicleMake': make,
+      if (isCustomVehicle && vehicleYear != null) 'vehicleYear': vehicleYear,
+      if (isCustomVehicle && fuel.isNotEmpty) 'vehicleFuel': fuel,
+      if (isCustomVehicle && colour.isNotEmpty) 'vehicleColour': colour,
       'imageKeys': uploadedKeys,
     };
   }
@@ -152,6 +171,11 @@ class RequestDraft {
     if (urgency != null) 'urgency': urgency?.wire,
     if (description != null) 'description': description,
     if (vehicleModel != null) 'vehicleModel': vehicleModel,
+    if (vehicleMake != null) 'vehicleMake': vehicleMake,
+    if (vehicleYear != null) 'vehicleYear': vehicleYear,
+    if (vehicleFuel != null) 'vehicleFuel': vehicleFuel,
+    if (vehicleColour != null) 'vehicleColour': vehicleColour,
+    'isCustomVehicle': isCustomVehicle,
     'manualModelRequired': manualModelRequired,
     'images': [for (final i in images) i.toJson()],
     'step': step,
@@ -172,6 +196,11 @@ class RequestDraft {
       urgency: RequestUrgency.fromWire(j['urgency'] as String?),
       description: j['description'] as String?,
       vehicleModel: j['vehicleModel'] as String?,
+      vehicleMake: j['vehicleMake'] as String?,
+      vehicleYear: (j['vehicleYear'] as num?)?.toInt(),
+      vehicleFuel: j['vehicleFuel'] as String?,
+      vehicleColour: j['vehicleColour'] as String?,
+      isCustomVehicle: j['isCustomVehicle'] == true,
       manualModelRequired: j['manualModelRequired'] == true,
       images: rawImages is List
           ? [

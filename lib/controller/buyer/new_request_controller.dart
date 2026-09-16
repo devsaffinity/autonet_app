@@ -109,6 +109,40 @@ class NewRequestController extends ApiController with WidgetsBindingObserver {
     scheduleSave();
   }
 
+  /// Switch to custom/manual vehicle entry mode.
+  void switchToCustomVehicle() {
+    draft.isCustomVehicle = true;
+    vehicle.value = const VehicleCustom();
+    scheduleSave();
+  }
+
+  /// Switch to registration plate lookup mode.
+  void switchToLookup() {
+    draft.isCustomVehicle = false;
+    vehicle.value = const VehicleIdle();
+    scheduleSave();
+  }
+
+  /// Sets custom vehicle details directly.
+  void setCustomVehicleDetails({
+    required String regNumber,
+    required String make,
+    required String model,
+    int? year,
+    String? fuel,
+    String? colour,
+  }) {
+    draft.regNumber = regNumber.trim();
+    draft.vehicleMake = make.trim();
+    draft.vehicleModel = model.trim();
+    draft.vehicleYear = year;
+    draft.vehicleFuel = fuel?.trim();
+    draft.vehicleColour = colour?.trim();
+    draft.isCustomVehicle = true;
+    vehicle.value = const VehicleCustom();
+    scheduleSave();
+  }
+
   void _lookupFailed(ApiError e, String reg) {
     if (e.code == ApiErrorCode.notFound) {
       draft.manualModelRequired = true;
@@ -170,9 +204,11 @@ class NewRequestController extends ApiController with WidgetsBindingObserver {
     draft = d ??
         RequestDraft(region: Region.fromWire(SessionStore.lastRegionWire));
     step.value = draft.step;
-    vehicle.value = draft.manualModelRequired
-        ? VehicleUnknownReg(draft.regNumber)
-        : const VehicleIdle();
+    vehicle.value = draft.isCustomVehicle
+        ? const VehicleCustom()
+        : draft.manualModelRequired
+            ? VehicleUnknownReg(draft.regNumber)
+            : const VehicleIdle();
     images.adopt(draft.images);
     // The tray BECOMES the draft's list: ONE copy of every single-use S3 key.
     draft.images = images.slots;

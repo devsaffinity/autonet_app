@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 const _stepTitles = [
-  '1/3 DVLA Check', '2/3 Part Details', '3/3 Confirm & Submit'];
+  '1/3 Vehicle Details', '2/3 Part Details', '3/3 Confirm & Submit'];
 
 /// The three-step wizard shell: a PageController, the segmented progress bar
 /// and the seven TextEditingControllers the steps write through. They live

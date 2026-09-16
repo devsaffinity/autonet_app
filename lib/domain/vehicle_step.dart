@@ -20,7 +20,8 @@ sealed class VehicleStep {
   bool get canAdvance =>
       this is VehicleResolved ||
       this is VehicleManualModel ||
-      this is VehicleUnknownReg;
+      this is VehicleUnknownReg ||
+      this is VehicleCustom;
 }
 
 final class VehicleIdle extends VehicleStep {
@@ -50,6 +51,11 @@ final class VehicleUnknownReg extends VehicleStep {
   const VehicleUnknownReg(this.reg);
 
   final String reg;
+}
+
+/// The buyer chooses to enter vehicle details manually / custom entry.
+final class VehicleCustom extends VehicleStep {
+  const VehicleCustom();
 }
 
 final class VehicleFailed extends VehicleStep {

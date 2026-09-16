@@ -201,6 +201,19 @@ class FakeVehiclesRepository implements VehiclesRepository {
     calls.add('lookup:$regNumber');
     return result ?? _none('lookup');
   }
+
+  @override
+  Future<ApiResult<VehicleLookup>> saveCustom({
+    required String regNumber,
+    required String make,
+    required String model,
+    int? year,
+    String? fuel,
+    String? colour,
+  }) async {
+    calls.add('custom:$regNumber:$make:$model');
+    return result ?? _none('saveCustom');
+  }
 }
 
 /// BlobUploader is a concrete class rather than a seam, so the fake overrides
