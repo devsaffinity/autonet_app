@@ -1,5 +1,7 @@
 import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/part_category.dart';
@@ -54,6 +56,34 @@ class _StubProfileRepository implements ProfileRepository {
     String? contact,
     String? avatarKey,
   }) => throw UnimplementedError();
+
+  @override
+  Future<ApiResult<List<ElectricianService>>> getElectricianServices() async =>
+      const Ok([]);
+
+  @override
+  Future<ApiResult<ElectricianService>> createElectricianService({
+    required String name,
+    required String price,
+    required String pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<ApiResult<ElectricianService>> updateElectricianService({
+    required String id,
+    String? name,
+    String? price,
+    String? pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+    bool? isActive,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<ApiResult<void>> deleteElectricianService(String id) async =>
+      const Ok(null);
 }
 
 final _categories = [

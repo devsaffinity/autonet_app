@@ -3,6 +3,8 @@ import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/blob_uploader.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
@@ -258,5 +260,33 @@ class _StubProfileRepository implements ProfileRepository {
     String? contact,
     String? avatarKey,
   }) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<List<ElectricianService>>> getElectricianServices() async =>
+      const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<ElectricianService>> createElectricianService({
+    required String name,
+    required String price,
+    required String pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+  }) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<ElectricianService>> updateElectricianService({
+    required String id,
+    String? name,
+    String? price,
+    String? pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+    bool? isActive,
+  }) async => const Err(ApiError.malformed('Profile repository not registered'));
+
+  @override
+  Future<ApiResult<void>> deleteElectricianService(String id) async =>
+      const Err(ApiError.malformed('Profile repository not registered'));
 }
 

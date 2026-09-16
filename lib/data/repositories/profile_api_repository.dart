@@ -1,6 +1,8 @@
 import 'package:autonect/data/core/api_client.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
@@ -98,6 +100,69 @@ class ProfileApiRepository implements ProfileRepository {
       if (avatarKey case final v? when v.trim().isNotEmpty) 'avatarKey': v.trim(),
     },
     decode: _one,
+  );
+
+  @override
+  Future<ApiResult<List<ElectricianService>>> getElectricianServices() => _c.send(
+    method: 'GET',
+    path: '/v1/electrician/services',
+    decode: (d) => [
+      for (final item in (d as List))
+        ElectricianService.fromJson((item as Map).cast<String, dynamic>()),
+    ],
+  );
+
+  @override
+  Future<ApiResult<ElectricianService>> createElectricianService({
+    required String name,
+    required String price,
+    required String pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+  }) => _c.send(
+    method: 'POST',
+    path: '/v1/electrician/services',
+    body: {
+      'name': name.trim(),
+      'price': price.trim(),
+      'pricingType': pricingType,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      if (serviceType != null) 'serviceType': serviceType.wire,
+    },
+    decode: (d) =>
+        ElectricianService.fromJson((d as Map).cast<String, dynamic>()),
+  );
+
+  @override
+  Future<ApiResult<ElectricianService>> updateElectricianService({
+    required String id,
+    String? name,
+    String? price,
+    String? pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+    bool? isActive,
+  }) => _c.send(
+    method: 'PUT',
+    path: '/v1/electrician/services/$id',
+    body: {
+      if (name != null) 'name': name.trim(),
+      if (price != null) 'price': price.trim(),
+      if (pricingType != null) 'pricingType': pricingType,
+      if (description != null) 'description': description.trim(),
+      if (serviceType != null) 'serviceType': serviceType.wire,
+      if (isActive != null) 'isActive': isActive,
+    },
+    decode: (d) =>
+        ElectricianService.fromJson((d as Map).cast<String, dynamic>()),
+  );
+
+  @override
+  Future<ApiResult<void>> deleteElectricianService(String id) => _c.send(
+    method: 'DELETE',
+    path: '/v1/electrician/services/$id',
+    decode: (_) {},
   );
 
   static MeProfile _one(Object? d) =>

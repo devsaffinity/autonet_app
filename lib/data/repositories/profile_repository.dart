@@ -1,5 +1,6 @@
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
@@ -168,4 +169,30 @@ abstract class ProfileRepository {
     String? contact,
     String? avatarKey,
   });
+
+  /// Fetches active services inventory for the current electrician provider.
+  Future<ApiResult<List<ElectricianService>>> getElectricianServices();
+
+  /// Adds a new service to the electrician provider's active inventory.
+  Future<ApiResult<ElectricianService>> createElectricianService({
+    required String name,
+    required String price,
+    required String pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+  });
+
+  /// Updates an existing service in the provider's active inventory.
+  Future<ApiResult<ElectricianService>> updateElectricianService({
+    required String id,
+    String? name,
+    String? price,
+    String? pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+    bool? isActive,
+  });
+
+  /// Removes a service from the provider's active inventory.
+  Future<ApiResult<void>> deleteElectricianService(String id);
 }

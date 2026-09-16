@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/notifications_repository.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/app_notification.dart';
 import 'package:autonect/data/core/api_error.dart';
@@ -332,6 +333,73 @@ class FakeProfileRepository implements ProfileRepository {
       'avatarKey': avatarKey,
     };
     return me();
+  }
+
+  final List<ElectricianService> fakeServices = [];
+
+  @override
+  Future<ApiResult<List<ElectricianService>>> getElectricianServices() async =>
+      Ok(List.of(fakeServices));
+
+  @override
+  Future<ApiResult<ElectricianService>> createElectricianService({
+    required String name,
+    required String price,
+    required String pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+  }) async {
+    final s = ElectricianService(
+      id: 'srv-${fakeServices.length + 1}',
+      electricianId: 'u1',
+      name: name,
+      price: price,
+      pricingType: pricingType,
+      description: description,
+      serviceType: serviceType,
+    );
+    fakeServices.add(s);
+    return Ok(s);
+  }
+
+  @override
+  Future<ApiResult<ElectricianService>> updateElectricianService({
+    required String id,
+    String? name,
+    String? price,
+    String? pricingType,
+    String? description,
+    BookingServiceType? serviceType,
+    bool? isActive,
+  }) async {
+    final idx = fakeServices.indexWhere((s) => s.id == id);
+    if (idx != -1) {
+      final existing = fakeServices[idx];
+      final updated = existing.copyWith(
+        name: name,
+        price: price,
+        pricingType: pricingType,
+        description: description,
+        serviceType: serviceType,
+        isActive: isActive,
+      );
+      fakeServices[idx] = updated;
+      return Ok(updated);
+    }
+    final s = ElectricianService(
+      id: id,
+      electricianId: 'u1',
+      name: name ?? '',
+      price: price ?? '',
+      pricingType: pricingType ?? 'Fixed Price',
+    );
+    return Ok(s);
+  }
+
+  @override
+  Future<ApiResult<void>> deleteElectricianService(String id) async {
+    fakeServices.removeWhere((s) => s.id == id);
+    return const Ok(null);
   }
 }
 
