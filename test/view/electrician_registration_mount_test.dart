@@ -5,6 +5,7 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/view/screens/electrician/profile/profile.dart';
 import 'package:autonect/view/screens/electrician/registration/service_provider_registration.dart';
@@ -127,6 +128,8 @@ void main() {
         ..dashboardResult = Ok(dashboard ?? _dashboard());
       Get.put<ProfileRepository>(profileRepo);
       Get.put<BookingsRepository>(bookings);
+      // The profile screen now also drives a notifications controller.
+      Get.put<NotificationsRepository>(FakeNotificationsRepository());
       Get.put(
         ProfileController(profileRepo, toast: (_) {}),
       );

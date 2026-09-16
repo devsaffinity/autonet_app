@@ -7,7 +7,11 @@ import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
 import 'package:autonect/data/models/provider_schedule.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/data/repositories/chat_repository.dart';
+import 'package:autonect/data/repositories/notifications_repository.dart';
+import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/view/screens/electrician/home/home.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -101,6 +105,13 @@ Future<FakeBookingsRepository> _pump(
     );
 
   Get.put<BookingsRepository>(repo);
+  // The screen grew: it now also drives profile, chat-inbox and
+  // notifications controllers, each of which resolves its own repository.
+  Get.put<ProfileRepository>(FakeProfileRepository());
+  Get.put<ChatRepository>(
+    FakeChatRepository()..inboxResult = const Ok(CursorPage<Conversation>([], null)),
+  );
+  Get.put<NotificationsRepository>(FakeNotificationsRepository());
   Get.put(
     ProviderDashboardController(
       repo,
@@ -163,7 +174,7 @@ void main() {
     await _pump(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('No bookings yet'), findsOneWidget);
+    expect(find.textContaining('No upcoming bookings'), findsOneWidget);
   });
 
   testWidgets('an unquoted booking says so rather than showing a price', (
