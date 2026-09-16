@@ -136,6 +136,16 @@ class Booking {
   /// only earn a 409. The server stays the authority.
   bool get canCancel => status?.isCancellable ?? false;
 
+  /// Whether this booking is active and upcoming (not completed and not cancelled).
+  bool get isUpcoming =>
+      status != BookingStatus.completed &&
+      status != BookingStatus.cancelled;
+
+  /// Whether this booking is in a terminal state (completed or cancelled).
+  bool get isTerminal =>
+      status == BookingStatus.completed ||
+      status == BookingStatus.cancelled;
+
   factory Booking.fromJson(Map<String, dynamic> j) {
     final provider = j['electrician'];
     final events = j['events'];

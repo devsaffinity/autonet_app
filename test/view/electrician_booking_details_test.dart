@@ -1,8 +1,5 @@
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
-import 'package:autonect/data/models/booking_enums.dart';
-import 'package:autonect/data/models/page_meta.dart';
-import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
 import 'package:flutter/material.dart';

@@ -41,6 +41,9 @@ class _FakeProfileRepository implements ProfileRepository {
     ElectricianRegistrationDraft draft,
   ) async => me();
 
+  @override
+  Future<ApiResult<MeProfile>> updateElectricianTier(String tier) async => me();
+
   // The avatar endpoints are not exercised here; the seam requires them.
   @override
   Future<ApiResult<UploadTicket>> createAvatarUploadTicket(String contentType) =>

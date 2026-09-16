@@ -702,7 +702,10 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
         Obx(() {
           final state = _bookings.state.value;
           final rows = state is Data<List<Booking>>
-              ? state.value.where((b) => b.status != BookingStatus.cancelled).take(3).toList()
+              ? (state.value.where((b) => b.isUpcoming).toList()
+                    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt)))
+                  .take(3)
+                  .toList()
               : const <Booking>[];
           return Container(
             decoration: AppStyling().myShadowDecoration(
@@ -719,7 +722,7 @@ class _ElectricianHomePageState extends State<ElectricianHomePage> {
                     child: MyText(
                       text: state is Loading<List<Booking>>
                           ? 'Loading your bookings…'
-                          : 'No bookings yet. They appear here as soon as a '
+                          : 'No upcoming bookings. They appear here as soon as a '
                                 'customer books you.',
                       size: 13,
                       weight: FontWeight.w400,

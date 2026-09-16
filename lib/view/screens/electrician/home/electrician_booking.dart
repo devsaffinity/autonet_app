@@ -59,67 +59,6 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
     );
   }
 
-  Widget _buildWeeklyForecast(int count) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(AppSizes.s20, AppSizes.s8, AppSizes.s20, AppSizes.s12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [kSecondaryColor, Color(0xffD94426)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: kSecondaryColor.withOpacity(0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Icon(
-              Icons.trending_up_rounded,
-              size: 52,
-              color: kWhiteColor.withOpacity(0.18),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              MyText(
-                text: 'Weekly Schedule',
-                size: 15,
-                weight: FontWeight.w700,
-                color: kWhiteColor,
-                paddingBottom: 2,
-              ),
-              MyText(
-                text: count == 1
-                    ? '1 active callout in your diary.'
-                    : '$count active callouts in your diary.',
-                size: 12,
-                weight: FontWeight.w400,
-                color: kWhiteColor.withOpacity(0.85),
-                paddingBottom: 8,
-              ),
-              MyText(
-                text: '$count',
-                size: 26,
-                weight: FontWeight.w900,
-                color: kWhiteColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -181,17 +120,7 @@ class _ElectricianMyBookingsPageState extends State<ElectricianMyBookingsPage> {
         }),
         ),
 
-        // Weekly schedule forecast card
-        Obx(() {
-          final count = switch (c.state.value) {
-            Data(value: final list) => list.length,
-            _ => 0,
-          };
-          if (c.filter.value == null && count > 0) {
-            return _buildWeeklyForecast(count);
-          }
-          return const SizedBox(height: AppSizes.s8);
-        }),
+        const SizedBox(height: AppSizes.s12),
 
         // Bookings list
         Expanded(child: Obx(() {
