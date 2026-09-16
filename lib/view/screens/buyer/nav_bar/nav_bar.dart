@@ -3,6 +3,7 @@ import 'package:autonect/view/screens/buyer/home/home.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/screens/buyer/orders/my_orders.dart';
 import 'package:autonect/view/screens/buyer/request/request_status_tracking.dart';
+import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/widget/role_nav_bar.dart';
 import 'package:autonect/view/widget/role_shell.dart';
@@ -85,18 +86,29 @@ class BuyerNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RoleShell(
-      items: _navItems,
-      screens: _screens,
-      initialIndex: initialIndex,
-      // Same call as Home's 'Request a Part' button and the two entry points on
-      // RequestStatusTracking — one wizard, one way in. It pushes ON TOP of the
-      // shell rather than replacing a tab, so the buyer keeps their place and
-      // Get.back() returns them to whichever tab they left.
-      centerAction: NavCenterAction(
-        semanticLabel: 'New part request',
-        onTap: () => Get.to(() => const AddPartRequestPage()),
-      ),
-    );
+    final chat = ChatInboxController.ensure();
+    return Obx(() {
+      final unread = chat.totalUnreadCount;
+      final items = [
+        _navItems[0],
+        _navItems[1],
+        _navItems[2],
+        NavItem(
+          label: 'Chat',
+          iconFill: Assets.imagesEChatFill,
+          iconOutline: Assets.imagesEChatOutline,
+          badgeCount: unread,
+        ),
+      ];
+      return RoleShell(
+        items: items,
+        screens: _screens,
+        initialIndex: initialIndex,
+        centerAction: NavCenterAction(
+          semanticLabel: 'New part request',
+          onTap: () => Get.to(() => const AddPartRequestPage()),
+        ),
+      );
+    });
   }
 }

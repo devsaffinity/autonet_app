@@ -52,13 +52,33 @@ class ChatInboxController extends ApiController {
 
   void search(String q) => query.value = q;
 
+  /// Total unread messages across all active conversations.
+  int get totalUnreadCount {
+    final s = state.value;
+    if (s is Data<List<Conversation>>) {
+      return s.value.fold<int>(0, (sum, c) => sum + c.unreadCount);
+    }
+    return 0;
+  }
+
   List<Conversation> visible(List<Conversation> all) {
+    // Deduplicate by peer so multiple bookings with the same customer never
+    // duplicate rows in the inbox list.
+    final seenPeers = <String>{};
+    final deduped = <Conversation>[];
+    for (final c in all) {
+      final pid = c.peer?.id;
+      if (pid == null || seenPeers.add(pid)) {
+        deduped.add(c);
+      }
+    }
+
     final q = query.value.trim().toLowerCase();
-    if (q.isEmpty) return all;
-    return all
+    if (q.isEmpty) return deduped;
+    return deduped
         .where(
           (c) =>
-              c.peer!.displayName.toLowerCase().contains(q) ||
+              (c.peer?.displayName ?? '').toLowerCase().contains(q) ||
               (c.lastMessage?.body ?? '').toLowerCase().contains(q),
         )
         .toList();

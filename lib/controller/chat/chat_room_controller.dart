@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/domain/view_state.dart';
@@ -10,36 +11,57 @@ import 'package:get/get.dart';
 
 /// One thread — history, sending, and receiving.
 ///
-/// RECEIVING IS POLLED, and that is a deliberate compromise rather than a
-/// finished realtime client. The server has a Socket.io gateway; this app has
-/// no socket dependency, and adding one to ship a first chat client was the
-/// larger change. Polling is honest about what it is: not instant, and it
-/// stops the moment the screen closes.
+/// RECEIVING IS LIVE, over the Socket.io gateway, with POLLING AS A FALLBACK.
+/// The socket is an optimisation, never a single point of failure: while it is
+/// disconnected the timer runs at [pollEvery], and once it connects the timer
+/// drops to [idlePollEvery] as a safety net against a silently dead socket
+/// (one that reports connected but has stopped delivering).
 ///
-/// The swap is contained: `_repo.messages` is the only source of incoming
-/// messages, so replacing this timer with a socket subscription touches this
-/// class and nothing else. The SEND path is already identical either way — it
-/// goes through the same service the gateway calls.
+/// The server broadcasts to a PER-USER room, so the stream carries every
+/// thread this user is in — [_onSocketMessage] filters to the open one.
+///
+/// Sending stays on REST. That is not a half-measure: the gateway and the HTTP
+/// route both call the same `chatService.sendMessage`, and the server now
+/// broadcasts from the resulting `message.created` event rather than from
+/// inside its socket handler, so a message sent either way reaches a connected
+/// peer identically.
 class ChatRoomController extends ApiController {
   ChatRoomController(
     this._repo, {
+    ChatSocket? socket,
     this.pollEvery = const Duration(seconds: 8),
+    this.idlePollEvery = const Duration(minutes: 2),
     super.toast,
     super.showBusy,
     super.hideBusy,
-  });
+  }) : _socket = socket;
 
   final ChatRepository _repo;
 
-  /// Injectable so a test does not wait eight seconds — and so the interval is
-  /// one named value rather than a literal buried in a timer.
+  /// Null in tests that only exercise the REST path, and on a build where the
+  /// socket could not be constructed — the controller then behaves exactly as
+  /// the polling-only version did.
+  final ChatSocket? _socket;
+
+  /// How often to re-read while there is NO live connection.
   final Duration pollEvery;
+
+  /// How often to re-read while the socket IS connected — the belt-and-braces
+  /// interval that catches a connection which has gone quiet without saying so.
+  final Duration idlePollEvery;
 
   static const StateSlot _messagesSlot = StateSlot('messages');
 
   static ChatRoomController ensure() => Get.isRegistered<ChatRoomController>()
       ? Get.find<ChatRoomController>()
-      : Get.put(ChatRoomController(Get.find<ChatRepository>()));
+      : Get.put(
+          ChatRoomController(
+            Get.find<ChatRepository>(),
+            // Optional on purpose: a test or a build without the socket
+            // registered falls back to polling rather than failing to start.
+            socket: Get.isRegistered<ChatSocket>() ? Get.find<ChatSocket>() : null,
+          ),
+        );
 
   final Rx<ViewState<List<ChatMessage>>> state =
       Rx<ViewState<List<ChatMessage>>>(const Loading());
@@ -53,6 +75,12 @@ class ChatRoomController extends ApiController {
   final RxBool sending = false.obs;
 
   Timer? _poll;
+  StreamSubscription<ChatMessage>? _incomingSub;
+  StreamSubscription<bool>? _connectionSub;
+
+  /// Whether the live connection is currently up — the screen shows this so
+  /// a user can tell "nothing is happening" from "we are not connected".
+  bool get isLive => _socket?.isConnected ?? false;
 
   /// NEWEST FIRST, matching the server and the reversed list the screen draws.
   List<ChatMessage> get _loaded => switch (state.value) {
@@ -91,10 +119,38 @@ class ChatRoomController extends ApiController {
       case Ok(:final value):
         conversation.value = value;
         await refreshMessages();
-        // Only start polling once there is a thread to poll.
+        // Only listen and poll once there is a thread to listen ABOUT.
+        _startListening();
         _startPolling();
         unawaited(markRead());
     }
+  }
+
+  /// Subscribe to the live stream and to connection changes.
+  ///
+  /// The connection subscription is what re-paces the timer: the socket
+  /// dropping silently would otherwise leave the room on the two-minute idle
+  /// interval, which reads to a user as chat having stopped working.
+  void _startListening() {
+    final socket = _socket;
+    if (socket == null) return;
+    socket.connect();
+    _incomingSub ??= socket.incoming.listen(_onSocketMessage);
+    _connectionSub ??= socket.connectionChanges.listen((_) => _startPolling());
+  }
+
+  /// A message pushed by the server.
+  ///
+  /// RE-READS rather than appending. The push proves something changed, and
+  /// the re-read is what keeps one source of truth for ordering and read
+  /// state — appending would also need dedupe against the message the sender
+  /// already has locally. The cost is one request; `runRead` supersedes, so a
+  /// burst of messages cannot pile up requests.
+  void _onSocketMessage(ChatMessage message) {
+    if (message.conversationId != conversation.value?.id) return;
+    unawaited(refreshMessages());
+    // Their message arriving while the thread is open means it has been seen.
+    if (message.senderId != myUserId.value) unawaited(markRead());
   }
 
   @override
@@ -128,8 +184,11 @@ class ChatRoomController extends ApiController {
   }
 
   void _startPolling() {
-    _stopPolling();
-    _poll = Timer.periodic(pollEvery, (_) {
+    _poll?.cancel();
+    // Live: a slow safety net. Not live: the old 8s cadence, so a dropped
+    // socket degrades to the previous behaviour instead of to silence.
+    final every = isLive ? idlePollEvery : pollEvery;
+    _poll = Timer.periodic(every, (_) {
       // A poll that lands while a send is in flight would race the optimistic
       // list; the send re-reads anyway.
       if (!sending.value) unawaited(refreshMessages());
@@ -148,6 +207,14 @@ class ChatRoomController extends ApiController {
   void _stopPolling() {
     _poll?.cancel();
     _poll = null;
+    // The socket subscriptions leak exactly the way the timer did: left alive,
+    // a closed room keeps re-reading every thread this user is in, forever.
+    // The socket itself is NOT disconnected here — it is a shared singleton and
+    // the inbox wants it too; only this room's listeners go.
+    _incomingSub?.cancel();
+    _incomingSub = null;
+    _connectionSub?.cancel();
+    _connectionSub = null;
   }
 
   /// Send, then re-read.

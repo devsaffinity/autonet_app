@@ -1,3 +1,4 @@
+import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/loading_animation.dart';
@@ -117,6 +118,12 @@ class RoleController extends GetxController {
     isLoggedIn.value = false;
     providerOnboarded.value = false;
     role.value = null;
+    // THE CHAT SOCKET AUTHENTICATES ONCE, AT CONNECT. Left open across a
+    // sign-out it keeps a live, authenticated connection for the user who just
+    // left — still receiving their messages, and reconnecting on its own with a
+    // token this device is no longer entitled to use. Registered lazily, so a
+    // build or a test without it tears down exactly as before.
+    if (Get.isRegistered<ChatSocket>()) Get.find<ChatSocket>().disconnect();
     SessionStore.clearSession();
   }
 

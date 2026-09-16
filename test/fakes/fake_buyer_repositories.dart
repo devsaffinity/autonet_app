@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/models/me_profile.dart';
@@ -24,6 +25,7 @@ import 'package:autonect/data/models/vehicle.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/providers_repository.dart';
@@ -543,5 +545,54 @@ class FakeChatRepository implements ChatRepository {
   Future<ApiResult<int>> markRead(String conversationId) async {
     calls.add('read:$conversationId');
     return markReadResult ?? const Ok(0);
+  }
+}
+
+/// The live half of chat, without a socket.
+///
+/// [push] is what a test uses to simulate the server broadcasting — it is the
+/// only way to exercise the real-time path, since a widget test has no network
+/// and no platform channels.
+class FakeChatSocket implements ChatSocket {
+  final _incoming = StreamController<ChatMessage>.broadcast();
+  final _connection = StreamController<bool>.broadcast();
+  final List<String> calls = [];
+  bool _connected = false;
+
+  @override
+  Stream<ChatMessage> get incoming => _incoming.stream;
+
+  @override
+  Stream<bool> get connectionChanges => _connection.stream;
+
+  @override
+  bool get isConnected => _connected;
+
+  @override
+  void connect() {
+    calls.add('connect');
+    _connected = true;
+    _connection.add(true);
+  }
+
+  @override
+  void disconnect() {
+    calls.add('disconnect');
+    _connected = false;
+    _connection.add(false);
+  }
+
+  /// Simulate the server pushing a message to this user.
+  void push(ChatMessage message) => _incoming.add(message);
+
+  /// Simulate the connection dropping without a clean disconnect.
+  void drop() {
+    _connected = false;
+    _connection.add(false);
+  }
+
+  void dispose() {
+    _incoming.close();
+    _connection.close();
   }
 }

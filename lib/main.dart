@@ -19,6 +19,7 @@ import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/orders_api_repository.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/data/repositories/bookings_api_repository.dart';
+import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/data/repositories/chat_api_repository.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
@@ -95,6 +96,12 @@ void main() async {
     permanent: true,
   );
   Get.put<ChatRepository>(ChatApiRepository(client, tokens), permanent: true);
+  // The live half of chat. Permanent and singular: one socket per session,
+  // shared by the inbox and whichever room is open.
+  Get.put<ChatSocket>(
+    SocketIoChatSocket(baseUrl: ApiConfig.fromEnvironment.baseUrl, tokens: tokens),
+    permanent: true,
+  );
   Get.put<ReviewsRepository>(
     ReviewsApiRepository(client, tokens),
     permanent: true,

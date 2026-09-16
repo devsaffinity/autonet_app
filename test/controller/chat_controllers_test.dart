@@ -264,7 +264,10 @@ void main() {
         () async {
       final repo = FakeChatRepository()
         ..inboxResult = Ok(
-          CursorPage<Conversation>([_conversation(), _conversation(id: 'c2')], null),
+          CursorPage<Conversation>([
+            _conversation(),
+            _conversation(id: 'c2', peerId: 'peer2'),
+          ], null),
         );
       final c = inbox(repo);
       await c.load();
@@ -307,6 +310,176 @@ void main() {
 
       expect((c.state.value as Data<List<Conversation>>).value, hasLength(2));
       expect(c.hasMore, isFalse);
+    });
+  });
+
+  _liveTests();
+}
+
+/// THE LIVE PATH.
+///
+/// Receiving used to be polling only. These pin the socket behaviour that
+/// replaced it — and, just as importantly, that the socket is an OPTIMISATION:
+/// when it is down the room must fall back to the old cadence rather than go
+/// silent.
+void _liveTests() {
+  group('live socket', () {
+    test('a pushed message for THIS thread triggers a re-read', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation())
+        ..messagesResult = Ok(_page([_message()]));
+      final socket = FakeChatSocket();
+      final c = ChatRoomController(
+        repo,
+        socket: socket,
+        pollEvery: const Duration(minutes: 5),
+        idlePollEvery: const Duration(minutes: 5),
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      final before = repo.messageReads;
+
+      socket.push(_message(id: 'm2', body: 'live one'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repo.messageReads, greaterThan(before));
+      c.onClose();
+      socket.dispose();
+    });
+
+    test('a push for ANOTHER thread is ignored', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation())
+        ..messagesResult = Ok(_page([_message()]));
+      final socket = FakeChatSocket();
+      final c = ChatRoomController(
+        repo,
+        socket: socket,
+        pollEvery: const Duration(minutes: 5),
+        idlePollEvery: const Duration(minutes: 5),
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      final before = repo.messageReads;
+
+      // The server broadcasts to a PER-USER room, so every thread this user is
+      // in arrives on one stream. Without the filter, opening one chat would
+      // re-read it every time any other chat moved.
+      socket.push(
+        ChatMessage.fromJson({
+          'id': 'x1',
+          'conversationId': 'OTHER',
+          'senderId': 'peer',
+          'createdAt': '2026-05-14T09:00:00.000Z',
+          'body': 'different thread',
+          'type': 'TEXT',
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repo.messageReads, before);
+      c.onClose();
+      socket.dispose();
+    });
+
+    test('connects on open and reports live', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation())
+        ..messagesResult = Ok(_page([_message()]));
+      final socket = FakeChatSocket();
+      final c = ChatRoomController(
+        repo,
+        socket: socket,
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+
+      expect(socket.calls, contains('connect'));
+      expect(c.isLive, isTrue);
+      c.onClose();
+      socket.dispose();
+    });
+
+    test('falls back to the fast poll when the socket drops', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation())
+        ..messagesResult = Ok(_page([_message()]));
+      final socket = FakeChatSocket();
+      final c = ChatRoomController(
+        repo,
+        socket: socket,
+        pollEvery: const Duration(milliseconds: 20),
+        idlePollEvery: const Duration(minutes: 5),
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      // Live, so the slow interval applies and nothing should poll.
+      final whileLive = repo.messageReads;
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(repo.messageReads, whileLive);
+
+      socket.drop();
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      // Dropped: back to the old cadence rather than silence.
+      expect(repo.messageReads, greaterThan(whileLive));
+      c.onClose();
+      socket.dispose();
+    });
+
+    test('closing releases the socket subscriptions', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation())
+        ..messagesResult = Ok(_page([_message()]));
+      final socket = FakeChatSocket();
+      final c = ChatRoomController(
+        repo,
+        socket: socket,
+        pollEvery: const Duration(minutes: 5),
+        idlePollEvery: const Duration(minutes: 5),
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      c.onClose();
+      final after = repo.messageReads;
+
+      socket.push(_message(id: 'm9'));
+      await Future<void>.delayed(Duration.zero);
+
+      // Left subscribed, a closed room would keep re-reading forever — the
+      // same leak the polling timer had.
+      expect(repo.messageReads, after);
+      socket.dispose();
+    });
+
+    test('with NO socket it behaves exactly as the polling version did', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation())
+        ..messagesResult = Ok(_page([_message()]));
+      final c = ChatRoomController(
+        repo,
+        pollEvery: const Duration(milliseconds: 20),
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      final before = repo.messageReads;
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+
+      expect(c.isLive, isFalse);
+      expect(repo.messageReads, greaterThan(before));
+      c.onClose();
     });
   });
 }

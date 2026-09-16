@@ -29,9 +29,11 @@ abstract class ChatRepository {
 
   /// Send over plain HTTP.
   ///
-  /// The socket gateway is untouched and unused by this client; this is the
-  /// same service call it makes, so a message sent here is persisted, bumps
-  /// the thread and notifies the peer identically.
+  /// Sending stays on HTTP even though the client now holds a socket: the
+  /// gateway and this route call the SAME chatService.sendMessage, and the
+  /// server broadcasts from the resulting message.created event — so a message
+  /// sent here reaches a connected peer just as fast as one sent over the
+  /// socket, with the ordinary HTTP error handling.
   Future<ApiResult<ChatMessage>> send({
     required String conversationId,
     required String body,

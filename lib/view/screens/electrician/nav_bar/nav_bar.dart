@@ -19,50 +19,55 @@ import 'package:flutter/material.dart';
 // shells share it for now.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'package:autonect/controller/chat/chat_inbox_controller.dart';
+import 'package:get/get.dart';
+
 class ElectricianNavBar extends StatelessWidget {
   const ElectricianNavBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const RoleShell(
-      items: [
-        NavItem(
-          label: 'Home',
-          iconFill: Assets.imagesEHomeFill,
-          iconOutline: Assets.imagesEHomeOutline,
-        ),
-        NavItem(
-          label: 'Bookings',
-          iconFill: Assets.imagesECalenderFill,
-          iconOutline: Assets.imagesECalenderOutline,
-        ),
-        // Was labelled 'Setting'; it has always rendered the booking request
-        // feed.
-        NavItem(
-          label: 'Requests',
-          iconFill: Assets.imagesESettingFill,
-          iconOutline: Assets.imagesESettingOutline,
-        ),
-        NavItem(
-          label: 'Chat',
-          iconFill: Assets.imagesEChatFill,
-          iconOutline: Assets.imagesEChatOutline,
-        ),
-        NavItem(
-          label: 'Profile',
-          iconFill: Assets.imagesProfileImage,
-          iconOutline: Assets.imagesProfileImage,
-          isAvatar: true,
-        ),
-      ],
-      screens: [
-        ElectricianHomePage(),
-        ElectricianMyBookingsPage(),
-        ElectricianBookingRequestPage(),
-        ChatHomePage(),
-        // Index 4 used to be a second ElectricianHomePage().
-        ElectricianProfilePage(),
-      ],
-    );
+    final chat = ChatInboxController.ensure();
+    return Obx(() {
+      final unread = chat.totalUnreadCount;
+      return RoleShell(
+        items: [
+          const NavItem(
+            label: 'Home',
+            iconFill: Assets.imagesEHomeFill,
+            iconOutline: Assets.imagesEHomeOutline,
+          ),
+          const NavItem(
+            label: 'Bookings',
+            iconFill: Assets.imagesECalenderFill,
+            iconOutline: Assets.imagesECalenderOutline,
+          ),
+          const NavItem(
+            label: 'Requests',
+            iconFill: Assets.imagesESettingFill,
+            iconOutline: Assets.imagesESettingOutline,
+          ),
+          NavItem(
+            label: 'Chat',
+            iconFill: Assets.imagesEChatFill,
+            iconOutline: Assets.imagesEChatOutline,
+            badgeCount: unread,
+          ),
+          const NavItem(
+            label: 'Profile',
+            iconFill: Assets.imagesProfileImage,
+            iconOutline: Assets.imagesProfileImage,
+            isAvatar: true,
+          ),
+        ],
+        screens: const [
+          ElectricianHomePage(),
+          ElectricianMyBookingsPage(),
+          ElectricianBookingRequestPage(),
+          ChatHomePage(),
+          ElectricianProfilePage(),
+        ],
+      );
+    });
   }
 }

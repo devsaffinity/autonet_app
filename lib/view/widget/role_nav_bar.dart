@@ -206,30 +206,46 @@ class _NavTabItem extends StatelessWidget {
           // the 24px glyph. Narrowest case is a 4-tab bar with a FAB on a
           // 320dp screen: (320 - 32 side - 72 slot) / 4 = 54dp. Over the 48dp
           // floor with room to spare.
-          height: _kPillHeight,
           child: Center(
-            child: CommonImageView(
-              radius: 100,
-              imagePath: isSelected ? item.iconFill : item.iconOutline,
-              height: _kIconSize,
-              width: _kIconSize,
-              // The avatar tab is a photo, not a glyph, so it crops instead of
-              // letterboxing. This used to be `index == 4`, which hard-coded
-              // the tab position.
-              fit: item.isAvatar ? BoxFit.cover : BoxFit.contain,
-              // Tint is what makes selection visible. The previous cue was a
-              // kWhiteColor 15% chip painted on kPrimaryColor — and
-              // kPrimaryColor IS #FFFFFF, so the selected tab was white on
-              // white and no tab ever looked active. Never re-introduce a
-              // white-on-white state here.
-              //
-              // Safe on these assets: every nav glyph is a 96x96 RGBA PNG, so
-              // Image.asset's default srcIn blend recolours the strokes and
-              // leaves the transparent ground alone. An avatar PHOTO must not
-              // be tinted or srcIn floods it to a flat disc.
-              imageColor: item.isAvatar
-                  ? null
-                  : (isSelected ? kSecondaryColor : kGreyTextColor),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CommonImageView(
+                  radius: 100,
+                  imagePath: isSelected ? item.iconFill : item.iconOutline,
+                  height: _kIconSize,
+                  width: _kIconSize,
+                  fit: item.isAvatar ? BoxFit.cover : BoxFit.contain,
+                  imageColor: item.isAvatar
+                      ? null
+                      : (isSelected ? kSecondaryColor : kGreyTextColor),
+                ),
+                if (item.badgeCount > 0)
+                  Positioned(
+                    right: -7,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffD94D2F),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: kPrimaryColor, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text(
+                          item.badgeCount > 99 ? '99+' : '${item.badgeCount}',
+                          style: const TextStyle(
+                            color: kWhiteColor,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -248,11 +264,15 @@ class NavItem {
   /// True for the profile tab, whose icon is a user photo and must crop.
   final bool isAvatar;
 
+  /// Optional unread badge count to show on the tab icon.
+  final int badgeCount;
+
   const NavItem({
     required this.label,
     required this.iconFill,
     required this.iconOutline,
     this.isAvatar = false,
+    this.badgeCount = 0,
   });
 }
 
