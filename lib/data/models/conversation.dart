@@ -127,6 +127,10 @@ class Conversation {
     this.peer,
     this.unreadCount = 0,
     this.lastMessage,
+    this.isPaused = false,
+    this.sessionStatus,
+    this.sessionMessage,
+    this.activeBookingId,
   });
 
   final String id;
@@ -140,6 +144,18 @@ class Conversation {
   /// in yet — which is a real state, because opening a thread creates it.
   final ChatMessage? lastMessage;
 
+  /// Whether communication in this thread is paused (e.g. booking session completed).
+  final bool isPaused;
+
+  /// Session status: ACTIVE, COMPLETED, CANCELLED, CLOSED, NONE.
+  final String? sessionStatus;
+
+  /// User-friendly message explaining the session pause state.
+  final String? sessionMessage;
+
+  /// The latest active booking id, if one exists.
+  final String? activeBookingId;
+
   bool get hasUnread => unreadCount > 0;
 
   static Conversation fromJson(Map<String, dynamic> j) {
@@ -152,6 +168,10 @@ class Conversation {
       type: ConversationType.fromWire(j['type'] as String?),
       peer: peer is Map ? ChatPeer.fromJson(peer.cast<String, dynamic>()) : null,
       unreadCount: (j['unreadCount'] as num?)?.toInt() ?? 0,
+      isPaused: j['isPaused'] as bool? ?? false,
+      sessionStatus: j['sessionStatus'] as String?,
+      sessionMessage: j['sessionMessage'] as String?,
+      activeBookingId: j['activeBookingId'] as String?,
       // The inbox projection omits id/conversationId on the last message, so it
       // is decoded loosely rather than through ChatMessage.fromJson, which
       // would throw on the missing id.

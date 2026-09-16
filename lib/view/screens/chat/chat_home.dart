@@ -59,6 +59,23 @@ class _ChatHomePageState extends State<ChatHomePage> {
             // Wired: MySearchBar defaults onChanged to a no-op, so a const one
             // renders a search box that silently does nothing.
             MySearchBar(hint: 'Search your conversations', onChanged: c.search),
+            const SizedBox(height: 12),
+            Obx(() {
+              final activeTab = c.tabFilter.value;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _filterChip('All', InboxTabFilter.all, activeTab == InboxTabFilter.all),
+                    const SizedBox(width: 8),
+                    _filterChip('Active', InboxTabFilter.active, activeTab == InboxTabFilter.active),
+                    const SizedBox(width: 8),
+                    _filterChip('Paused', InboxTabFilter.paused, activeTab == InboxTabFilter.paused),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
             Expanded(
               // Every Rx read in the closure, not in itemBuilder.
               child: Obx(() {
@@ -76,7 +93,11 @@ class _ChatHomePageState extends State<ChatHomePage> {
                     if (rows.isEmpty) {
                       return Center(
                         child: MyText(
-                          text: 'Nothing matches "$filter".',
+                          text: filter.isNotEmpty
+                              ? 'Nothing matches "$filter".'
+                              : (c.tabFilter.value == InboxTabFilter.paused
+                                  ? 'No paused conversations.'
+                                  : 'No active conversations.'),
                           size: 13,
                           weight: FontWeight.w400,
                           color: kGreyTextColor,
@@ -96,6 +117,29 @@ class _ChatHomePageState extends State<ChatHomePage> {
               }),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, InboxTabFilter filter, bool isSelected) {
+    return InkWell(
+      onTap: () => c.setTabFilter(filter),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? kSecondaryColor : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? kWhiteColor : const Color(0xFF4B5563),
+          ),
         ),
       ),
     );
@@ -163,17 +207,47 @@ class _ConversationRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MyText(
-                    text: peer?.displayName ?? 'Autonect user',
-                    size: 15,
-                    weight: FontWeight.w600,
-                    color: kBlackColor,
-                    paddingBottom: 3,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: MyText(
+                          text: peer?.displayName ?? 'Autonect user',
+                          size: 15,
+                          weight: FontWeight.w600,
+                          color: kBlackColor,
+                          maxLines: 1,
+                          paddingBottom: 3,
+                        ),
+                      ),
+                      if (conversation.isPaused) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: const Text(
+                            'PAUSED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF6B7280),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   MyText(
                     // 'Typing…' is gone: it needs a live socket, and showing it
                     // from a poll would be inventing somebody's activity.
-                    text: last?.body ?? 'No messages yet',
+                    text: conversation.isPaused && (last == null || (last.body ?? '').isEmpty)
+                        ? (conversation.sessionMessage ?? 'Session completed • Chat paused')
+                        : (last?.body ?? 'No messages yet'),
                     size: 13,
                     weight: unread > 0 ? FontWeight.w600 : FontWeight.w400,
                     color: unread > 0 ? kBlackColor : kGreyTextColor,

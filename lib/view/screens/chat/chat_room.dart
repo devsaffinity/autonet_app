@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/controller/chat/chat_room_controller.dart';
+import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/domain/date_format.dart';
+import 'package:autonect/view/screens/buyer/providers/provider_detail.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
@@ -200,85 +203,197 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 
   Widget _inputBar() {
+    return Obx(() {
+      final isPaused = c.isPaused.value;
+      if (isPaused) {
+        return _buildPausedBar();
+      }
+
+      return Container(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 10,
+          bottom: MediaQuery.of(context).padding.bottom + 10,
+        ),
+        decoration: BoxDecoration(
+          color: kPrimaryColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: kTertiaryColor,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: TextField(
+                  controller: _msgCtrl,
+                  textInputAction: TextInputAction.send,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: kBlackColor,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Type your message',
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: kGreyTextColor,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+                  ),
+                  onSubmitted: (_) => _send(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Obx(() {
+              final sending = c.sending.value;
+              return MyRippleEffect(
+                onTap: sending ? () {} : () => unawaited(_send()),
+                radius: 30,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: sending ? kGreyTextColor : kSecondaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: kWhiteColor,
+                    size: 20,
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildPausedBar() {
+    final peerId = c.conversation.value?.peer?.id;
+    final isBuyer = RoleController.to.role.value == AppRole.buyer;
+
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10,
-        bottom: MediaQuery.of(context).padding.bottom + 10,
+        left: 20,
+        right: 20,
+        top: 14,
+        bottom: MediaQuery.of(context).padding.bottom + 14,
       ),
       decoration: BoxDecoration(
-        color: kPrimaryColor,
+        color: const Color(0xFFFAFBFD),
+        border: const Border(
+          top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Container(
-              height: 50,
-              decoration: BoxDecoration(
-                color: kTertiaryColor,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: TextField(
-                controller: _msgCtrl,
-                textInputAction: TextInputAction.send,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: kBlackColor,
-                  fontWeight: FontWeight.w400,
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Type your message',
-                  hintStyle: TextStyle(
-                    fontSize: 14,
-                    color: kGreyTextColor,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
-                ),
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // The attachment paperclip and the mic are gone rather than dead:
-          // the server can take an image or a voice note, but nothing here
-          // records one or uploads it, and a button that does nothing is worse
-          // than its absence. The send arrow is what this bar can actually do.
-          Obx(() {
-            final sending = c.sending.value;
-            return MyRippleEffect(
-              // MyRippleEffect takes a plain VoidCallback, so the send is
-              // fired rather than awaited here. `sending` greys the button and
-              // the controller drops a re-entrant send regardless.
-              onTap: sending ? () {} : () => unawaited(_send()),
-              radius: 30,
-              child: Container(
-                width: 48,
-                height: 48,
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: sending ? kGreyTextColor : kSecondaryColor,
+                  color: const Color(0xFFFFF7ED),
                   shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFEDD5)),
                 ),
                 child: const Icon(
-                  Icons.send_rounded,
-                  color: kWhiteColor,
-                  size: 20,
+                  Icons.pause_circle_outline_rounded,
+                  size: 22,
+                  color: kSecondaryColor,
                 ),
               ),
-            );
-          }),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MyText(
+                      text: isBuyer
+                          ? 'Session Completed • Chat Paused'
+                          : 'Job Completed • Chat Paused',
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: kBlackColor,
+                    ),
+                    const SizedBox(height: 2),
+                    MyText(
+                      text: isBuyer
+                          ? (c.sessionMessage.value ??
+                              'Booking session has ended. Book again to resume messaging.')
+                          : 'This booking session has ended. Messaging will resume once the customer books again.',
+                      size: 11,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (isBuyer && peerId != null && widget.type == ConversationType.booking) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () {
+                  Get.to(() => ProviderDetailPage(providerId: peerId));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kSecondaryColor,
+                  foregroundColor: kWhiteColor,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.calendar_today_rounded, size: 16, color: kWhiteColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Book Again to Resume Chat',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: kWhiteColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

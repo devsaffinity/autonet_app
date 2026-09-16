@@ -28,6 +28,9 @@ abstract class ChatSocket {
   /// drops rather than sitting silent.
   Stream<bool> get connectionChanges;
 
+  /// Live conversation session status changes (paused/resumed).
+  Stream<Map<String, dynamic>> get statusChanges;
+
   void connect();
   void disconnect();
 }
@@ -50,6 +53,8 @@ class SocketIoChatSocket implements ChatSocket {
   final StreamController<ChatMessage> _incoming =
       StreamController<ChatMessage>.broadcast();
   final StreamController<bool> _connection = StreamController<bool>.broadcast();
+  final StreamController<Map<String, dynamic>> _statusChanges =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   bool _connected = false;
 
@@ -58,6 +63,9 @@ class SocketIoChatSocket implements ChatSocket {
 
   @override
   Stream<bool> get connectionChanges => _connection.stream;
+
+  @override
+  Stream<Map<String, dynamic>> get statusChanges => _statusChanges.stream;
 
   @override
   bool get isConnected => _connected;
@@ -100,6 +108,15 @@ class SocketIoChatSocket implements ChatSocket {
         // A payload this build cannot decode must not kill the stream — the
         // room still has polling behind it.
         debugPrint('chat socket decode failed: $e');
+      }
+    });
+
+    socket.on('conversation:status', (data) {
+      if (data is! Map) return;
+      try {
+        _statusChanges.add(data.cast<String, dynamic>());
+      } catch (e) {
+        debugPrint('chat socket status decode failed: $e');
       }
     });
 

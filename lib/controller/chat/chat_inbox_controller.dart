@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/chat_repository.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:get/get.dart';
+
+enum InboxTabFilter { all, active, paused }
 
 /// The inbox — `GET /v1/conversations`.
 ///
@@ -15,12 +20,16 @@ import 'package:get/get.dart';
 class ChatInboxController extends ApiController {
   ChatInboxController(
     this._repo, {
+    ChatSocket? socket,
     super.toast,
     super.showBusy,
     super.hideBusy,
-  });
+  }) : _socket = socket;
 
   final ChatRepository _repo;
+  final ChatSocket? _socket;
+  StreamSubscription<ChatMessage>? _incomingSub;
+  StreamSubscription<Map<String, dynamic>>? _statusSub;
 
   static const StateSlot _slot = StateSlot('inbox');
 
@@ -31,6 +40,7 @@ class ChatInboxController extends ApiController {
             Get.isRegistered<ChatRepository>()
                 ? Get.find<ChatRepository>()
                 : const _StubChatRepository(),
+            socket: Get.isRegistered<ChatSocket>() ? Get.find<ChatSocket>() : null,
           ),
         );
 
@@ -44,13 +54,26 @@ class ChatInboxController extends ApiController {
   bool get hasMore => _cursor != null;
 
   /// What the user has typed into the search field.
-  ///
-  /// Filtered CLIENT-SIDE over what is loaded, because the endpoint has no
-  /// search and inventing one would mean paging the whole inbox to answer.
-  /// Honest limit, and it is why the field says 'Search loaded threads'.
   final RxString query = ''.obs;
 
   void search(String q) => query.value = q;
+
+  /// Current tab filter: All, Active, Paused.
+  final Rx<InboxTabFilter> tabFilter = InboxTabFilter.all.obs;
+
+  void setTabFilter(InboxTabFilter filter) => tabFilter.value = filter;
+
+  @override
+  void onInit() {
+    super.onInit();
+    load();
+    final socket = _socket;
+    if (socket != null) {
+      socket.connect();
+      _incomingSub ??= socket.incoming.listen((_) => load());
+      _statusSub ??= socket.statusChanges.listen((_) => load());
+    }
+  }
 
   /// Total unread messages across all active conversations.
   int get totalUnreadCount {
@@ -73,9 +96,17 @@ class ChatInboxController extends ApiController {
       }
     }
 
+    // Filter by tab: All / Active / Paused
+    final tab = tabFilter.value;
+    final tabFiltered = switch (tab) {
+      InboxTabFilter.all => deduped,
+      InboxTabFilter.active => deduped.where((c) => !c.isPaused).toList(),
+      InboxTabFilter.paused => deduped.where((c) => c.isPaused).toList(),
+    };
+
     final q = query.value.trim().toLowerCase();
-    if (q.isEmpty) return deduped;
-    return deduped
+    if (q.isEmpty) return tabFiltered;
+    return tabFiltered
         .where(
           (c) =>
               (c.peer?.displayName ?? '').toLowerCase().contains(q) ||
@@ -124,6 +155,13 @@ class ChatInboxController extends ApiController {
     } finally {
       loadingMore.value = false;
     }
+  }
+
+  @override
+  void onClose() {
+    _incomingSub?.cancel();
+    _statusSub?.cancel();
+    super.onClose();
   }
 }
 

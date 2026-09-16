@@ -15,7 +15,13 @@ import '../fakes/fake_buyer_repositories.dart';
 /// booking or an offer — and never by naming a recipient. That is what stops
 /// anybody opening a conversation with a stranger, and it is invisible from
 /// the screen, so it is asserted here.
-Conversation _conversation({String id = 'c1', String peerId = 'peer'}) =>
+Conversation _conversation({
+  String id = 'c1',
+  String peerId = 'peer',
+  bool isPaused = false,
+  String sessionStatus = 'ACTIVE',
+  String? sessionMessage,
+}) =>
     Conversation.fromJson({
       'id': id,
       'type': 'BOOKING',
@@ -23,6 +29,9 @@ Conversation _conversation({String id = 'c1', String peerId = 'peer'}) =>
       'lastMessageAt': '2026-05-14T09:00:00.000Z',
       'peer': {'id': peerId, 'name': 'Priya Raman'},
       'unreadCount': 2,
+      'isPaused': isPaused,
+      'sessionStatus': sessionStatus,
+      'sessionMessage': sessionMessage,
     });
 
 ChatMessage _message({
@@ -147,6 +156,38 @@ void main() {
 
       expect(await c.send('   '), isFalse);
       expect(repo.calls, isEmpty);
+    });
+
+    test('a paused room rejects send and displays toast without calling network', () async {
+      String? toasted;
+      final repo = FakeChatRepository()
+        ..openResult = Ok(
+          _conversation(
+            isPaused: true,
+            sessionStatus: 'COMPLETED',
+            sessionMessage: 'Session completed. Chat paused.',
+          ),
+        )
+        ..messagesResult = Ok(_page([_message()]));
+      final c = ChatRoomController(
+        repo,
+        pollEvery: const Duration(minutes: 5),
+        toast: (msg) => toasted = msg,
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      repo.calls.clear();
+
+      expect(c.isPaused.value, isTrue);
+      expect(c.sessionStatus.value, 'COMPLETED');
+      expect(c.sessionMessage.value, 'Session completed. Chat paused.');
+
+      final sent = await c.send('hello after session');
+
+      expect(sent, isFalse);
+      expect(repo.calls, isEmpty);
+      expect(toasted, contains('Session completed'));
     });
 
     test('a failed refresh does NOT blank a thread already on screen', () async {
@@ -279,6 +320,30 @@ void main() {
       expect(c.visible(all), isEmpty);
     });
 
+    test('tabFilter properly separates active vs paused conversations', () async {
+      final repo = FakeChatRepository()
+        ..inboxResult = Ok(
+          CursorPage<Conversation>([
+            _conversation(id: 'c1', peerId: 'peer1', isPaused: false),
+            _conversation(id: 'c2', peerId: 'peer2', isPaused: true),
+          ], null),
+        );
+      final c = inbox(repo);
+      await c.load();
+      final all = (c.state.value as Data<List<Conversation>>).value;
+
+      c.setTabFilter(InboxTabFilter.all);
+      expect(c.visible(all), hasLength(2));
+
+      c.setTabFilter(InboxTabFilter.active);
+      expect(c.visible(all), hasLength(1));
+      expect(c.visible(all).first.id, 'c1');
+
+      c.setTabFilter(InboxTabFilter.paused);
+      expect(c.visible(all), hasLength(1));
+      expect(c.visible(all).first.id, 'c2');
+    });
+
     test('stops paging when the server offers no cursor', () async {
       final repo = FakeChatRepository()
         ..inboxResult = Ok(CursorPage<Conversation>([_conversation()], null));
@@ -345,6 +410,50 @@ void _liveTests() {
       await Future<void>.delayed(Duration.zero);
 
       expect(repo.messageReads, greaterThan(before));
+      c.onClose();
+      socket.dispose();
+    });
+
+    test('live socket status changes update room paused status in real-time', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation(isPaused: false))
+        ..messagesResult = Ok(_page([_message()]));
+      final socket = FakeChatSocket();
+      final c = ChatRoomController(
+        repo,
+        socket: socket,
+        pollEvery: const Duration(minutes: 5),
+        idlePollEvery: const Duration(minutes: 5),
+        toast: (_) {},
+        showBusy: () {},
+        hideBusy: () {},
+      );
+      await c.openForBooking('bk1');
+      expect(c.isPaused.value, isFalse);
+
+      socket.pushStatus({
+        'conversationId': 'c1',
+        'isPaused': true,
+        'sessionStatus': 'COMPLETED',
+        'sessionMessage': 'Session completed. Chat paused.',
+      });
+      await Future<void>.delayed(Duration.zero);
+
+      expect(c.isPaused.value, isTrue);
+      expect(c.sessionStatus.value, 'COMPLETED');
+      expect(c.sessionMessage.value, 'Session completed. Chat paused.');
+
+      // Now resume when customer books again
+      socket.pushStatus({
+        'conversationId': 'c1',
+        'isPaused': false,
+        'sessionStatus': 'ACTIVE',
+      });
+      await Future<void>.delayed(Duration.zero);
+
+      expect(c.isPaused.value, isFalse);
+      expect(c.sessionStatus.value, 'ACTIVE');
+
       c.onClose();
       socket.dispose();
     });

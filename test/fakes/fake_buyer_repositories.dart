@@ -632,6 +632,7 @@ class FakeChatRepository implements ChatRepository {
 class FakeChatSocket implements ChatSocket {
   final _incoming = StreamController<ChatMessage>.broadcast();
   final _connection = StreamController<bool>.broadcast();
+  final _statusChanges = StreamController<Map<String, dynamic>>.broadcast();
   final List<String> calls = [];
   bool _connected = false;
 
@@ -640,6 +641,11 @@ class FakeChatSocket implements ChatSocket {
 
   @override
   Stream<bool> get connectionChanges => _connection.stream;
+
+  @override
+  Stream<Map<String, dynamic>> get statusChanges => _statusChanges.stream;
+
+  void pushStatus(Map<String, dynamic> status) => _statusChanges.add(status);
 
   @override
   bool get isConnected => _connected;

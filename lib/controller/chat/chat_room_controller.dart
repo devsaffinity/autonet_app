@@ -72,11 +72,24 @@ class ChatRoomController extends ApiController {
   /// Who I am, for deciding which side of the thread a bubble sits on.
   final RxnString myUserId = RxnString();
 
+  /// Whether communication in this thread is paused (e.g. session completed).
+  final RxBool isPaused = false.obs;
+
+  /// Session status: ACTIVE, COMPLETED, CANCELLED, CLOSED, NONE.
+  final RxnString sessionStatus = RxnString();
+
+  /// User-facing message explaining the session pause state.
+  final RxnString sessionMessage = RxnString();
+
+  /// Latest active booking id, if one exists.
+  final RxnString activeBookingId = RxnString();
+
   final RxBool sending = false.obs;
 
   Timer? _poll;
   StreamSubscription<ChatMessage>? _incomingSub;
   StreamSubscription<bool>? _connectionSub;
+  StreamSubscription<Map<String, dynamic>>? _statusSub;
 
   /// Whether the live connection is currently up — the screen shows this so
   /// a user can tell "nothing is happening" from "we are not connected".
@@ -118,6 +131,10 @@ class ChatRoomController extends ApiController {
         state.value = Failed(error);
       case Ok(:final value):
         conversation.value = value;
+        isPaused.value = value.isPaused;
+        sessionStatus.value = value.sessionStatus;
+        sessionMessage.value = value.sessionMessage;
+        activeBookingId.value = value.activeBookingId;
         await refreshMessages();
         // Only listen and poll once there is a thread to listen ABOUT.
         _startListening();
@@ -137,6 +154,22 @@ class ChatRoomController extends ApiController {
     socket.connect();
     _incomingSub ??= socket.incoming.listen(_onSocketMessage);
     _connectionSub ??= socket.connectionChanges.listen((_) => _startPolling());
+    _statusSub ??= socket.statusChanges.listen(_onSocketStatus);
+  }
+
+  void _onSocketStatus(Map<String, dynamic> data) {
+    final convId = data['conversationId'] as String?;
+    if (convId != null && convId != conversation.value?.id) return;
+    if (data.containsKey('isPaused')) {
+      isPaused.value = data['isPaused'] as bool? ?? false;
+    }
+    if (data.containsKey('sessionStatus')) {
+      sessionStatus.value = data['sessionStatus'] as String?;
+    }
+    if (data.containsKey('sessionMessage')) {
+      sessionMessage.value = data['sessionMessage'] as String?;
+    }
+    unawaited(refreshMessages());
   }
 
   /// A message pushed by the server.
@@ -158,6 +191,10 @@ class ChatRoomController extends ApiController {
   void resetForEntity() {
     _stopPolling();
     myUserId.value = null;
+    isPaused.value = false;
+    sessionStatus.value = null;
+    sessionMessage.value = null;
+    activeBookingId.value = null;
   }
 
   Future<void> refreshMessages() {
@@ -215,6 +252,8 @@ class ChatRoomController extends ApiController {
     _incomingSub = null;
     _connectionSub?.cancel();
     _connectionSub = null;
+    _statusSub?.cancel();
+    _statusSub = null;
   }
 
   /// Send, then re-read.
@@ -225,6 +264,10 @@ class ChatRoomController extends ApiController {
   Future<bool> send(String body) async {
     final id = conversation.value?.id;
     if (id == null || body.trim().isEmpty || sending.value) return false;
+    if (isPaused.value) {
+      toast(sessionMessage.value ?? 'Chat is paused because the booking session has ended. Book again to resume.');
+      return false;
+    }
 
     sending.value = true;
     try {
