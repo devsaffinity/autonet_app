@@ -86,23 +86,14 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
       return;
     }
 
-    final confirmed = await _showConfirmDialog(
-      title: 'Switch to Free Tier',
-      message:
-          'Switching to Free will disable direct client lead acceptance. Are you sure you want to switch?',
-    );
-    if (confirmed != true || !mounted) return;
+    if (current == 'PRO') {
+      await _showCancelProDialog();
+      return;
+    }
 
-    setState(() => _updating = true);
-    try {
-      final success = await _profile.updateElectricianTier('FREE');
-      if (success) {
-        displayToast(msg: 'Switched to Free plan');
-      } else {
-        displayToast(msg: 'Failed to update access tier');
-      }
-    } finally {
-      if (mounted) setState(() => _updating = false);
+    if (current == 'PAY_PER_LEAD') {
+      await _showCancelPayPerLeadDialog();
+      return;
     }
   }
 
@@ -294,30 +285,9 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
             ),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(ctx).pop();
-              final confirmCancel = await _showConfirmDialog(
-                title: 'Cancel Pro Subscription',
-                message:
-                    'Your Pro subscription will be scheduled to cancel at the end of the billing cycle. You will keep your benefits until then.',
-              );
-              if (confirmCancel == true) {
-                setState(() => _updating = true);
-                try {
-                  final res = await _billing.cancelSubscription();
-                  switch (res) {
-                    case Ok():
-                      displayToast(msg: 'Cancellation scheduled at period end');
-                    case Err(:final error):
-                      displayToast(msg: error.message);
-                  }
-                } finally {
-                  if (mounted) {
-                    setState(() => _updating = false);
-                    _profile.load();
-                  }
-                }
-              }
+              _showCancelProDialog();
             },
             child: const MyText(
               text: 'Cancel Pro',
@@ -329,6 +299,52 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showCancelProDialog() async {
+    final confirmCancel = await _showConfirmDialog(
+      title: 'Cancel Pro Subscription',
+      message:
+          'Your Pro subscription will be scheduled to cancel at the end of the current billing cycle. You will keep your benefits (unlimited leads and PRO badge) until then. Are you sure you want to cancel?',
+    );
+    if (confirmCancel != true || !mounted) return;
+
+    setState(() => _updating = true);
+    try {
+      final res = await _billing.cancelSubscription();
+      switch (res) {
+        case Ok():
+          displayToast(msg: 'Subscription cancellation scheduled at period end');
+        case Err(:final error):
+          displayToast(msg: error.message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _updating = false);
+        _profile.load();
+      }
+    }
+  }
+
+  Future<void> _showCancelPayPerLeadDialog() async {
+    final confirmed = await _showConfirmDialog(
+      title: 'Cancel Pay-Per-Lead Plan',
+      message:
+          'Switching to Free will disable direct client lead acceptance. Your existing purchased credits will remain safely in your account for future use. Are you sure you want to switch to Free?',
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _updating = true);
+    try {
+      final success = await _profile.updateElectricianTier('FREE');
+      if (success) {
+        displayToast(msg: 'Switched to Free tier');
+      } else {
+        displayToast(msg: 'Failed to update plan');
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
   }
 
   void _showBuyCreditsSheet() {
@@ -526,6 +542,58 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
                             ),
                           ],
                         ),
+                        if (isPro || (ep?.hasActiveSubscription ?? false)) ...[
+                          const SizedBox(height: 14),
+                          const Divider(height: 1),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  MyText(
+                                    text: 'Pro Subscription',
+                                    size: 12,
+                                    color: kGreyTextColor,
+                                  ),
+                                  SizedBox(height: 2),
+                                  MyText(
+                                    text: '£149 / month',
+                                    size: 16,
+                                    weight: FontWeight.w800,
+                                    color: kBlackColor,
+                                  ),
+                                ],
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: kRedColor,
+                                  side: const BorderSide(color: kRedColor),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                onPressed: _showCancelProDialog,
+                                icon: const Icon(
+                                  Icons.cancel_outlined,
+                                  size: 16,
+                                  color: kRedColor,
+                                ),
+                                label: const MyText(
+                                  text: 'Cancel Plan',
+                                  size: 13,
+                                  weight: FontWeight.w700,
+                                  color: kRedColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (isPayPerLead) ...[
                           const SizedBox(height: 14),
                           const Divider(height: 1),
@@ -550,29 +618,55 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
                                   ),
                                 ],
                               ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: kSecondaryColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: kRedColor,
+                                      side: const BorderSide(color: kRedColor),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    onPressed: _showCancelPayPerLeadDialog,
+                                    child: const MyText(
+                                      text: 'Cancel Plan',
+                                      size: 13,
+                                      weight: FontWeight.w700,
+                                      color: kRedColor,
+                                    ),
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: kSecondaryColor,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    onPressed: _showBuyCreditsSheet,
+                                    icon: const Icon(
+                                      Icons.add_shopping_cart_rounded,
+                                      size: 16,
+                                      color: kWhiteColor,
+                                    ),
+                                    label: const MyText(
+                                      text: 'Buy Credits',
+                                      size: 13,
+                                      weight: FontWeight.w700,
+                                      color: kWhiteColor,
+                                    ),
                                   ),
-                                ),
-                                onPressed: _showBuyCreditsSheet,
-                                icon: const Icon(
-                                  Icons.add_shopping_cart_rounded,
-                                  size: 16,
-                                  color: kWhiteColor,
-                                ),
-                                label: const MyText(
-                                  text: 'Buy Credits',
-                                  size: 13,
-                                  weight: FontWeight.w700,
-                                  color: kWhiteColor,
-                                ),
+                                ],
                               ),
                             ],
                           ),
