@@ -33,6 +33,13 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
     _notifications.refreshUnread();
   }
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning,';
+    if (hour < 17) return 'Good afternoon,';
+    return 'Good evening,';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -41,7 +48,7 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
           final me = _profile.me;
           final avatar = me?.avatarUrl;
           final business =
-              me?.supplierProfile?.businessName ?? me?.name ?? 'Alpha Auto Parts';
+              me?.supplierProfile?.businessName ?? me?.name ?? 'Supplier';
           return Semantics(
             button: true,
             label: 'Profile',
@@ -92,13 +99,14 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
           child: Obx(() {
             final me = _profile.me;
             final business =
-                me?.supplierProfile?.businessName ?? me?.name ?? 'Alpha Auto Parts';
+                me?.supplierProfile?.businessName ?? me?.name ?? 'Supplier';
+            final isVerified = me?.supplierProfile?.approved == true;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 MyText(
-                  text: 'Good morning,',
+                  text: _greeting(),
                   size: 13,
                   weight: FontWeight.w400,
                   color: const Color(0xFF757575),
@@ -116,12 +124,14 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
                         textOverflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 5),
-                    const Icon(
-                      Icons.verified,
-                      size: 16,
-                      color: Color(0xFF2196F3),
-                    ),
+                    if (isVerified) ...[
+                      const SizedBox(width: 5),
+                      const Icon(
+                        Icons.verified,
+                        size: 16,
+                        color: Color(0xFF2196F3),
+                      ),
+                    ],
                   ],
                 ),
               ],

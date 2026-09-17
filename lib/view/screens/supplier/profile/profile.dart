@@ -58,11 +58,20 @@ class _SupplierProfilePageState extends State<SupplierProfilePage> {
           children: [
             Obx(() {
               final me = _profile.me;
+              final sp = me?.supplierProfile;
               final business =
-                  me?.supplierProfile?.businessName ?? me?.name ?? 'Supplier';
+                  sp?.businessName ?? me?.name ?? 'Supplier';
               final avatar = me?.avatarUrl;
               final kycStatus =
-                  me?.supplierProfile?.kycStatus?.wire ?? 'SUBMITTED';
+                  sp?.kycStatus?.wire ?? 'SUBMITTED';
+              final ratingAvg = sp?.ratingAvg ?? 0.0;
+              final ratingCount = sp?.ratingCount ?? 0;
+              final isVerified = sp?.approved == true;
+              final ratingStr =
+                  ratingCount > 0 ? ratingAvg.toStringAsFixed(1) : 'New';
+              final ratingSub = ratingCount > 0
+                  ? ' ($ratingCount ${ratingCount == 1 ? 'review' : 'reviews'})'
+                  : (isVerified ? ' (Verified)' : '');
 
               return SupplierCard(
                 child: Row(
@@ -154,17 +163,18 @@ class _SupplierProfilePageState extends State<SupplierProfilePage> {
                               ),
                               const SizedBox(width: 4),
                               MyText(
-                                text: '4.8',
+                                text: ratingStr,
                                 size: 14,
                                 weight: FontWeight.w600,
                                 color: kBlackColor,
                               ),
-                              MyText(
-                                text: ' (Verified Supplier)',
-                                size: 12,
-                                weight: FontWeight.w400,
-                                color: kGreyTextColor,
-                              ),
+                              if (ratingSub.isNotEmpty)
+                                MyText(
+                                  text: ratingSub,
+                                  size: 12,
+                                  weight: FontWeight.w400,
+                                  color: kGreyTextColor,
+                                ),
                             ],
                           ),
                           const SizedBox(height: 6),

@@ -20,10 +20,8 @@ class SupplierHighlightsCard extends StatelessWidget {
       final balance = controller.creditBalance;
       final isSubscribed = controller.isSubscribed;
       final earningsPence = controller.todaysEarningsPence;
-      final earningsStr = earningsPence > 0
-          ? '£${(earningsPence / 100).toStringAsFixed(2)}'
-          : '\$245.00';
-      final planStr = isSubscribed ? 'Pro Supplier' : 'Pro Supplier';
+      final earningsStr = '£${(earningsPence / 100).toStringAsFixed(2)}';
+      final planStr = isSubscribed ? 'Pro Supplier' : 'Standard';
 
       return Container(
         width: double.infinity,
@@ -58,7 +56,7 @@ class SupplierHighlightsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   MyText(
-                    text: balance > 0 ? '$balance' : '120',
+                    text: '$balance',
                     size: 18,
                     weight: FontWeight.w800,
                     color: kBlackColor,
