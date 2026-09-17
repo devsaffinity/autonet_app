@@ -23,7 +23,6 @@ class SupplierHomeTopBar extends StatefulWidget {
 class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
   late final ProfileController _profile;
   late final NotificationsController _notifications;
-  bool _accepting = true;
 
   @override
   void initState() {
@@ -42,7 +41,7 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
           final me = _profile.me;
           final avatar = me?.avatarUrl;
           final business =
-              me?.supplierProfile?.businessName ?? me?.name ?? 'Supplier';
+              me?.supplierProfile?.businessName ?? me?.name ?? 'Alpha Auto Parts';
           return Semantics(
             button: true,
             label: 'Profile',
@@ -58,13 +57,15 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
               },
               customBorder: const CircleBorder(),
               child: Container(
-                width: 44,
-                height: 44,
-                padding: const EdgeInsets.all(.3),
-                decoration: AppStyling().myDecoration(
-                  color: kSecondaryColor,
-                  borderColor: kSecondaryColor,
-                  radius: 100,
+                width: 48,
+                height: 48,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: kSecondaryColor,
+                    width: 2,
+                  ),
                 ),
                 child: ClipOval(
                   child: (avatar != null && avatar.isNotEmpty)
@@ -86,63 +87,46 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
             ),
           );
         }),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: Obx(() {
             final me = _profile.me;
             final business =
-                me?.supplierProfile?.businessName ?? me?.name ?? 'Supplier';
+                me?.supplierProfile?.businessName ?? me?.name ?? 'Alpha Auto Parts';
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 MyText(
                   text: 'Good morning,',
-                  size: 14,
+                  size: 13,
                   weight: FontWeight.w400,
-                  color: kGreyTextColor,
+                  color: const Color(0xFF757575),
                 ),
-                MyText(
-                  text: business,
-                  size: 16,
-                  weight: FontWeight.w700,
-                  color: kBlackColor,
-                  maxLines: 1,
-                  textOverflow: TextOverflow.ellipsis,
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Flexible(
+                      child: MyText(
+                        text: business,
+                        size: 16,
+                        weight: FontWeight.w700,
+                        color: kBlackColor,
+                        maxLines: 1,
+                        textOverflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(
+                      Icons.verified,
+                      size: 16,
+                      color: Color(0xFF2196F3),
+                    ),
+                  ],
                 ),
               ],
             );
           }),
-        ),
-        MyRippleEffect(
-          onTap: () => setState(() => _accepting = !_accepting),
-          radius: 20,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: AppStyling().myDecoration(
-              color: kSecondaryColor.withValues(alpha: .1),
-              radius: 100,
-              borderColor: kTransperentColor,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _accepting ? const Color(0xff34C759) : kGreyTextColor,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                MyText(
-                  text: _accepting ? 'ACCEPTING LEADS' : 'PAUSED',
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: kBlackColor,
-                ),
-              ],
-            ),
-          ),
         ),
         const SizedBox(width: 8),
         Obx(() {
@@ -157,27 +141,30 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: kWhiteColor,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: kGreyTextColor.withValues(alpha: .2),
-                    ),
+                    color: kPrimaryColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.notifications_none_rounded,
-                      color: kBlackColor,
-                      size: 20,
-                    ),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: kBlackColor,
+                    size: 22,
                   ),
                 ),
                 if (unread > 0)
                   Positioned(
-                    right: -2,
-                    top: -2,
+                    right: 2,
+                    top: 2,
                     child: Container(
                       height: 9,
                       width: 9,

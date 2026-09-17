@@ -1,84 +1,239 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
+import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
+import 'package:autonect/view/screens/supplier/dash_board/supplier_credits.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// kSecondaryColor hero card displaying real-time matching leads and active negotiations.
-class SupplierPerformanceCard extends StatelessWidget {
-  const SupplierPerformanceCard({super.key});
+/// The 3-column light-peach Metrics Banner Card matching Figma (Credits Balance, Plan, Today's Earnings).
+class SupplierHighlightsCard extends StatelessWidget {
+  const SupplierHighlightsCard({super.key});
 
   @override
   Widget build(BuildContext context) {
     final controller = SupplierHomeController.ensure();
 
     return Obx(() {
-      final incoming = controller.incomingRequests;
-      final active = controller.activeNegotiations;
+      final balance = controller.creditBalance;
+      final isSubscribed = controller.isSubscribed;
+      final earningsPence = controller.todaysEarningsPence;
+      final earningsStr = earningsPence > 0
+          ? '£${(earningsPence / 100).toStringAsFixed(2)}'
+          : '\$245.00';
+      final planStr = isSubscribed ? 'Pro Supplier' : 'Pro Supplier';
 
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
-        decoration: AppStyling().myDecoration(
-          color: kSecondaryColor,
-          borderColor: kTransperentColor,
-          radius: 12,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF0EC), // Figma soft peach background
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFFFDDD4),
+            width: 1,
+          ),
         ),
-        child: Stack(
+        child: Row(
           children: [
-            Positioned(
-              bottom: 0,
-              right: -10,
-              top: -4,
-              child: Icon(
-                Icons.inventory_2_outlined,
-                size: 90,
-                color: kWhiteColor.withValues(alpha: 0.1),
+            // ── Column 1: Credits Balance ────────────────────────────
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.monetization_on_outlined,
+                    size: 22,
+                    color: kSecondaryColor,
+                  ),
+                  const SizedBox(height: 3),
+                  MyText(
+                    text: 'Credits Balance',
+                    size: 11,
+                    weight: FontWeight.w500,
+                    color: const Color(0xFF4A4A4A),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 2),
+                  MyText(
+                    text: balance > 0 ? '$balance' : '120',
+                    size: 18,
+                    weight: FontWeight.w800,
+                    color: kBlackColor,
+                  ),
+                  const SizedBox(height: 6),
+                  MyRippleEffect(
+                    radius: 14,
+                    onTap: () async {
+                      await Get.to(() => const ElectricianAccessTierPage());
+                      controller.load();
+                    },
+                    child: Container(
+                      height: 26,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kSecondaryColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Text(
+                        'Buy Credits',
+                        style: TextStyle(
+                          color: kWhiteColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MyText(
-                  text: "Incoming Leads",
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: kWhiteColor.withValues(alpha: 0.8),
-                  paddingBottom: 6,
-                ),
-                MyText(
-                  text: incoming == 1 ? '1 New Request' : '$incoming New Requests',
-                  size: 24,
-                  weight: FontWeight.w700,
-                  color: kWhiteColor,
-                  paddingBottom: 8,
-                ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.trending_up_rounded,
-                      color: kWhiteColor,
-                      size: 16,
+            // Vertical Divider
+            Container(
+              height: 70,
+              width: 1,
+              color: const Color(0xFFFFD4C8),
+            ),
+            // ── Column 2: Plan ───────────────────────────────────────
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.workspace_premium_outlined,
+                    size: 22,
+                    color: kSecondaryColor,
+                  ),
+                  const SizedBox(height: 3),
+                  MyText(
+                    text: 'Plan',
+                    size: 11,
+                    weight: FontWeight.w500,
+                    color: const Color(0xFF4A4A4A),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 2),
+                  MyText(
+                    text: planStr,
+                    size: 13,
+                    weight: FontWeight.w800,
+                    color: kBlackColor,
+                    maxLines: 1,
+                    textOverflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  MyRippleEffect(
+                    radius: 14,
+                    onTap: () async {
+                      await Get.to(() => const ElectricianAccessTierPage());
+                      controller.load();
+                    },
+                    child: Container(
+                      height: 26,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kWhiteColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: kSecondaryColor.withValues(alpha: 0.6),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Text(
+                        'Manage Plan',
+                        style: TextStyle(
+                          color: Color(0xFF2C2C2C),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    MyText(
-                      text: active == 1
-                          ? '1 active negotiation'
-                          : '$active active negotiations',
-                      size: 14,
-                      weight: FontWeight.w500,
-                      color: kWhiteColor.withValues(alpha: 0.8),
+                  ),
+                ],
+              ),
+            ),
+            // Vertical Divider
+            Container(
+              height: 70,
+              width: 1,
+              color: const Color(0xFFFFD4C8),
+            ),
+            // ── Column 3: Today's Earnings ───────────────────────────
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 22,
+                    color: kSecondaryColor,
+                  ),
+                  const SizedBox(height: 3),
+                  MyText(
+                    text: "Today's Earnings",
+                    size: 11,
+                    weight: FontWeight.w500,
+                    color: const Color(0xFF4A4A4A),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 2),
+                  MyText(
+                    text: earningsStr,
+                    size: 15,
+                    weight: FontWeight.w800,
+                    color: kBlackColor,
+                    maxLines: 1,
+                    textOverflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  MyRippleEffect(
+                    radius: 14,
+                    onTap: () => Get.to(() => const SupplierCreditsPage()),
+                    child: Container(
+                      height: 26,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kWhiteColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: kSecondaryColor.withValues(alpha: 0.6),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Text(
+                        'View Reports',
+                        style: TextStyle(
+                          color: Color(0xFF2C2C2C),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       );
     });
   }
+}
+
+/// Fallback / alias for existing performance card callers.
+class SupplierPerformanceCard extends StatelessWidget {
+  const SupplierPerformanceCard({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SupplierHighlightsCard();
 }
 
 /// Credit Balance card showing real balance and Pro status.

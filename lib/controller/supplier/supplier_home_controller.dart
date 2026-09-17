@@ -34,6 +34,7 @@ class SupplierHomeController extends ApiController {
   static const StateSlot _dashboardRead = StateSlot('supplierDashboard');
   static const StateSlot _leadsRead = StateSlot('supplierHomeLeads');
   static const StateSlot _ordersRead = StateSlot('supplierHomeOrders');
+  static const StateSlot _offersRead = StateSlot('supplierHomeOffers');
 
   final Rx<ViewState<SupplierDashboardData>> dashboard =
       Rx<ViewState<SupplierDashboardData>>(const Loading());
@@ -43,6 +44,9 @@ class SupplierHomeController extends ApiController {
 
   final Rx<ViewState<List<Order>>> orders =
       Rx<ViewState<List<Order>>>(const Loading());
+
+  final Rx<ViewState<List<SupplierOffer>>> offers =
+      Rx<ViewState<List<SupplierOffer>>>(const Loading());
 
   int get creditBalance => switch (dashboard.value) {
     Data<SupplierDashboardData>(:final value) => value.creditBalance,
@@ -79,11 +83,15 @@ class SupplierHomeController extends ApiController {
     if (orders.value is! Data<List<Order>>) {
       orders.value = const Loading();
     }
+    if (offers.value is! Data<List<SupplierOffer>>) {
+      offers.value = const Loading();
+    }
 
     await Future.wait([
       _loadDashboard(),
       _loadLeads(),
       _loadOrders(),
+      _loadOffers(),
     ]);
   }
 
@@ -130,6 +138,24 @@ class SupplierHomeController extends ApiController {
               ? const Empty(
                   'No orders to fulfil',
                   'When buyers accept your offers, orders appear here.',
+                )
+              : Data(value.items);
+      }
+    },
+  );
+
+  Future<void> _loadOffers() => runRead<Paged<SupplierOffer>>(
+    _offersRead,
+    () => _supplierRepo.listOffers(limit: 3),
+    (r) {
+      switch (r) {
+        case Err(:final error):
+          offers.value = Failed(error);
+        case Ok(:final value):
+          offers.value = value.items.isEmpty
+              ? const Empty(
+                  'No active negotiations',
+                  'When you send quotes on leads, your negotiations appear here.',
                 )
               : Data(value.items);
       }

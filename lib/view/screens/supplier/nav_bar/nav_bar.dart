@@ -1,4 +1,5 @@
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/screens/supplier/home/home.dart';
@@ -12,10 +13,6 @@ import 'package:get/get.dart';
 
 /// The supplier shell. Five tabs, five distinct screens — RoleShell's assert
 /// forbids reusing one screen at two indexes.
-///
-/// The icon set is the only nav glyph set in assets/images/; per-role glyphs
-/// (a lead/offer icon rather than a calendar/cog) are a design deliverable and
-/// are flagged at handover rather than invented here.
 class SupplierNavBar extends StatelessWidget {
   const SupplierNavBar({super.key});
 
@@ -59,8 +56,10 @@ class SupplierNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chat = ChatInboxController.ensure();
+    final profile = ProfileController.ensure();
     return Obx(() {
       final unread = chat.totalUnreadCount;
+      final avatarUrl = profile.me?.avatarUrl;
       final items = [
         _navItems[0],
         _navItems[1],
@@ -71,7 +70,13 @@ class SupplierNavBar extends StatelessWidget {
           iconOutline: Assets.imagesEChatOutline,
           badgeCount: unread,
         ),
-        _navItems[4],
+        NavItem(
+          label: 'Profile',
+          iconFill: Assets.imagesProfileImage,
+          iconOutline: Assets.imagesProfileImage,
+          isAvatar: true,
+          avatarUrl: avatarUrl,
+        ),
       ];
       return RoleShell(items: items, screens: _screens);
     });

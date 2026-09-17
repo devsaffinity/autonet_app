@@ -212,6 +212,7 @@ class _NavTabItem extends StatelessWidget {
               children: [
                 CommonImageView(
                   radius: 100,
+                  url: item.isAvatar ? item.avatarUrl : null,
                   imagePath: isSelected ? item.iconFill : item.iconOutline,
                   height: _kIconSize,
                   width: _kIconSize,
@@ -264,6 +265,9 @@ class NavItem {
   /// True for the profile tab, whose icon is a user photo and must crop.
   final bool isAvatar;
 
+  /// Optional presigned URL for user avatar when [isAvatar] is true.
+  final String? avatarUrl;
+
   /// Optional unread badge count to show on the tab icon.
   final int badgeCount;
 
@@ -273,6 +277,7 @@ class NavItem {
     required this.iconOutline,
     this.isAvatar = false,
     this.badgeCount = 0,
+    this.avatarUrl,
   });
 }
 
