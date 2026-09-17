@@ -1,24 +1,26 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
-import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/new_request_controller.dart';
 import 'package:autonect/domain/reg_number.dart';
+import 'package:autonect/domain/vehicle_catalog.dart';
 import 'package:autonect/domain/vehicle_step.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/reg_plate_field.dart';
+import 'package:autonect/view/widget/vehicle_dropdown_field.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Step 1 — Vehicle Information.
+/// Step 1 — Vehicle Specifications.
 ///
-/// Supports both:
-/// 1. Automated Plate / DVLA lookup (with realistic fallback & model derivation)
-/// 2. Custom / Manual vehicle details entry for when lookup is unavailable
-///    or when the buyer has a non-standard vehicle.
+/// Direct custom vehicle entry with dropdowns for Make, Model, Fuel Type,
+/// Colour, and Year, with fallback "Other" options for custom inputs.
+///
+/// NOTE: The automated DVLA / Plate lookup flow is temporarily commented out
+/// below until the official live DVLA API key is configured.
 class VehicleStepView extends StatefulWidget {
   const VehicleStepView({
     super.key,
@@ -42,15 +44,102 @@ class _VehicleStepViewState extends State<VehicleStepView> {
   late final Worker _onVehicle;
   late final TextEditingController _fuel;
   late final TextEditingController _colour;
-  bool _isCustomMode = false;
+
+  // Custom text editing controllers for when "Other" is selected in dropdowns
+  late final TextEditingController _customMakeController;
+  late final TextEditingController _customModelController;
+  late final TextEditingController _customYearController;
+  late final TextEditingController _customFuelController;
+  late final TextEditingController _customColourController;
+
+  String? _selectedMake;
+  String? _selectedModel;
+  String? _selectedYear;
+  String? _selectedFuel;
+  String? _selectedColour;
+
+  bool get _isOtherMake => _selectedMake == VehicleCatalog.otherOption;
+  bool get _isOtherModel => _selectedModel == VehicleCatalog.otherOption;
+  bool get _isOtherYear => _selectedYear == VehicleCatalog.otherOption;
+  bool get _isOtherFuel => _selectedFuel == VehicleCatalog.otherOption;
+  bool get _isOtherColour => _selectedColour == VehicleCatalog.otherOption;
 
   @override
   void initState() {
     super.initState();
-    _isCustomMode = widget.controller.draft.isCustomVehicle;
-    _fuel = TextEditingController(text: widget.controller.draft.vehicleFuel ?? '');
-    _colour = TextEditingController(text: widget.controller.draft.vehicleColour ?? '');
+    // Default to custom vehicle specification mode
+    widget.controller.switchToCustomVehicle();
+
+    final draft = widget.controller.draft;
+    _fuel = TextEditingController(text: draft.vehicleFuel ?? '');
+    _colour = TextEditingController(text: draft.vehicleColour ?? '');
+
+    _customMakeController = TextEditingController();
+    _customModelController = TextEditingController();
+    _customYearController = TextEditingController();
+    _customFuelController = TextEditingController();
+    _customColourController = TextEditingController();
+
+    _initSelectedValues();
     _onVehicle = ever<VehicleStep>(widget.controller.vehicle, _apply);
+  }
+
+  void _initSelectedValues() {
+    // 1. Make
+    final currentMake = widget.make.text.trim();
+    if (currentMake.isNotEmpty) {
+      if (VehicleCatalog.popularMakes.contains(currentMake)) {
+        _selectedMake = currentMake;
+      } else {
+        _selectedMake = VehicleCatalog.otherOption;
+        _customMakeController.text = currentMake;
+      }
+    }
+
+    // 2. Model
+    final currentModel = widget.model.text.trim();
+    if (currentModel.isNotEmpty) {
+      final availableModels = VehicleCatalog.modelsForMake(_selectedMake);
+      if (availableModels.contains(currentModel)) {
+        _selectedModel = currentModel;
+      } else {
+        _selectedModel = VehicleCatalog.otherOption;
+        _customModelController.text = currentModel;
+      }
+    }
+
+    // 3. Year
+    final currentYear = widget.year.text.trim();
+    if (currentYear.isNotEmpty) {
+      if (VehicleCatalog.years.contains(currentYear)) {
+        _selectedYear = currentYear;
+      } else {
+        _selectedYear = VehicleCatalog.otherOption;
+        _customYearController.text = currentYear;
+      }
+    }
+
+    // 4. Fuel
+    final currentFuel = _fuel.text.trim();
+    if (currentFuel.isNotEmpty) {
+      if (VehicleCatalog.fuelTypes.contains(currentFuel)) {
+        _selectedFuel = currentFuel;
+      } else {
+        _selectedFuel = VehicleCatalog.otherOption;
+        _customFuelController.text = currentFuel;
+      }
+    }
+
+    // 5. Colour
+    final currentColour = _colour.text.trim();
+    if (currentColour.isNotEmpty) {
+      if (VehicleCatalog.colours.contains(currentColour)) {
+        _selectedColour = currentColour;
+      } else {
+        _selectedColour = VehicleCatalog.otherOption;
+        _customColourController.text = currentColour;
+      }
+    }
   }
 
   @override
@@ -58,35 +147,15 @@ class _VehicleStepViewState extends State<VehicleStepView> {
     _onVehicle.dispose();
     _fuel.dispose();
     _colour.dispose();
+    _customMakeController.dispose();
+    _customModelController.dispose();
+    _customYearController.dispose();
+    _customFuelController.dispose();
+    _customColourController.dispose();
     super.dispose();
   }
 
   void _apply(VehicleStep step) {
-    final draft = widget.controller.draft;
-    switch (step) {
-      case VehicleResolved(:final lookup) || VehicleManualModel(:final lookup):
-        widget.make.text = lookup.vehicle.make ?? '';
-        widget.year.text = lookup.vehicle.year?.toString() ?? '';
-        widget.model.text = lookup.vehicle.model ?? '';
-        _fuel.text = lookup.vehicle.fuel ?? '';
-        _colour.text = lookup.vehicle.colour ?? '';
-        draft.vehicleMake = lookup.vehicle.make;
-        draft.vehicleModel = lookup.vehicle.model;
-        draft.vehicleYear = lookup.vehicle.year;
-        draft.vehicleFuel = lookup.vehicle.fuel;
-        draft.vehicleColour = lookup.vehicle.colour;
-      case VehicleUnknownReg():
-        widget.make.clear();
-        widget.year.clear();
-        widget.model.clear();
-        _fuel.clear();
-        _colour.clear();
-        draft.vehicleModel = null;
-      case VehicleCustom():
-        _isCustomMode = true;
-      case VehicleIdle() || VehicleLooking() || VehicleFailed():
-        break;
-    }
     if (mounted) setState(() {});
   }
 
@@ -97,28 +166,22 @@ class _VehicleStepViewState extends State<VehicleStepView> {
     setState(() {});
   }
 
-  bool _isReady(VehicleStep step) {
-    if (_isCustomMode) {
-      return widget.reg.text.trim().isNotEmpty &&
-          isValidReg(widget.reg.text) &&
-          widget.make.text.trim().isNotEmpty &&
-          widget.model.text.trim().isNotEmpty;
-    }
-    return step.canAdvance &&
-        (!step.modelFieldRequired || widget.model.text.trim().isNotEmpty);
+  bool _isReady() {
+    return widget.reg.text.trim().isNotEmpty &&
+        isValidReg(widget.reg.text) &&
+        widget.make.text.trim().isNotEmpty &&
+        widget.model.text.trim().isNotEmpty;
   }
 
   void _handleNext() {
-    if (_isCustomMode) {
-      widget.controller.setCustomVehicleDetails(
-        regNumber: widget.reg.text,
-        make: widget.make.text,
-        model: widget.model.text,
-        year: int.tryParse(widget.year.text),
-        fuel: _fuel.text,
-        colour: _colour.text,
-      );
-    }
+    widget.controller.setCustomVehicleDetails(
+      regNumber: widget.reg.text,
+      make: widget.make.text,
+      model: widget.model.text,
+      year: int.tryParse(widget.year.text),
+      fuel: _fuel.text,
+      colour: _colour.text,
+    );
     widget.onNext();
   }
 
@@ -126,8 +189,11 @@ class _VehicleStepViewState extends State<VehicleStepView> {
   Widget build(BuildContext context) {
     final c = widget.controller;
     return Obx(() {
-      final step = c.vehicle.value;
-      final ready = _isReady(step);
+      final ready = _isReady();
+      final makeError = c.fieldErrorFor('vehicleMake');
+      final modelError = c.fieldErrorFor('vehicleModel');
+      final availableModels = VehicleCatalog.modelsForMake(_selectedMake);
+
       return Column(
         children: [
           Expanded(
@@ -136,8 +202,237 @@ class _VehicleStepViewState extends State<VehicleStepView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildModeSelector(),
-                  if (_isCustomMode) ..._buildCustomForm(c) else ..._buildLookupForm(step, c),
+                  // Header — Custom Vehicle Specifications
+                  MyText(
+                    text: 'Custom Vehicle Specifications',
+                    size: AppTextScale.subtitle,
+                    weight: AppWeights.bold,
+                    color: kSecondaryColor,
+                    paddingBottom: AppSizes.s4,
+                  ),
+                  MyText(
+                    text:
+                        'Select or enter your vehicle specifications below to help suppliers match the exact parts.',
+                    size: AppTextScale.label,
+                    color: kGreyTextColor,
+                    paddingBottom: AppSizes.s16,
+                  ),
+
+                  // Registration Number
+                  RegPlateField(
+                    controller: widget.reg,
+                    isRequired: true,
+                    errorText: c.fieldErrorFor('regNumber'),
+                    onChanged: (v) => _edited('regNumber', (c) {
+                      c.draft.regNumber = v;
+                      c.draft.isCustomVehicle = true;
+                    }),
+                  ),
+                  const SizedBox(height: AppSizes.s12),
+
+                  // Make Dropdown
+                  VehicleDropdownField(
+                    title: 'Make',
+                    hint: 'Select Vehicle Make',
+                    isRequired: true,
+                    items: VehicleCatalog.popularMakes,
+                    selectedValue: _selectedMake,
+                    isOtherSelected: _isOtherMake,
+                    customController: _customMakeController,
+                    customLabel: 'Custom Make',
+                    customHint: 'e.g. Lotus, Bentley, Saab...',
+                    errorText: makeError,
+                    onDropdownChanged: (val) {
+                      _edited('vehicleMake', (c) {
+                        _selectedMake = val;
+                        if (val == VehicleCatalog.otherOption) {
+                          widget.make.text = _customMakeController.text;
+                          c.draft.vehicleMake = _customMakeController.text;
+                        } else if (val != null) {
+                          widget.make.text = val;
+                          c.draft.vehicleMake = val;
+                          _customMakeController.clear();
+                        } else {
+                          widget.make.clear();
+                          c.draft.vehicleMake = null;
+                        }
+
+                        // Reset model selection if selected make changed
+                        final newModels =
+                            VehicleCatalog.modelsForMake(_selectedMake);
+                        if (_selectedModel != VehicleCatalog.otherOption &&
+                            !newModels.contains(_selectedModel)) {
+                          _selectedModel = null;
+                          widget.model.clear();
+                          c.draft.vehicleModel = null;
+                          _customModelController.clear();
+                        }
+                      });
+                    },
+                    onCustomChanged: (val) {
+                      _edited('vehicleMake', (c) {
+                        widget.make.text = val;
+                        c.draft.vehicleMake = val;
+                      });
+                    },
+                  ),
+
+                  // Model Dropdown / Custom Field
+                  if (_selectedMake != null && !_isOtherMake) ...[
+                    VehicleDropdownField(
+                      title: 'Model',
+                      hint: 'Select Vehicle Model',
+                      isRequired: true,
+                      items: availableModels,
+                      selectedValue: _selectedModel,
+                      isOtherSelected: _isOtherModel,
+                      customController: _customModelController,
+                      customLabel: 'Custom Model',
+                      customHint: 'Enter vehicle model name',
+                      errorText: modelError,
+                      onDropdownChanged: (val) {
+                        _edited('vehicleModel', (c) {
+                          _selectedModel = val;
+                          if (val == VehicleCatalog.otherOption) {
+                            widget.model.text = _customModelController.text;
+                            c.draft.vehicleModel = _customModelController.text;
+                          } else if (val != null) {
+                            widget.model.text = val;
+                            c.draft.vehicleModel = val;
+                            _customModelController.clear();
+                          } else {
+                            widget.model.clear();
+                            c.draft.vehicleModel = null;
+                          }
+                        });
+                      },
+                      onCustomChanged: (val) {
+                        _edited('vehicleModel', (c) {
+                          widget.model.text = val;
+                          c.draft.vehicleModel = val;
+                        });
+                      },
+                    ),
+                  ] else ...[
+                    // When Make is "Other" or unselected, allow typing the model directly
+                    MyTextField(
+                      controller: widget.model,
+                      labelText: 'Model',
+                      hintText: 'e.g. Focus, 3 Series, Golf, Corsa',
+                      isRequired: true,
+                      radius: AppSizes.radiusSm,
+                      errorText: modelError,
+                      onChanged: (v) => _edited('vehicleModel', (c) {
+                        c.draft.vehicleModel = v;
+                        c.draft.isCustomVehicle = true;
+                      }),
+                    ),
+                    const SizedBox(height: AppSizes.s16),
+                  ],
+
+                  // Year Dropdown
+                  VehicleDropdownField(
+                    title: 'Year',
+                    hint: 'Select Year of Manufacture',
+                    items: VehicleCatalog.years,
+                    selectedValue: _selectedYear,
+                    isOtherSelected: _isOtherYear,
+                    customController: _customYearController,
+                    customLabel: 'Custom Year',
+                    customHint: 'e.g. 1975',
+                    keyboardType: TextInputType.number,
+                    onDropdownChanged: (val) {
+                      _edited('vehicleYear', (c) {
+                        _selectedYear = val;
+                        if (val == VehicleCatalog.otherOption) {
+                          widget.year.text = _customYearController.text;
+                          c.draft.vehicleYear =
+                              int.tryParse(_customYearController.text);
+                        } else if (val != null) {
+                          widget.year.text = val;
+                          c.draft.vehicleYear = int.tryParse(val);
+                          _customYearController.clear();
+                        } else {
+                          widget.year.clear();
+                          c.draft.vehicleYear = null;
+                        }
+                      });
+                    },
+                    onCustomChanged: (val) {
+                      _edited('vehicleYear', (c) {
+                        widget.year.text = val;
+                        c.draft.vehicleYear = int.tryParse(val);
+                      });
+                    },
+                  ),
+
+                  // Fuel Type Dropdown
+                  VehicleDropdownField(
+                    title: 'Fuel Type',
+                    hint: 'Select Fuel Type',
+                    items: VehicleCatalog.fuelTypes,
+                    selectedValue: _selectedFuel,
+                    isOtherSelected: _isOtherFuel,
+                    customController: _customFuelController,
+                    customLabel: 'Custom Fuel Type',
+                    customHint: 'e.g. Hydrogen, Bio-diesel, Rotary...',
+                    onDropdownChanged: (val) {
+                      _edited('vehicleFuel', (c) {
+                        _selectedFuel = val;
+                        if (val == VehicleCatalog.otherOption) {
+                          _fuel.text = _customFuelController.text;
+                          c.draft.vehicleFuel = _customFuelController.text;
+                        } else if (val != null) {
+                          _fuel.text = val;
+                          c.draft.vehicleFuel = val;
+                          _customFuelController.clear();
+                        } else {
+                          _fuel.clear();
+                          c.draft.vehicleFuel = null;
+                        }
+                      });
+                    },
+                    onCustomChanged: (val) {
+                      _edited('vehicleFuel', (c) {
+                        _fuel.text = val;
+                        c.draft.vehicleFuel = val;
+                      });
+                    },
+                  ),
+
+                  // Colour Dropdown
+                  VehicleDropdownField(
+                    title: 'Colour',
+                    hint: 'Select Vehicle Colour',
+                    items: VehicleCatalog.colours,
+                    selectedValue: _selectedColour,
+                    isOtherSelected: _isOtherColour,
+                    customController: _customColourController,
+                    customLabel: 'Custom Colour',
+                    customHint: 'e.g. British Racing Green, Matte Grey...',
+                    onDropdownChanged: (val) {
+                      _edited('vehicleColour', (c) {
+                        _selectedColour = val;
+                        if (val == VehicleCatalog.otherOption) {
+                          _colour.text = _customColourController.text;
+                          c.draft.vehicleColour = _customColourController.text;
+                        } else if (val != null) {
+                          _colour.text = val;
+                          c.draft.vehicleColour = val;
+                          _customColourController.clear();
+                        } else {
+                          _colour.clear();
+                          c.draft.vehicleColour = null;
+                        }
+                      });
+                    },
+                    onCustomChanged: (val) {
+                      _edited('vehicleColour', (c) {
+                        _colour.text = val;
+                        c.draft.vehicleColour = val;
+                      });
+                    },
+                  ),
                 ],
               ),
             ),
@@ -154,6 +449,11 @@ class _VehicleStepViewState extends State<VehicleStepView> {
     });
   }
 
+  // ===========================================================================
+  // TEMPORARILY COMMENTED OUT: Automated Plate / DVLA Lookup
+  // Re-enable when live DVLA VES API key is configured.
+  // ===========================================================================
+  /*
   Widget _buildModeSelector() {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.s20),
@@ -167,21 +467,14 @@ class _VehicleStepViewState extends State<VehicleStepView> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                setState(() => _isCustomMode = false);
                 widget.controller.switchToLookup();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: !_isCustomMode ? kSecondaryColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-                ),
                 alignment: Alignment.center,
-                child: MyText(
+                child: const MyText(
                   text: 'Plate / DVLA Lookup',
                   size: AppTextScale.body,
-                  weight: !_isCustomMode ? AppWeights.bold : AppWeights.medium,
-                  color: !_isCustomMode ? kWhiteColor : kBlackColor,
                 ),
               ),
             ),
@@ -189,21 +482,14 @@ class _VehicleStepViewState extends State<VehicleStepView> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                setState(() => _isCustomMode = true);
                 widget.controller.switchToCustomVehicle();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _isCustomMode ? kSecondaryColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-                ),
                 alignment: Alignment.center,
-                child: MyText(
+                child: const MyText(
                   text: 'Custom Vehicle Entry',
                   size: AppTextScale.body,
-                  weight: _isCustomMode ? AppWeights.bold : AppWeights.medium,
-                  color: _isCustomMode ? kWhiteColor : kBlackColor,
                 ),
               ),
             ),
@@ -240,98 +526,6 @@ class _VehicleStepViewState extends State<VehicleStepView> {
     ];
   }
 
-  List<Widget> _buildCustomForm(NewRequestController c) {
-    return [
-      MyText(
-        text: 'Custom Vehicle Specifications',
-        size: AppTextScale.subtitle,
-        weight: AppWeights.bold,
-        color: kSecondaryColor,
-        paddingBottom: AppSizes.s4,
-      ),
-      MyText(
-        text: 'Enter your vehicle details manually if registration lookup is unavailable.',
-        size: AppTextScale.label,
-        color: kGreyTextColor,
-        paddingBottom: AppSizes.s16,
-      ),
-      RegPlateField(
-        controller: widget.reg,
-        isRequired: true,
-        errorText: c.fieldErrorFor('regNumber'),
-        onChanged: (v) => _edited('regNumber', (c) {
-          c.draft.regNumber = v;
-          c.draft.isCustomVehicle = true;
-        }),
-      ),
-      const SizedBox(height: AppSizes.s12),
-      MyTextField(
-        controller: widget.make,
-        labelText: 'Make',
-        hintText: 'e.g. Ford, BMW, Volkswagen, Toyota',
-        isRequired: true,
-        radius: AppSizes.radiusSm,
-        errorText: c.fieldErrorFor('vehicleMake'),
-        onChanged: (v) => _edited('vehicleMake', (c) {
-          c.draft.vehicleMake = v;
-          c.draft.isCustomVehicle = true;
-        }),
-      ),
-      const SizedBox(height: AppSizes.s12),
-      MyTextField(
-        controller: widget.model,
-        labelText: 'Model',
-        hintText: 'e.g. Focus, 3 Series, Golf, Corsa',
-        isRequired: true,
-        radius: AppSizes.radiusSm,
-        errorText: c.fieldErrorFor('vehicleModel'),
-        onChanged: (v) => _edited('vehicleModel', (c) {
-          c.draft.vehicleModel = v;
-          c.draft.isCustomVehicle = true;
-        }),
-      ),
-      const SizedBox(height: AppSizes.s12),
-      Row(
-        children: [
-          Expanded(
-            child: MyTextField(
-              controller: widget.year,
-              labelText: 'Year',
-              hintText: 'e.g. 2019',
-              keyboardType: TextInputType.number,
-              radius: AppSizes.radiusSm,
-              onChanged: (v) => _edited('vehicleYear', (c) {
-                c.draft.vehicleYear = int.tryParse(v);
-              }),
-            ),
-          ),
-          const SizedBox(width: AppSizes.s12),
-          Expanded(
-            child: MyTextField(
-              controller: _fuel,
-              labelText: 'Fuel Type',
-              hintText: 'e.g. Petrol, Diesel, Hybrid',
-              radius: AppSizes.radiusSm,
-              onChanged: (v) => _edited('vehicleFuel', (c) {
-                c.draft.vehicleFuel = v;
-              }),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: AppSizes.s12),
-      MyTextField(
-        controller: _colour,
-        labelText: 'Colour',
-        hintText: 'e.g. Black, Grey, Blue, Silver',
-        radius: AppSizes.radiusSm,
-        onChanged: (v) => _edited('vehicleColour', (c) {
-          c.draft.vehicleColour = v;
-        }),
-      ),
-    ];
-  }
-
   List<Widget> _afterLookup(VehicleStep step, NewRequestController c) =>
       switch (step) {
         VehicleIdle() || VehicleLooking() => const <Widget>[],
@@ -340,7 +534,6 @@ class _VehicleStepViewState extends State<VehicleStepView> {
           if (retryable)
             _secondary('Retry Lookup', () => c.lookupVehicle(widget.reg.text)),
           _secondary('Enter vehicle details manually', () {
-            setState(() => _isCustomMode = true);
             c.switchToCustomVehicle();
           }),
         ],
@@ -348,7 +541,6 @@ class _VehicleStepViewState extends State<VehicleStepView> {
           _notice('We could not automatically match that registration. You can still post your request by specifying the model below or entering details manually.'),
           _modelField(c, editable: true),
           _secondary('Enter full vehicle details manually', () {
-            setState(() => _isCustomMode = true);
             c.switchToCustomVehicle();
           }),
         ],
@@ -387,22 +579,6 @@ class _VehicleStepViewState extends State<VehicleStepView> {
     _readOnly(widget.year, 'Year'),
     if (_fuel.text.trim().isNotEmpty) _readOnly(_fuel, 'Fuel Type'),
     if (_colour.text.trim().isNotEmpty) _readOnly(_colour, 'Colour'),
-    const SizedBox(height: AppSizes.s8),
-    GestureDetector(
-      onTap: () {
-        setState(() => _isCustomMode = true);
-        c.switchToCustomVehicle();
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: MyText(
-          text: 'Need to customize these details? Switch to Manual Entry',
-          size: AppTextScale.label,
-          weight: AppWeights.medium,
-          color: kSecondaryColor,
-        ),
-      ),
-    ),
   ];
 
   Widget _secondary(String label, VoidCallback onTap) =>
@@ -447,4 +623,5 @@ class _VehicleStepViewState extends State<VehicleStepView> {
     ),
     child: MyText(text: message, size: AppTextScale.body, color: kBlackColor),
   );
+  */
 }
