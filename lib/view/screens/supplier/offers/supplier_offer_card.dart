@@ -1,6 +1,8 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/supplier_lead.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_create_offer.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_offer_sheets.dart';
 import 'package:autonect/view/screens/supplier/orders/supplier_orders.dart';
@@ -108,12 +110,43 @@ class SupplierOfferCard extends StatelessWidget {
             const SizedBox(height: 12),
             if (statusIndex == 0) _buildPendingActions(),
             if (statusIndex == 1)
-              MyButton(
-                buttonText: 'View Orders',
-                height: 36,
-                fontSize: 12,
-                radius: 9,
-                onTap: () => Get.to(() => const SupplierOrdersPage()),
+              Row(
+                children: [
+                  Expanded(
+                    child: MyButton(
+                      buttonText: 'View Orders',
+                      height: 36,
+                      fontSize: 12,
+                      radius: 9,
+                      onTap: () => Get.to(() => const SupplierOrdersPage()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  MyRippleEffect(
+                    radius: 9,
+                    onTap: () => Get.to(
+                      () => ChatRoomPage(
+                        contextId: offer.id,
+                        type: ConversationType.offer,
+                        title: offer.request?.partName ?? 'Chat with Buyer',
+                      ),
+                    ),
+                    child: Container(
+                      height: 36,
+                      width: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kSecondaryColor.withValues(alpha: .08),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 18,
+                        color: kSecondaryColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             if (statusIndex == 2)
               MyText(
@@ -148,7 +181,32 @@ class SupplierOfferCard extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
+        MyRippleEffect(
+          radius: 9,
+          onTap: () => Get.to(
+            () => ChatRoomPage(
+              contextId: offer.id,
+              type: ConversationType.offer,
+              title: offer.request?.partName ?? 'Chat with Buyer',
+            ),
+          ),
+          child: Container(
+            height: 36,
+            width: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: kSecondaryColor.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 18,
+              color: kSecondaryColor,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         MyRippleEffect(
           radius: 9,
           onTap: () => Get.bottomSheet(

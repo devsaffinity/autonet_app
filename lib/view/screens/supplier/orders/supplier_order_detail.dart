@@ -3,16 +3,19 @@ import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
 import 'package:autonect/controller/supplier/supplier_orders_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/domain/order_steps.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/order_progress_card.dart';
 import 'package:flutter/material.dart';
@@ -128,7 +131,57 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
     final nextCta = _ctaFor(order.status);
 
     return Scaffold(
-      appBar: GeneralAppBar(title: 'Order #$shortId', centerdTitle: false),
+      appBar: GeneralAppBar(
+        title: 'Order #$shortId',
+        centerdTitle: false,
+        action: [
+          if (order.offerId.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: MyRippleEffect(
+                  radius: 8,
+                  onTap: () {
+                    Get.to(
+                      () => ChatRoomPage(
+                        contextId: order.offerId,
+                        type: ConversationType.offer,
+                        title: 'Buyer Chat - Order #$shortId',
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kSecondaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 16,
+                          color: kSecondaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        MyText(
+                          text: 'Chat',
+                          size: 13,
+                          weight: FontWeight.w600,
+                          color: kSecondaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
