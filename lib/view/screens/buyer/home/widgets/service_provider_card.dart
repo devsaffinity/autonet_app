@@ -7,6 +7,7 @@ import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/pro_badge.dart';
 import 'package:flutter/material.dart';
 
 /// The carousel's fixed geometry, private to this card like ActiveRequestCard's.
@@ -77,7 +78,20 @@ class ServiceProviderCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(child: _avatar()),
+          Center(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _avatar(),
+                if (provider.isPro)
+                  const Positioned(
+                    top: -4,
+                    right: -6,
+                    child: ProBadge(compact: true),
+                  ),
+              ],
+            ),
+          ),
           const SizedBox(height: AppSizes.s8),
           MyText(
             text: provider.fullName,

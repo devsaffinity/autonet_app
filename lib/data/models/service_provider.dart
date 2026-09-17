@@ -22,6 +22,7 @@ class ServiceProvider {
     required this.ratingCount,
     required this.skills,
     required this.services,
+    this.tier = 'FREE',
     this.headline,
     this.bio,
     this.vehiclesServiced,
@@ -33,6 +34,7 @@ class ServiceProvider {
 
   final String id;
   final String fullName;
+  final String tier;
 
   /// Manufacturers serviced. Empty is normal, not an error.
   final List<String> brands;
@@ -75,6 +77,9 @@ class ServiceProvider {
   /// nothing rather than '0.0/5.0' for a provider nobody has reviewed.
   bool get isRated => ratingCount > 0;
 
+  /// Whether the provider is currently on the PRO subscription tier.
+  bool get isPro => tier.toUpperCase() == 'PRO';
+
   factory ServiceProvider.fromJson(Map<String, dynamic> j) => ServiceProvider(
     id: jsonString(j, 'id'),
     fullName: jsonString(j, 'fullName'),
@@ -105,5 +110,6 @@ class ServiceProvider {
     region: Region.fromWire(j['region'] as String?),
     yearsExperience: (j['yearsExperience'] as num?)?.toInt(),
     avatarUrl: j['avatarUrl'] as String?,
+    tier: (j['tier'] as String?) ?? 'FREE',
   );
 }

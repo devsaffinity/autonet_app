@@ -1,6 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/controller/electrician/provider_bookings_controller.dart';
+import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
@@ -9,6 +10,7 @@ import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/electrician/home/widgets/quote_dialog.dart';
+import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
@@ -1008,11 +1010,64 @@ class _ElectricianBookingDetailsPageState
             _showFeedback('Status updated', 'Job status updated to ${next.label}');
           }
         case Err(error: final err):
-          _showFeedback('Error', err.toString());
+          if (err.code == ApiErrorCode.insufficientCredits || err.statusCode == 402) {
+            _showLeadAccessRequiredDialog(err.message);
+          } else {
+            _showFeedback('Error', err.message);
+          }
       }
     } else {
       if (mounted) setState(() => _advancing = false);
     }
+  }
+
+  void _showLeadAccessRequiredDialog(String message) {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: kPrimaryColor,
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: kSecondaryColor, size: 22),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Lead Access Required',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: kBlackColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 14, color: kGreyTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel', style: TextStyle(color: kGreyTextColor)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kSecondaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Get.back();
+              Get.to(() => const ElectricianAccessTierPage());
+            },
+            child: const Text(
+              'View Access Tiers',
+              style: TextStyle(color: kWhiteColor, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmCompletionDialog() {

@@ -1,9 +1,13 @@
+import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/controller/base/paged_controller.dart';
+import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// The PROVIDER's side of `GET /v1/bookings` — the work they were booked for.
@@ -64,7 +68,10 @@ class ProviderBookingsController extends PagedController<Booking> {
       () => _repo.advance(id: booking.id, status: status, note: note),
       (r) {
         switch (r) {
-          case Err():
+          case Err(error: final err):
+            if (err.code == ApiErrorCode.insufficientCredits || err.statusCode == 402) {
+              _showLeadAccessRequiredDialog(err.message);
+            }
             break;
           case Ok():
             ok = true;
@@ -73,6 +80,56 @@ class ProviderBookingsController extends PagedController<Booking> {
     );
     if (ok) await refreshFirst();
     return ok;
+  }
+
+  void _showLeadAccessRequiredDialog(String message) {
+    if (Get.context == null) return;
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: kPrimaryColor,
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: kSecondaryColor, size: 22),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Lead Access Required',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: kBlackColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 14, color: kGreyTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel', style: TextStyle(color: kGreyTextColor)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kSecondaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Get.back();
+              Get.to(() => const ElectricianAccessTierPage());
+            },
+            child: const Text(
+              'View Access Tiers',
+              style: TextStyle(color: kWhiteColor, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Name a price.

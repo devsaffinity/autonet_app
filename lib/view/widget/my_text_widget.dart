@@ -23,8 +23,8 @@ class MyText extends StatelessWidget {
   final double? paddingBottom;
   final double? letterSpacing;
 
-  MyText({
-    Key? key,
+  const MyText({
+    super.key,
     required this.text,
     this.size,
     this.lineHeight,
@@ -42,7 +42,7 @@ class MyText extends StatelessWidget {
     this.paddingBottom = 0,
     this.onTap,
     this.fontStyle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +56,7 @@ class MyText extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Text(
-          "$text",
+          text,
           style: TextStyle(
             fontSize: size,
             color: color,

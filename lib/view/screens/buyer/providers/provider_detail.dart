@@ -14,6 +14,7 @@ import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/pro_badge.dart';
 import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -163,21 +164,30 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
       // That was wrong: the BUYER does not know the route is filtered, and to
       // them it says this provider cleared KYC — which is exactly what
       // `approved` means and exactly what they are weighing up.
-      Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.s8, vertical: AppSizes.s4),
-        decoration: BoxDecoration(
-          color: kMutedSurfaceColor,
-          borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.verified_rounded, size: AppSizes.s12,
-              color: kSecondaryColor),
-          const SizedBox(width: AppSizes.s4),
-          MyText(text: 'EXPERT VERIFIED', size: AppTextScale.caption,
-              weight: AppWeights.bold, color: kGreyTextColor,
-              letterSpacing: 0.5),
-        ]),
+      Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSizes.s8,
+        runSpacing: AppSizes.s4,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSizes.s8, vertical: AppSizes.s4),
+            decoration: BoxDecoration(
+              color: kMutedSurfaceColor,
+              borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.verified_rounded, size: AppSizes.s12,
+                  color: kSecondaryColor),
+              const SizedBox(width: AppSizes.s4),
+              MyText(text: 'EXPERT VERIFIED', size: AppTextScale.caption,
+                  weight: AppWeights.bold, color: kGreyTextColor,
+                  letterSpacing: 0.5),
+            ]),
+          ),
+          if (p.isPro) const ProBadge(compact: false),
+        ],
       ),
       const SizedBox(height: AppSizes.s8),
       MyText(text: p.fullName.toUpperCase(), size: AppTextScale.title,

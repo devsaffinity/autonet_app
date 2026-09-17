@@ -20,6 +20,7 @@ import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/paged_list_view.dart';
+import 'package:autonect/view/widget/pro_badge.dart';
 import 'package:autonect/view/widget/search_field.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -363,6 +364,10 @@ class ProviderRow extends StatelessWidget {
                   children: [
                     MyText(text: provider.fullName, size: AppTextScale.body,
                         weight: AppWeights.bold, color: kBlackColor),
+                    if (provider.isPro) ...[
+                      const SizedBox(width: AppSizes.s4),
+                      const ProBadge(compact: true),
+                    ],
                     if (provider.headline case final h? when h.isNotEmpty) ...[
                       MyText(text: '  ·  ', size: AppTextScale.body,
                           color: kGreyTextColor),
