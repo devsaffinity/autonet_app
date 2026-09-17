@@ -1,4 +1,3 @@
-import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
@@ -8,6 +7,7 @@ import 'package:autonect/controller/auth_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/view/screens/auth/forget.dart';
 import 'package:autonect/view/screens/auth/verify_otp.dart';
+import 'package:autonect/view/screens/launch/role.dart';
 import 'package:autonect/view/widget/animation_widget.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
@@ -95,8 +95,15 @@ class _LoginPageState extends State<LoginPage> {
                     title1: "Log in to continue your journey.",
                     title: "Don’t have an account? ",
                     subTitle: "Sign Up",
+                    // Signing up starts by choosing the kind of account, so
+                    // this opens the role picker — pushed on top of Login, so
+                    // Back always returns here. Errors from a failed login are
+                    // cleared first: the auth controller is shared, and
+                    // "Invalid email or password" means nothing on a sign-up
+                    // form.
                     onTap: () {
-                      Get.toNamed(AppLinks.register);
+                      c.clearErrors();
+                      RolePage.open();
                     },
                   ),
 

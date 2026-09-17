@@ -21,9 +21,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   /// Every value read here is already in memory because SessionStore.init()
-  /// was awaited in main(), so the first three branches have no await and no
-  /// flash of a wrong screen. Branch 3 is what keeps an ADMIN token — which
-  /// AppRole.fromWire reads as null — from reaching an exhaustive switch.
+  /// was awaited in main(), so the first two branches have no await and no
+  /// flash of a wrong screen. A session with no role — an ADMIN token, which
+  /// AppRole.fromWire reads as null — goes to Login rather than reaching an
+  /// exhaustive switch.
+  ///
+  /// Nobody is sent to the role picker from here. Choosing a role is a step of
+  /// SIGNING UP, reached from Login's "Sign Up", so it is always pushed on top
+  /// of Login and Back always has somewhere to go.
   ///
   /// The LAST branch is the one exception: a restored supplier session needs
   /// the server's answer, because the local flags record only what this device
@@ -35,10 +40,8 @@ class _SplashScreenState extends State<SplashScreen> {
     final c = RoleController.to;
     if (!c.onboardingSeen.value) {
       Get.offAllNamed(AppLinks.onboarding);
-    } else if (!c.isLoggedIn.value) {
-      Get.offAllNamed(c.hasRole ? AppLinks.login : AppLinks.role);
-    } else if (!c.hasRole) {
-      Get.offAllNamed(AppLinks.role);
+    } else if (!c.isLoggedIn.value || !c.hasRole) {
+      Get.offAllNamed(AppLinks.login);
     } else {
       await c.syncProviderAccess();
       if (!mounted) return;

@@ -12,6 +12,9 @@ import 'package:autonect/view/screens/auth/login.dart';
 import 'package:autonect/view/screens/auth/register.dart';
 import 'package:autonect/view/screens/auth/reset_password.dart';
 import 'package:autonect/view/screens/auth/verify_otp.dart';
+import 'package:autonect/view/screens/launch/role.dart';
+import 'package:autonect/view/screens/launch/splash_screen.dart';
+import 'package:autonect/view/widget/my_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -82,7 +85,6 @@ void main() {
     home: home,
     getPages: [
       GetPage(name: AppLinks.login, page: () => LoginPage()),
-      GetPage(name: AppLinks.role, page: () => const _Stub('ROLE PICKER')),
       GetPage(name: AppLinks.buyerShell, page: () => const _Stub('BUYER SHELL')),
       GetPage(
         name: AppLinks.electricianOnboarding,
@@ -242,8 +244,11 @@ void main() {
 
   group('register screen', () {
     // EditableText order: name, email, password, confirm.
-    Future<void> pumpRegister(WidgetTester tester) async {
-      await tester.pumpWidget(app(RegisterPage()));
+    Future<void> pumpRegister(
+      WidgetTester tester, {
+      AppRole role = AppRole.buyer,
+    }) async {
+      await tester.pumpWidget(app(RegisterPage(role: role)));
       await tester.pumpAndSettle();
     }
 
@@ -307,9 +312,9 @@ void main() {
       tester,
     ) async {
       // The account does not exist yet, so this is the one moment the local
-      // pick is legitimately authoritative.
-      RoleController.to.selectRole(AppRole.supplier);
-      await pumpRegister(tester);
+      // pick is legitimately authoritative — and it arrives as an argument,
+      // not from shared state.
+      await pumpRegister(tester, role: AppRole.supplier);
       await fill(tester, 'Password1');
       await tapVisible(tester, find.byType(Checkbox));
 
@@ -325,7 +330,222 @@ void main() {
       expect(find.byType(VerifyOtpPage), findsOneWidget);
       expect(RoleController.to.isLoggedIn.value, isFalse);
       expect(auth.pendingEmail.value, 'new@example.com');
+      // Nothing about the pick was stored: a stored pick is what used to
+      // decide the role of the NEXT sign-up, with no way to change it.
+      expect(RoleController.to.role.value, isNull);
+      expect(SessionStore.role, isNull);
       await drain(tester);
+    });
+  });
+
+  /// Login → role picker → sign-up form, and every way back.
+  ///
+  /// The bug: the picker was shown once, as the ROOT of the stack, and its pick
+  /// was stored. Every later launch went straight to Login, whose "Sign Up"
+  /// silently reused that stored role — nothing to go back to, no way to
+  /// change it.
+  group('sign-up navigation', () {
+    Future<void> pumpFromLogin(WidgetTester tester) async {
+      // A NAMED login route, as the real app reaches it, so the form's
+      // "Log In" can find it on the stack.
+      await tester.pumpWidget(
+        GetMaterialApp(
+          initialRoute: AppLinks.login,
+          getPages: [GetPage(name: AppLinks.login, page: () => LoginPage())],
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapAndSettle(WidgetTester tester, Finder f) async {
+      await tester.ensureVisible(f);
+      await tester.pumpAndSettle();
+      await tester.tap(f);
+      await tester.pumpAndSettle();
+    }
+
+    Finder back() => find.byIcon(Icons.arrow_back_ios_new_rounded);
+
+    MyButton continueButton(WidgetTester tester) =>
+        tester.widget<MyButton>(find.widgetWithText(MyButton, 'Continue'));
+
+    testWidgets('Sign Up opens the role picker, and Back returns to Login', (
+      tester,
+    ) async {
+      await pumpFromLogin(tester);
+
+      await tapAndSettle(tester, find.text('Sign Up'));
+      expect(find.byType(RolePage), findsOneWidget);
+      expect(find.text('I am a '), findsNWidgets(3));
+
+      await tapAndSettle(tester, back());
+      expect(find.byType(RolePage), findsNothing);
+      expect(find.text('Sign In'), findsOneWidget);
+    });
+
+    testWidgets('Continue is disabled until a role is picked', (tester) async {
+      await pumpFromLogin(tester);
+      await tapAndSettle(tester, find.text('Sign Up'));
+
+      expect(continueButton(tester).enabled, isFalse);
+      await tester.tap(find.text('Continue'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(RegisterPage), findsNothing);
+
+      await tapAndSettle(tester, find.text(AppRole.buyer.label));
+      expect(continueButton(tester).enabled, isTrue);
+    });
+
+    testWidgets(
+      'Back from the form keeps the pick, and a new pick reaches the form',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pumpFromLogin(tester);
+        await tapAndSettle(tester, find.text('Sign Up'));
+
+        await tapAndSettle(tester, find.text(AppRole.supplier.label));
+        await tapAndSettle(tester, find.text('Continue'));
+        expect(
+          tester.widget<RegisterPage>(find.byType(RegisterPage)).role,
+          AppRole.supplier,
+        );
+
+        // Back to the picker — THE step that used to be impossible — with the
+        // earlier choice still marked, so changing it is one tap.
+        await tapAndSettle(tester, back());
+        expect(find.byType(RegisterPage), findsNothing);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('I am a Supplier')),
+          isSemantics(isSelected: true),
+        );
+
+        await tapAndSettle(tester, find.text(AppRole.electrician.label));
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('I am a Supplier')),
+          isSemantics(isSelected: false),
+        );
+        await tapAndSettle(tester, find.text('Continue'));
+        expect(
+          tester.widget<RegisterPage>(find.byType(RegisterPage)).role,
+          AppRole.electrician,
+        );
+
+        // Picking and continuing stored nothing anywhere.
+        expect(RoleController.to.role.value, isNull);
+        expect(SessionStore.role, isNull);
+        semantics.dispose();
+      },
+    );
+
+    testWidgets('"Log In" on the form returns to Login, past the picker', (
+      tester,
+    ) async {
+      await pumpFromLogin(tester);
+      await tapAndSettle(tester, find.text('Sign Up'));
+      await tapAndSettle(tester, find.text(AppRole.buyer.label));
+      await tapAndSettle(tester, find.text('Continue'));
+
+      await tapAndSettle(tester, find.text('Log In'));
+
+      expect(find.byType(RegisterPage), findsNothing);
+      expect(find.byType(RolePage), findsNothing);
+      expect(find.text('Sign In'), findsOneWidget);
+      // And Login is the root again, not a copy pushed on top of the old one.
+      expect(Get.routing.current, AppLinks.login);
+      expect(find.byType(LoginPage), findsOneWidget);
+    });
+
+    testWidgets("one form's errors never show up on the other", (tester) async {
+      await pumpFromLogin(tester);
+
+      // A failed login, then Sign Up.
+      auth.formError.value = 'Invalid email or password';
+      await tapAndSettle(tester, find.text('Sign Up'));
+      expect(auth.formError.value, isNull);
+
+      // A failed sign-up, then back out through the picker to Login.
+      await tapAndSettle(tester, find.text(AppRole.buyer.label));
+      await tapAndSettle(tester, find.text('Continue'));
+      auth.formError.value = 'An account with this email already exists';
+      await tester.pump();
+      await tapAndSettle(tester, back());
+      await tapAndSettle(tester, back());
+
+      expect(auth.formError.value, isNull);
+      expect(find.text('An account with this email already exists'),
+          findsNothing);
+    });
+  });
+
+  /// Where a launch lands. Nobody is sent to the role picker from here any
+  /// more — a role is chosen only when signing up.
+  group('launch routing', () {
+    /// RoleController reads storage in onInit, so storage is written FIRST and
+    /// the controller rebuilt on top of it, exactly as a cold start does.
+    void restart({
+      String? storedRole,
+      bool signedIn = false,
+    }) {
+      SessionStore.onboardingSeen = true;
+      SessionStore.role = storedRole;
+      if (signedIn) {
+        SessionStore.loggedIn = true;
+        SessionStore.refreshToken = 'refresh';
+      }
+      Get.delete<RoleController>(force: true);
+      Get.put(RoleController());
+    }
+
+    Future<void> pumpSplash(WidgetTester tester) async {
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: SplashScreen(),
+          getPages: [
+            GetPage(name: AppLinks.login, page: () => const _Stub('LOGIN')),
+            GetPage(
+              name: AppLinks.buyerShell,
+              page: () => const _Stub('BUYER SHELL'),
+            ),
+          ],
+        ),
+      );
+      // Past the splash's 1.5s hold.
+      await tester.pump(const Duration(milliseconds: 1600));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a first launch after onboarding lands on Login', (
+      tester,
+    ) async {
+      restart();
+      await pumpSplash(tester);
+      expect(find.text('LOGIN'), findsOneWidget);
+    });
+
+    testWidgets('a pick stored by an older build is ignored when signed out', (
+      tester,
+    ) async {
+      restart(storedRole: 'SUPPLIER');
+      expect(RoleController.to.role.value, isNull);
+      await pumpSplash(tester);
+      expect(find.text('LOGIN'), findsOneWidget);
+    });
+
+    testWidgets('a session with no usable role lands on Login', (tester) async {
+      // ADMIN has no app shell; AppRole.fromWire reads it as null.
+      restart(storedRole: 'ADMIN', signedIn: true);
+      expect(RoleController.to.landingRoute, AppLinks.login);
+      await pumpSplash(tester);
+      expect(find.text('LOGIN'), findsOneWidget);
+    });
+
+    testWidgets("a restored session still opens on its role's home", (
+      tester,
+    ) async {
+      restart(storedRole: 'BUYER', signedIn: true);
+      expect(RoleController.to.role.value, AppRole.buyer);
+      await pumpSplash(tester);
+      expect(find.text('BUYER SHELL'), findsOneWidget);
     });
   });
 

@@ -25,12 +25,17 @@ class RoleController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    role.value = AppRole.fromWire(SessionStore.role);
     // The two sources of truth can diverge (prefs partially wiped). Without the
     // AND, the app boots into a shell where every request 401s and
     // force-logs-out — a launch loop that reads as a routing bug.
     isLoggedIn.value =
         SessionStore.loggedIn && (SessionStore.refreshToken?.isNotEmpty ?? false);
+    // A role belongs to an ACCOUNT, so it is restored only with the session
+    // that carries it. Older builds stored the sign-up pick here before any
+    // account existed; read while signed out, that stale pick is what silently
+    // decided the role of the next sign-up.
+    role.value =
+        isLoggedIn.value ? AppRole.fromWire(SessionStore.role) : null;
     onboardingSeen.value = SessionStore.onboardingSeen;
     providerOnboarded.value = SessionStore.providerOnboarded;
   }
@@ -77,8 +82,8 @@ class RoleController extends GetxController {
     }
   }
 
-  /// The server's role is authoritative over whatever RolePage recorded.
-  /// Returns false for ADMIN (AppRole.fromWire -> null, app_role.dart:19-25):
+  /// The session's role is always the server's; the sign-up picker records
+  /// nothing. Returns false for ADMIN (AppRole.fromWire -> null, app_role.dart:19-25):
   /// admins have no app shell, so the caller must surface that, not route on it.
   bool signInFromSession(AuthUser user) {
     final r = AppRole.fromWire(user.role);
@@ -90,10 +95,13 @@ class RoleController extends GetxController {
   }
 
   /// User-initiated. Revokes server-side FIRST.
+  ///
+  /// Lands on Login, not the role picker: choosing a role is a step of
+  /// creating an account, and someone who just signed out already has one.
   Future<void> signOut() async {
     await Get.find<AuthRepository>().logout();
     _localTeardown();
-    Get.offAllNamed(AppLinks.role);
+    Get.offAllNamed(AppLinks.login);
   }
 
   /// Wired to ApiClient.onSessionExpired. The session is ALREADY dead
@@ -131,7 +139,11 @@ class RoleController extends GetxController {
   /// destination. Splash, login and register call this and nothing else.
   String get landingRoute {
     final r = role.value;
-    if (r == null) return AppLinks.role;
+    // No role means no usable session — an ADMIN token, or storage partly
+    // wiped. Login is the one place that re-establishes both, from the server.
+    // Never the sign-up picker: that would invite an existing user to create a
+    // second account.
+    if (r == null) return AppLinks.login;
     if (r == AppRole.supplier) {
       // Three destinations, not two. A supplier who HAS registered is not
       // therefore allowed into the shell — approval is a separate admin

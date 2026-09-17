@@ -163,7 +163,11 @@ class _MyButtonState extends State<MyButton> {
 
 class NavButton extends StatelessWidget {
   final String buttonText;
-  final VoidCallback onTap;
+
+  /// Null renders the button DISABLED — dimmed as well as inert. MyButton dims
+  /// only for `enabled: false`; a bare null onTap would look tappable and do
+  /// nothing.
+  final VoidCallback? onTap;
 
   // Non-const for the same reason as MyButton above: its call sites are not
   // in this partition.
@@ -180,7 +184,14 @@ class NavButton extends StatelessWidget {
       padding: const EdgeInsets.only(left: 20, right: 20, bottom: 40),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [MyButton(mBottom: 12, onTap: onTap, buttonText: buttonText)],
+        children: [
+          MyButton(
+            mBottom: 12,
+            onTap: onTap,
+            enabled: onTap != null,
+            buttonText: buttonText,
+          ),
+        ],
       ),
     );
   }

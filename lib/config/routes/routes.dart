@@ -1,19 +1,22 @@
 // NAVIGATION RULE, binding on the whole team:
 // IF THE NAVIGATION CLEARS THE STACK IT IS NAMED;
 // IF IT PUSHES ONTO THE STACK IT STAYS `Get.to(() => W())`.
-// That is why this table has 11 entries and not 45 — the existing leaf pushes
-// are working navigation and are deliberately not converted.
+// That is why this table is short — the existing leaf pushes are working
+// navigation and are deliberately not converted.
+//
+// The sign-up role picker and the sign-up form are NOT here for the same
+// reason: both are only ever pushed (Login → RolePage → RegisterPage), and the
+// form takes its role as a required constructor argument, which a named route
+// could only smuggle through untyped `arguments`.
 
 import 'package:autonect/config/routes/role_guard.dart';
 import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/view/screens/auth/forget.dart';
 import 'package:autonect/view/screens/auth/login.dart';
-import 'package:autonect/view/screens/auth/register.dart';
 import 'package:autonect/view/screens/buyer/nav_bar/nav_bar.dart';
 import 'package:autonect/view/screens/electrician/nav_bar/nav_bar.dart';
 import 'package:autonect/view/screens/electrician/registration/service_provider_registration.dart';
 import 'package:autonect/view/screens/launch/onboarding/onboarding.dart';
-import 'package:autonect/view/screens/launch/role.dart';
 import 'package:autonect/view/screens/launch/splash_screen.dart';
 import 'package:autonect/view/screens/supplier/nav_bar/nav_bar.dart';
 import 'package:autonect/view/screens/supplier/registration/supplier_awaiting_approval.dart';
@@ -29,18 +32,8 @@ class AppRoutes {
       transition: Transition.rightToLeft,
     ),
     GetPage(
-      name: AppLinks.role,
-      page: () => const RolePage(),
-      transition: Transition.rightToLeft,
-    ),
-    GetPage(
       name: AppLinks.login,
       page: () => LoginPage(),
-      transition: Transition.rightToLeft,
-    ),
-    GetPage(
-      name: AppLinks.register,
-      page: () => RegisterPage(),
       transition: Transition.rightToLeft,
     ),
     GetPage(name: AppLinks.forgot, page: () => ForgetPage()),
@@ -82,9 +75,7 @@ class AppLinks {
   // ignore: constant_identifier_names
   static const splash_screen = '/splash_screen';
   static const onboarding = '/onboarding';
-  static const role = '/role';
   static const login = '/login';
-  static const register = '/register';
   static const forgot = '/forgot';
   static const buyerShell = '/buyer';
   static const supplierShell = '/supplier';

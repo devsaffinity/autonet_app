@@ -135,10 +135,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             currentPage++;
                             setState(() {});
                           } else {
-                            // offAll, not to: slide 3 must not sit under the
-                            // role page.
+                            // offAll, not to: slide 3 must not sit under
+                            // Login. Login, not the role picker — a role is
+                            // chosen only when signing up, from Login.
                             roleController.markOnboardingSeen();
-                            Get.offAllNamed(AppLinks.role);
+                            Get.offAllNamed(AppLinks.login);
                           }
                           setState(() {});
                         },

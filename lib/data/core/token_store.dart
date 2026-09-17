@@ -92,7 +92,8 @@ class PrefsTokenStore implements TokenStore {
     SessionStore.refreshToken = p.refreshToken;
     SessionStore.accessToken = p.accessToken;
     SessionStore.userJson = jsonEncode(p.user.toJson());
-    // SERVER'S ROLE WINS over whatever RolePage recorded locally.
+    // The session's role is ALWAYS the server's. The sign-up picker stores
+    // nothing, so there is no local pick for this to override.
     SessionStore.role = p.user.role;
     SessionStore.loggedIn = true;
     _gen++;
