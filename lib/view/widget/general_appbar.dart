@@ -1,13 +1,16 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
+import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
+import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_round_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/get_navigation.dart';
+import 'package:get/get.dart';
 
 class GeneralAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
@@ -81,9 +84,14 @@ class FilterButton extends StatelessWidget {
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   const HomeAppBar({super.key});
 
-  Size get preferredSize => Size.fromHeight(kToolbarHeight);
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
   @override
   Widget build(BuildContext context) {
+    final profile = ProfileController.ensure();
+    final notifications = NotificationsController.ensure();
+
     return AppBar(
       backgroundColor: kTransperentColor,
       surfaceTintColor: kTransperentColor,
@@ -94,44 +102,92 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CommonImageView(
-              imagePath: Assets.imagesProfileImage,
-              height: 46,
-              width: 46,
-              radius: 100,
-              fit: BoxFit.cover,
-            ),
-            SizedBox(width: 10),
+            Obx(() {
+              final me = profile.me;
+              final avatar = me?.avatarUrl;
+              final name = me?.name ?? 'User';
+              return ClipOval(
+                child: SizedBox(
+                  height: 46,
+                  width: 46,
+                  child: (avatar != null && avatar.isNotEmpty)
+                      ? CommonImageView(
+                          url: avatar,
+                          cacheKey: me?.id,
+                          height: 46,
+                          width: 46,
+                          radius: 100,
+                          fit: BoxFit.cover,
+                          errorWidget: InitialsAvatar(
+                            name: name,
+                            size: 46,
+                            radius: 100,
+                          ),
+                        )
+                      : InitialsAvatar(name: name, size: 46, radius: 100),
+                ),
+              );
+            }),
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Obx(() {
+                final name = profile.me?.name ?? 'User';
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MyText(
+                      text: 'Hello',
+                      size: 14,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
+                    MyText(
+                      text: name,
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: kBlackColor,
+                      maxLines: 1,
+                      textOverflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                );
+              }),
+            ),
+            Obx(() {
+              final unread = notifications.unread.value;
+              return Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  MyText(
-                    text: 'Hello',
-                    size: 14,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
+                  MyRoundButton(
+                    borderColor: kGreyTextColor.withValues(alpha: .2),
+                    onTap: () async {
+                      await Get.to(() => const NotificationsPage());
+                      notifications.refreshUnread();
+                    },
+                    child: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: kBlackColor,
+                      size: 22,
+                    ),
                   ),
-                  MyText(
-                    text: 'Alex Carter',
-                    size: 16,
-                    weight: FontWeight.w700,
-                    color: kBlackColor,
-                  ),
+                  if (unread > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        height: 9,
+                        width: 9,
+                        decoration: BoxDecoration(
+                          color: const Color(0xffD94D2F),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: kPrimaryColor, width: 1.5),
+                        ),
+                      ),
+                    ),
                 ],
-              ),
-            ),
-            MyRoundButton(
-              borderColor: kGreyTextColor.withValues(alpha: .2),
-              onTap: () {
-                // Get.to(() => NotificationPage());
-              },
-              child: CommonImageView(
-                height: 20,
-                // imagePath: Assets.imagesNotificationIcon,
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
@@ -143,9 +199,14 @@ class ContractorHomeAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const ContractorHomeAppBar({super.key});
 
-  Size get preferredSize => Size.fromHeight(kToolbarHeight);
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
   @override
   Widget build(BuildContext context) {
+    final profile = ProfileController.ensure();
+    final notifications = NotificationsController.ensure();
+
     return AppBar(
       backgroundColor: kTransperentColor,
       surfaceTintColor: kTransperentColor,
@@ -156,44 +217,92 @@ class ContractorHomeAppBar extends StatelessWidget
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CommonImageView(
-              imagePath: Assets.imagesProfileImage,
-              height: 46,
-              width: 46,
-              radius: 100,
-              fit: BoxFit.cover,
-            ),
-            SizedBox(width: 10),
+            Obx(() {
+              final me = profile.me;
+              final avatar = me?.avatarUrl;
+              final name = me?.name ?? 'User';
+              return ClipOval(
+                child: SizedBox(
+                  height: 46,
+                  width: 46,
+                  child: (avatar != null && avatar.isNotEmpty)
+                      ? CommonImageView(
+                          url: avatar,
+                          cacheKey: me?.id,
+                          height: 46,
+                          width: 46,
+                          radius: 100,
+                          fit: BoxFit.cover,
+                          errorWidget: InitialsAvatar(
+                            name: name,
+                            size: 46,
+                            radius: 100,
+                          ),
+                        )
+                      : InitialsAvatar(name: name, size: 46, radius: 100),
+                ),
+              );
+            }),
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Obx(() {
+                final name = profile.me?.name ?? 'User';
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MyText(
+                      text: 'Hello',
+                      size: 14,
+                      weight: FontWeight.w400,
+                      color: kGreyTextColor,
+                    ),
+                    MyText(
+                      text: name,
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: kBlackColor,
+                      maxLines: 1,
+                      textOverflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                );
+              }),
+            ),
+            Obx(() {
+              final unread = notifications.unread.value;
+              return Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  MyText(
-                    text: 'Hello',
-                    size: 14,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
+                  MyRoundButton(
+                    borderColor: kGreyTextColor.withValues(alpha: .2),
+                    onTap: () async {
+                      await Get.to(() => const NotificationsPage());
+                      notifications.refreshUnread();
+                    },
+                    child: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: kBlackColor,
+                      size: 22,
+                    ),
                   ),
-                  MyText(
-                    text: 'Alex Carter',
-                    size: 16,
-                    weight: FontWeight.w700,
-                    color: kBlackColor,
-                  ),
+                  if (unread > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        height: 9,
+                        width: 9,
+                        decoration: BoxDecoration(
+                          color: const Color(0xffD94D2F),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: kPrimaryColor, width: 1.5),
+                        ),
+                      ),
+                    ),
                 ],
-              ),
-            ),
-            MyRoundButton(
-              borderColor: kGreyTextColor.withValues(alpha: .2),
-              onTap: () {
-                // Get.to(() => NotificationPage());
-              },
-              child: CommonImageView(
-                height: 20,
-                // imagePath: Assets.imagesNotificationIcon,
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),

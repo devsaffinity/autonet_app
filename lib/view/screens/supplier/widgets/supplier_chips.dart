@@ -145,12 +145,16 @@ class SupplierMenuTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color color;
+  final String? trailingText;
+  final Widget? trailing;
   const SupplierMenuTile({
     super.key,
     required this.icon,
     required this.label,
     required this.onTap,
     this.color = kBlackColor,
+    this.trailingText,
+    this.trailing,
   });
 
   @override
@@ -183,6 +187,25 @@ class SupplierMenuTile extends StatelessWidget {
                   color: color,
                 ),
               ),
+              if (trailing != null) ...[
+                trailing!,
+                const SizedBox(width: 8),
+              ] else if (trailingText != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: kSecondaryColor.withValues(alpha: .1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: MyText(
+                    text: trailingText!,
+                    size: 12,
+                    weight: FontWeight.w600,
+                    color: kSecondaryColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,

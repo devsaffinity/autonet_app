@@ -19,6 +19,7 @@ import 'package:autonect/view/screens/buyer/providers/providers_list.dart';
 import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/screens/buyer/offers/offers_list.dart';
 import 'package:autonect/view/screens/buyer/profile/buyer_profile_creation_page.dart';
+import 'package:autonect/view/screens/buyer/profile/profile.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -89,7 +90,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   /// dead control.
   void _openProfile() async {
     await Get.to(
-      () => const BuyerProfileCreationPage(isInitialSetup: false),
+      () => BuyerProfilePage(onOpenRequests: _openRequests),
     );
     await _profile.load();
     if (mounted) setState(() {});

@@ -32,6 +32,7 @@ class AppNotification {
   String? get orderId => _idFor('orderId');
   String? get bookingId => _idFor('bookingId');
   String? get conversationId => _idFor('conversationId');
+  String? get offerId => _idFor('offerId');
 
   String? _idFor(String key) {
     final v = data?[key];

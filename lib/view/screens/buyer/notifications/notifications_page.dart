@@ -13,6 +13,9 @@ import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
 import 'package:autonect/view/screens/buyer/request/request_detail.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
+import 'package:autonect/view/screens/supplier/offers/supplier_offers.dart';
+import 'package:autonect/view/screens/supplier/orders/supplier_order_detail.dart';
+import 'package:autonect/view/screens/supplier/requests/supplier_request_detail.dart';
 import 'package:autonect/view/widget/confirm_dialog.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -183,18 +186,33 @@ class _NotificationsPageState extends State<NotificationsPage> {
     await _c.markRead(n);
     if (!mounted) return;
 
+    final role = Get.isRegistered<TokenStore>()
+        ? Get.find<TokenStore>().user?.role
+        : null;
+
     if (n.orderId case final id?) {
-      Get.to(() => OrderStatusPage(orderId: id));
+      if (role == 'SUPPLIER') {
+        Get.to(() => SupplierOrderDetailPage(orderId: id));
+      } else {
+        Get.to(() => OrderStatusPage(orderId: id));
+      }
       return;
     }
     if (n.requestId case final id?) {
-      Get.to(() => BuyerRequestDetailPage(requestId: id));
+      if (role == 'SUPPLIER') {
+        Get.to(() => SupplierRequestDetailPage(requestId: id));
+      } else {
+        Get.to(() => BuyerRequestDetailPage(requestId: id));
+      }
       return;
     }
+    if (n.offerId case final id?) {
+      if (role == 'SUPPLIER') {
+        Get.to(() => const SupplierOffersPage());
+        return;
+      }
+    }
     if (n.bookingId case final id?) {
-      final role = Get.isRegistered<TokenStore>()
-          ? Get.find<TokenStore>().user?.role
-          : null;
       if (role == 'ELECTRICIAN') {
         Get.to(() => ElectricianBookingDetailsPage(bookingId: id));
         return;

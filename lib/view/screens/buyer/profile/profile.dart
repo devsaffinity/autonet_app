@@ -1,5 +1,6 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/core/token_store.dart';
@@ -99,14 +100,20 @@ class BuyerProfilePage extends StatelessWidget {
                 label: 'My Requests',
                 onTap: onOpenRequests!,
               ),
-            ProfileMenuTile(
-              icon: Icons.notifications_none_rounded,
-              label: 'Notifications',
-              // Opens the real centre. It used to snackbar "You have no new
-              // notifications" unconditionally — which was a claim the app had
-              // never checked, and was wrong the moment an offer arrived.
-              onTap: () => Get.to(() => const NotificationsPage()),
-            ),
+            Obx(() {
+              final unread = NotificationsController.ensure().unread.value;
+              return ProfileMenuTile(
+                icon: Icons.notifications_none_rounded,
+                label: 'Notifications',
+                trailingText: unread > 0
+                    ? (unread > 99 ? '99+ new' : '$unread new')
+                    : null,
+                onTap: () async {
+                  await Get.to(() => const NotificationsPage());
+                  NotificationsController.ensure().refreshUnread();
+                },
+              );
+            }),
             ProfileMenuTile(
               icon: Icons.logout_rounded,
               label: 'Log out',

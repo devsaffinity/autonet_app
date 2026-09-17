@@ -7,17 +7,33 @@ import 'package:autonect/view/screens/supplier/dash_board/supplier_credits.dart'
 import 'package:autonect/view/screens/supplier/registration/supplier_registration.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
+import 'package:autonect/view/screens/buyer/notifications/notifications_page.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
-import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// Supplier account screen — and the supplier's only logout path.
-class SupplierProfilePage extends StatelessWidget {
+class SupplierProfilePage extends StatefulWidget {
   const SupplierProfilePage({super.key});
+
+  @override
+  State<SupplierProfilePage> createState() => _SupplierProfilePageState();
+}
+
+class _SupplierProfilePageState extends State<SupplierProfilePage> {
+  final ProfileController _profile = ProfileController.ensure();
+  final NotificationsController _notifications = NotificationsController.ensure();
+
+  @override
+  void initState() {
+    super.initState();
+    _profile.load();
+    _notifications.refreshUnread();
+  }
 
   Color _kycColor(String status) {
     switch (status) {
@@ -32,8 +48,6 @@ class SupplierProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ProfileController profile = ProfileController.ensure();
-
     return Scaffold(
       appBar: GeneralAppBar(hasBackButton: false, title: 'Profile'),
       body: SingleChildScrollView(
@@ -43,7 +57,7 @@ class SupplierProfilePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Obx(() {
-              final me = profile.me;
+              final me = _profile.me;
               final business =
                   me?.supplierProfile?.businessName ?? me?.name ?? 'Supplier';
               final avatar = me?.avatarUrl;
@@ -57,7 +71,7 @@ class SupplierProfilePage extends StatelessWidget {
                       button: true,
                       label: 'Change profile photo',
                       child: InkWell(
-                        onTap: profile.changeAvatar,
+                        onTap: _profile.changeAvatar,
                         customBorder: const CircleBorder(),
                         child: ExcludeSemantics(
                           child: SizedBox(
@@ -81,7 +95,7 @@ class SupplierProfilePage extends StatelessWidget {
                                           radius: 100,
                                         ),
                                 ),
-                                if (profile.uploadingAvatar.value)
+                                if (_profile.uploadingAvatar.value)
                                   const Positioned.fill(
                                     child: Center(
                                       child: SizedBox(
@@ -181,29 +195,20 @@ class SupplierProfilePage extends StatelessWidget {
               label: 'KYC documents',
               onTap: () => Get.to(() => const SupplierRegistrationPage()),
             ),
-            SupplierMenuTile(
-              icon: Icons.notifications_none_rounded,
-              label: 'Notifications',
-              onTap: () => Get.bottomSheet(
-                MyBSheet(
-                  btnText: 'Close',
-                  onTap: Get.back,
-                  body: Column(
-                    children: [
-                      MyText(
-                        paddingTop: 10,
-                        paddingBottom: 24,
-                        text: 'No notifications yet',
-                        size: 16,
-                        weight: FontWeight.w600,
-                        color: kGreyTextColor,
-                      ),
-                    ],
-                  ),
-                ),
-                isScrollControlled: true,
-              ),
-            ),
+            Obx(() {
+              final unread = _notifications.unread.value;
+              return SupplierMenuTile(
+                icon: Icons.notifications_none_rounded,
+                label: 'Notifications',
+                trailingText: unread > 0
+                    ? (unread > 99 ? '99+ new' : '$unread new')
+                    : null,
+                onTap: () async {
+                  await Get.to(() => const NotificationsPage());
+                  _notifications.refreshUnread();
+                },
+              );
+            }),
             SupplierMenuTile(
               icon: Icons.logout_rounded,
               label: 'Log out',
