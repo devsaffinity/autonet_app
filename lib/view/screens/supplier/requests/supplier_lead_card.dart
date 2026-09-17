@@ -1,5 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/controller/supplier/supplier_home_controller.dart';
+import 'package:autonect/data/models/supplier_lead.dart';
 import 'package:autonect/view/screens/supplier/requests/supplier_request_detail.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
@@ -10,29 +12,36 @@ import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// The three states a lead can be in for a supplier, driven by the backend's
-/// RequestView credit model:
-///   locked   — the buyer's registration plate and contact are masked
-///   unlocked — credits already spent, full detail readable
-///   offered  — this supplier already has an Offer on the request
 enum LeadState { locked, unlocked, offered }
 
-/// One buyer part request as the supplier sees it. Mirrors the buyer's request
-/// card in request_status_tracking.dart so both sides read as one app.
 class SupplierLeadCard extends StatelessWidget {
-  final Map<String, dynamic> lead;
-  final VoidCallback onUnlock;
+  final SupplierLead lead;
+  final VoidCallback? onUnlock;
+
   const SupplierLeadCard({
     super.key,
     required this.lead,
-    required this.onUnlock,
+    this.onUnlock,
   });
 
-  LeadState get _state => lead['state'] as LeadState;
+  String _timeAgo(DateTime dateTime) {
+    final diff = DateTime.now().difference(dateTime);
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'Just now';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isLocked = _state == LeadState.locked;
+    final isLocked = !lead.isUnlocked;
+    final brand = lead.vehicleMake ?? 'VEHICLE';
+    final vehicleModel = [
+      if (lead.vehicleMake != null) lead.vehicleMake,
+      if (lead.vehicleYear != null) '${lead.vehicleYear}',
+    ].join(' ');
+    final title = vehicleModel.isNotEmpty ? vehicleModel : lead.partName;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: SupplierCard(
@@ -42,21 +51,18 @@ class SupplierLeadCard extends StatelessWidget {
             Row(
               children: [
                 MyText(
-                  text: lead['brand'] as String,
+                  text: brand.toUpperCase(),
                   size: 11,
                   color: kGreyTextColor,
                   weight: FontWeight.w700,
                 ),
                 const Spacer(),
-                if (_state == LeadState.offered)
-                  const SupplierStatusBadge(label: 'Offer sent')
-                else
-                  MyText(
-                    text: lead['posted'] as String,
-                    size: 12,
-                    color: kGreyTextColor,
-                    weight: FontWeight.w500,
-                  ),
+                MyText(
+                  text: _timeAgo(lead.createdAt),
+                  size: 12,
+                  color: kGreyTextColor,
+                  weight: FontWeight.w500,
+                ),
               ],
             ),
             Row(
@@ -68,7 +74,7 @@ class SupplierLeadCard extends StatelessWidget {
                     children: [
                       MyText(
                         paddingTop: 2,
-                        text: lead['model'] as String,
+                        text: title,
                         size: 14,
                         weight: FontWeight.w700,
                         color: kBlackColor,
@@ -76,19 +82,26 @@ class SupplierLeadCard extends StatelessWidget {
                         textOverflow: TextOverflow.ellipsis,
                       ),
                       MyText(
-                        paddingTop: 6,
+                        paddingTop: 4,
+                        text: lead.partName,
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: kSecondaryColor,
+                      ),
+                      MyText(
+                        paddingTop: 4,
                         text: isLocked
                             ? 'Reg  ••• •••'
-                            : 'Reg  ${lead['plate']}',
+                            : 'Reg  Unlocked',
                         size: 12,
                         weight: FontWeight.w500,
                         color: isLocked ? kGreyTextColor : kBlackColor,
                       ),
                       MyText(
-                        paddingTop: 4,
+                        paddingTop: 2,
                         text: isLocked
                             ? 'Buyer hidden until unlocked'
-                            : lead['buyer'] as String,
+                            : 'Buyer details unlocked',
                         size: 12,
                         weight: FontWeight.w500,
                         color: isLocked ? kGreyTextColor : kBlackColor,
@@ -98,15 +111,25 @@ class SupplierLeadCard extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          SupplierStatusBadge(
-                            label: lead['category'] as String,
-                            color: kQuaternaryColor,
-                          ),
-                          SupplierStatusBadge(label: lead['region'] as String),
-                          SupplierStatusBadge(
-                            label: lead['urgency'] as String,
-                            color: kRedColor,
-                          ),
+                          if (lead.category != null)
+                            SupplierStatusBadge(
+                              label: lead.category!.name,
+                              color: kQuaternaryColor,
+                            ),
+                          if (lead.region != null)
+                            SupplierStatusBadge(label: lead.region!.label),
+                          if (lead.urgency != null)
+                            SupplierStatusBadge(
+                              label: lead.urgency!.label,
+                              color: lead.urgency!.label.toLowerCase() == 'urgent'
+                                  ? kRedColor
+                                  : kSecondaryColor,
+                            ),
+                          if (lead.offerCount > 0)
+                            SupplierStatusBadge(
+                              label: '${lead.offerCount} offers',
+                              color: kTertiaryColor,
+                            ),
                         ],
                       ),
                     ],
@@ -115,7 +138,7 @@ class SupplierLeadCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 CommonImageView(
                   imagePath: Assets.imagesCar1,
-                  width: 110,
+                  width: 100,
                   fit: BoxFit.contain,
                 ),
               ],
@@ -123,27 +146,38 @@ class SupplierLeadCard extends StatelessWidget {
             const SizedBox(height: 12),
             if (isLocked)
               MyButton(
-                buttonText: 'Unlock for 2 credits',
+                buttonText: 'Unlock Request',
                 height: 34,
                 fontSize: 12,
                 radius: 9,
-                onTap: () => Get.bottomSheet(
-                  UnlockLeadBSheet(onConfirm: onUnlock),
-                  isScrollControlled: true,
-                ),
+                onTap: () {
+                  final isSubscribed = Get.isRegistered<SupplierHomeController>()
+                      ? SupplierHomeController.ensure().isSubscribed
+                      : false;
+                  Get.bottomSheet(
+                    UnlockLeadBSheet(
+                      isSubscribed: isSubscribed,
+                      onConfirm: () {
+                        onUnlock?.call();
+                        Get.to(() => SupplierRequestDetailPage(requestId: lead.id));
+                      },
+                    ),
+                    isScrollControlled: true,
+                  );
+                },
               )
             else
               MyButton(
-                buttonText: _state == LeadState.offered
-                    ? 'View my offer'
-                    : 'View request',
+                buttonText: 'View Request',
                 height: 34,
                 fontSize: 12,
                 radius: 9,
                 backgroundColor: kPrimaryColor,
                 outlineColor: kSecondaryColor,
                 fontColor: kSecondaryColor,
-                onTap: () => Get.to(() => const SupplierRequestDetailPage()),
+                onTap: () => Get.to(
+                  () => SupplierRequestDetailPage(requestId: lead.id),
+                ),
               ),
           ],
         ),
@@ -152,15 +186,25 @@ class SupplierLeadCard extends StatelessWidget {
   }
 }
 
-/// Spend-credits confirmation, modelled on RequestSendBSheet.
+/// Spend-credits confirmation, dynamic based on Pro subscription status.
 class UnlockLeadBSheet extends StatelessWidget {
+  final bool isSubscribed;
   final VoidCallback onConfirm;
-  const UnlockLeadBSheet({super.key, required this.onConfirm});
+  const UnlockLeadBSheet({
+    super.key,
+    required this.onConfirm,
+    this.isSubscribed = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final btnText = isSubscribed ? 'Unlock (Included in Pro)' : 'Spend 1 credit';
+    final descText = isSubscribed
+        ? 'As a Pro subscriber, request unlocking is included in your plan at no extra charge. Unlocking reveals registration plate, photos, and buyer contact.'
+        : 'Unlocking reveals the vehicle registration plate, photos, and buyer contact so you can send an offer. 1 credit will be deducted from your balance.';
+
     return MyBSheet(
-      btnText: 'Spend 2 credits',
+      btnText: btnText,
       onTap: () {
         Get.back();
         onConfirm();
@@ -170,7 +214,7 @@ class UnlockLeadBSheet extends StatelessWidget {
           CommonImageView(width: 150, imagePath: Assets.imagesRequestPartIcon),
           MyText(
             textAlign: TextAlign.center,
-            paddingBottom: 20,
+            paddingBottom: 16,
             paddingTop: 24,
             text: 'Unlock this request?',
             size: 20,
@@ -179,10 +223,10 @@ class UnlockLeadBSheet extends StatelessWidget {
           MyText(
             paddingBottom: 24,
             textAlign: TextAlign.center,
-            text:
-                'Unlocking reveals the registration plate and the buyer contact so you can send an offer. 2 credits will be deducted from your balance.',
-            size: 16,
+            text: descText,
+            size: 15,
             weight: FontWeight.w400,
+            color: kGreyTextColor,
           ),
         ],
       ),

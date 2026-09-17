@@ -1,5 +1,6 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/controller/supplier/supplier_create_offer_controller.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
@@ -7,19 +8,34 @@ import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
-/// Step 3 — review, then the CTA the caller supplies ('Send Offer' on create,
-/// 'Update Offer' when editing the one offer this supplier already has).
+/// Step 3 — review and submit quote.
 class SupplierOfferReviewStep extends StatelessWidget {
   final String ctaLabel;
   final VoidCallback onSubmit;
+  final SupplierCreateOfferController? controller;
+
   const SupplierOfferReviewStep({
     super.key,
     required this.ctaLabel,
     required this.onSubmit,
+    this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
+    final c = controller;
+
+    final priceStr = c != null ? c.formattedPrice : '£320.00';
+    final conditionStr = c != null ? c.condition.value.label : 'Brand New';
+    final warrantyStr = c != null && c.warrantyController.text.isNotEmpty
+        ? '${c.warrantyController.text} months'
+        : '12 months';
+    final deliveryStr = c != null
+        ? '${c.deliveryOption.value.label} - ${c.deliveryTimeController.text.isNotEmpty ? c.deliveryTimeController.text : '2'} days'
+        : 'Standard delivery - 2 days';
+    final stockStr = c != null ? c.stockStatus.value.label : 'In stock';
+    final notesStr = c?.notesController.text;
+
     return Column(
       children: [
         Expanded(
@@ -40,17 +56,15 @@ class SupplierOfferReviewStep extends StatelessWidget {
                 SupplierCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      SupplierPriceRow(label: 'Part Price', value: '320.00'),
-                      SizedBox(height: 12),
-                      SupplierPriceRow(label: 'Delivery Fee', value: '30.00'),
-                      Padding(
+                    children: [
+                      SupplierPriceRow(label: 'Part Price', value: priceStr),
+                      const Padding(
                         padding: EdgeInsets.symmetric(vertical: 14),
                         child: Divider(height: 1, color: kGreyTextColor),
                       ),
                       SupplierPriceRow(
-                        label: 'Total Price',
-                        value: '350.00',
+                        label: 'Total Quote',
+                        value: priceStr,
                         isTotal: true,
                       ),
                     ],
@@ -59,40 +73,47 @@ class SupplierOfferReviewStep extends StatelessWidget {
                 const SizedBox(height: 14),
                 SupplierCard(
                   child: Column(
-                    children: const [
+                    children: [
                       Row(
                         children: [
                           Expanded(
                             child: SupplierDetailItem(
                               label: 'Condition',
-                              value: 'Brand New',
+                              value: conditionStr,
                             ),
                           ),
                           Expanded(
                             child: SupplierDetailItem(
                               label: 'Warranty',
-                              value: '12 months',
+                              value: warrantyStr,
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: SupplierDetailItem(
                               label: 'Delivery',
-                              value: 'Courier - 2 days',
+                              value: deliveryStr,
                             ),
                           ),
                           Expanded(
                             child: SupplierDetailItem(
                               label: 'Stock',
-                              value: 'In Stock',
+                              value: stockStr,
                             ),
                           ),
                         ],
                       ),
+                      if (notesStr != null && notesStr.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        SupplierDetailItem(
+                          label: 'Notes',
+                          value: notesStr,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -107,7 +128,7 @@ class SupplierOfferReviewStep extends StatelessWidget {
   }
 }
 
-/// Success sheet, the mirror of the buyer's RequestSendBSheet.
+/// Success sheet shown once an offer is submitted or updated.
 class OfferSentBSheet extends StatelessWidget {
   final String title;
   final VoidCallback onContinue;
@@ -137,7 +158,7 @@ class OfferSentBSheet extends StatelessWidget {
             paddingBottom: 24,
             textAlign: TextAlign.center,
             text:
-                'The buyer can now compare your offer. You will be notified as soon as they accept or reject it.',
+                'The buyer can now compare your offer with other suppliers. You will be notified immediately when they accept or decide.',
             size: 16,
             weight: FontWeight.w400,
           ),

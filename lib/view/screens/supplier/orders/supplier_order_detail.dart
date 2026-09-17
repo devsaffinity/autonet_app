@@ -1,6 +1,11 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/controller/supplier/supplier_home_controller.dart';
+import 'package:autonect/controller/supplier/supplier_orders_controller.dart';
+import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
+import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:autonect/domain/order_steps.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
@@ -11,14 +16,17 @@ import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/order_progress_card.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-/// One accepted order, from the supplier's side.
-///
-/// The buyer's OrderStatusPage is read-only and ends in 'Give Review'. Only the
-/// supplier can advance an order, so this screen swaps that CTA for the
-/// OrderStatusEvent write — without it a buyer's tracker can never leave PLACED.
 class SupplierOrderDetailPage extends StatefulWidget {
-  const SupplierOrderDetailPage({super.key});
+  final Order? order;
+  final String? orderId;
+
+  const SupplierOrderDetailPage({
+    super.key,
+    this.order,
+    this.orderId,
+  });
 
   @override
   State<SupplierOrderDetailPage> createState() =>
@@ -26,32 +34,215 @@ class SupplierOrderDetailPage extends StatefulWidget {
 }
 
 class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
-  /// How far the order has been advanced: an index into
-  /// [OrderStatus.forwardPath]. The real implementation posts an
-  /// OrderStatusEvent and re-reads the order.
-  int _stage = 1;
+  late final OrdersRepository _ordersRepo;
+  Order? _order;
+  bool _isLoading = false;
+  bool _isAdvancing = false;
 
-  static const List<String> _ctas = [
-    'Mark as Preparing',
-    'Mark as Out for Delivery',
-    'Mark as Delivered',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _ordersRepo = Get.find<OrdersRepository>();
+    _order = widget.order;
+    if (_order == null && widget.orderId != null && widget.orderId!.isNotEmpty) {
+      _loadOrder();
+    }
+  }
 
-  /// The one stepper in the app now builds these. With no `events[]` behind the
-  /// local counter every earlier row comes back `skipped` rather than `done`,
-  /// which is the honest rendering of "no OrderStatusEvent was ever read".
-  List<OrderStep> get _steps =>
-      buildOrderSteps(OrderStatus.forwardPath[_stage], const []);
+  Future<void> _loadOrder() async {
+    setState(() => _isLoading = true);
+    final res = await _ordersRepo.byId(widget.orderId!);
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (res is Ok<Order>) _order = res.value;
+    });
+  }
 
-  // PHASE 2: a local counter with no PATCH behind it. Wiring
-  // `PATCH /v1/orders/:id/status` on the supplier side is phase-2 work; until
-  // then this advances nothing the buyer's tracker can see.
-  void _advance() {
-    if (_stage < 3) setState(() => _stage++);
+  OrderStatus? _nextStatusFor(OrderStatus? current) => switch (current) {
+    OrderStatus.placed => OrderStatus.preparing,
+    OrderStatus.preparing => OrderStatus.outForDelivery,
+    OrderStatus.outForDelivery => OrderStatus.delivered,
+    _ => null,
+  };
+
+  String? _ctaFor(OrderStatus? current) => switch (current) {
+    OrderStatus.placed => 'Mark as Preparing',
+    OrderStatus.preparing => 'Mark as Out for Delivery',
+    OrderStatus.outForDelivery => 'Mark as Delivered',
+    _ => null,
+  };
+
+  Future<void> _advance() async {
+    if (_isAdvancing || _order == null) return;
+    final nextStatus = _nextStatusFor(_order!.status);
+    if (nextStatus == null) return;
+
+    setState(() => _isAdvancing = true);
+    final res = await _ordersRepo.changeStatus(
+      orderId: _order!.id,
+      status: nextStatus,
+    );
+    if (!mounted) return;
+    setState(() => _isAdvancing = false);
+
+    switch (res) {
+      case Err(:final error):
+        Get.snackbar('Update Failed', error.message);
+      case Ok(:final value):
+        setState(() => _order = value);
+        Get.snackbar(
+          'Order Updated',
+          'Fulfillment status is now ${value.status?.label}',
+        );
+        if (Get.isRegistered<SupplierOrdersController>()) {
+          SupplierOrdersController.ensure().refreshForFilter();
+        }
+        if (Get.isRegistered<SupplierHomeController>()) {
+          SupplierHomeController.ensure().load();
+        }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: GeneralAppBar(title: 'Order Details', centerdTitle: false),
+        body: const Center(
+          child: CircularProgressIndicator(color: kSecondaryColor),
+        ),
+      );
+    }
+
+    if (_order == null) {
+      return _buildStaticFallback();
+    }
+
+    final order = _order!;
+    final shortId = order.id.length > 6
+        ? order.id.substring(order.id.length - 6)
+        : order.id;
+    final steps = buildOrderSteps(order.status, order.events);
+    final priceStr = '£${(order.totalPence / 100).toStringAsFixed(2)}';
+    final nextCta = _ctaFor(order.status);
+
+    return Scaffold(
+      appBar: GeneralAppBar(title: 'Order #$shortId', centerdTitle: false),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            SupplierCard(
+              child: Row(
+                children: [
+                  CommonImageView(
+                    imagePath: Assets.imagesProfileImage,
+                    height: 44,
+                    width: 44,
+                    radius: 100,
+                    fit: BoxFit.cover,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MyText(
+                          text: 'Customer Order',
+                          size: 16,
+                          weight: FontWeight.w700,
+                          color: kBlackColor,
+                        ),
+                        MyText(
+                          paddingTop: 2,
+                          text: order.request.partName,
+                          size: 13,
+                          weight: FontWeight.w500,
+                          color: kGreyTextColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SupplierStatusBadge(
+                    label: order.status?.label ?? 'Placed',
+                    color: order.status == OrderStatus.delivered
+                        ? const Color(0xff34C759)
+                        : order.status == OrderStatus.cancelled
+                            ? kRedColor
+                            : kSecondaryColor,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            OrderProgressCard(steps: steps),
+            const SizedBox(height: 14),
+            SupplierCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SupplierPriceRow(label: 'Item Subtotal', value: priceStr),
+                  const SizedBox(height: 12),
+                  const SupplierPriceRow(
+                    label: 'Delivery & Handling',
+                    value: 'Included',
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Divider(height: 1, color: kGreyTextColor),
+                  ),
+                  SupplierPriceRow(
+                    label: 'Total Order Value',
+                    value: priceStr,
+                    isTotal: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            SupplierCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SupplierDetailItem(
+                          label: 'Delivery Option',
+                          value: order.deliveryMethod?.label ?? 'Standard Delivery',
+                        ),
+                      ),
+                      Expanded(
+                        child: SupplierDetailItem(
+                          label: 'Deliver to',
+                          value: order.deliveryLocation != null &&
+                                  order.deliveryLocation!.isNotEmpty
+                              ? order.deliveryLocation!
+                              : 'United Kingdom',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+      bottomNavigationBar: nextCta != null
+          ? NavButton(
+              buttonText: _isAdvancing ? 'Updating...' : nextCta,
+              onTap: _advance,
+            )
+          : null,
+    );
+  }
+
+  Widget _buildStaticFallback() {
     return Scaffold(
       appBar: GeneralAppBar(title: 'Order #4818', centerdTitle: false),
       body: SingleChildScrollView(
@@ -91,27 +282,29 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
                       ],
                     ),
                   ),
-                  SupplierStatusBadge(label: OrderStatus.forwardPath[_stage].label),
+                  const SupplierStatusBadge(label: 'Preparing Order'),
                 ],
               ),
             ),
             const SizedBox(height: 14),
-            OrderProgressCard(steps: _steps),
+            OrderProgressCard(
+              steps: buildOrderSteps(OrderStatus.preparing, const []),
+            ),
             const SizedBox(height: 14),
             SupplierCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  SupplierPriceRow(label: 'Part Price', value: '240.00'),
+                  SupplierPriceRow(label: 'Part Price', value: '£240.00'),
                   SizedBox(height: 12),
-                  SupplierPriceRow(label: 'Delivery Fee', value: '20.00'),
+                  SupplierPriceRow(label: 'Delivery Fee', value: '£20.00'),
                   Padding(
                     padding: EdgeInsets.symmetric(vertical: 14),
                     child: Divider(height: 1, color: kGreyTextColor),
                   ),
                   SupplierPriceRow(
                     label: 'You receive',
-                    value: '260.00',
+                    value: '£260.00',
                     isTotal: true,
                   ),
                 ],
@@ -145,9 +338,10 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
           ],
         ),
       ),
-      bottomNavigationBar: _stage < 3
-          ? NavButton(buttonText: _ctas[_stage], onTap: _advance)
-          : null,
+      bottomNavigationBar: NavButton(
+        buttonText: 'Mark as Out for Delivery',
+        onTap: () {},
+      ),
     );
   }
 }

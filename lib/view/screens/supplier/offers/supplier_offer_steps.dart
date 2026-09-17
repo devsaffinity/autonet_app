@@ -1,17 +1,26 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/controller/supplier/supplier_create_offer_controller.dart';
+import 'package:autonect/data/models/order_enums.dart';
+import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-/// Step 1 — the Offer price cluster: pricePence, quantity, condition,
-/// warrantyMonths.
+/// Step 1 — the Offer price cluster: pricePence, quantity, condition, warrantyMonths.
 class SupplierOfferPricingStep extends StatefulWidget {
   final VoidCallback onNext;
-  const SupplierOfferPricingStep({super.key, required this.onNext});
+  final SupplierCreateOfferController? controller;
+
+  const SupplierOfferPricingStep({
+    super.key,
+    required this.onNext,
+    this.controller,
+  });
 
   @override
   State<SupplierOfferPricingStep> createState() =>
@@ -21,14 +30,27 @@ class SupplierOfferPricingStep extends StatefulWidget {
 class _SupplierOfferPricingStepState extends State<SupplierOfferPricingStep> {
   static const List<String> _conditions = [
     'Brand New',
-    'Refurbished',
-    'Used - Good',
-    'Used - Fair',
+    'Used',
+    'Either',
   ];
-  final Set<String> _condition = {'Brand New'};
+
+  late final Set<String> _condition;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.controller;
+    if (c != null) {
+      _condition = {c.condition.value.label};
+    } else {
+      _condition = {'Brand New'};
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final c = widget.controller;
+
     return Column(
       children: [
         Expanded(
@@ -47,11 +69,13 @@ class _SupplierOfferPricingStepState extends State<SupplierOfferPricingStep> {
                   paddingTop: 24,
                 ),
                 MyTextField(
-                  labelText: 'Price',
+                  controller: c?.priceController,
+                  labelText: 'Price (£)',
                   hintText: 'e.g. 320.00',
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
                 MyTextField(
+                  controller: c?.quantityController,
                   labelText: 'Quantity available',
                   hintText: 'e.g. 1',
                   keyboardType: TextInputType.number,
@@ -65,14 +89,24 @@ class _SupplierOfferPricingStepState extends State<SupplierOfferPricingStep> {
                 SupplierChoiceChips(
                   options: _conditions,
                   selected: _condition,
-                  onToggle: (c) => setState(() {
+                  onToggle: (label) => setState(() {
                     _condition
                       ..clear()
-                      ..add(c);
+                      ..add(label);
+                    if (c != null) {
+                      if (label == 'Brand New') {
+                        c.condition.value = PartCondition.newPart;
+                      } else if (label == 'Used') {
+                        c.condition.value = PartCondition.used;
+                      } else {
+                        c.condition.value = PartCondition.either;
+                      }
+                    }
                   }),
                 ),
                 const SizedBox(height: 18),
                 MyTextField(
+                  controller: c?.warrantyController,
                   labelText: 'Warranty (months)',
                   hintText: 'e.g. 12',
                   keyboardType: TextInputType.number,
@@ -88,10 +122,16 @@ class _SupplierOfferPricingStepState extends State<SupplierOfferPricingStep> {
   }
 }
 
-/// Step 2 — deliveryOption, deliveryTimeDays, stockStatus and photos.
+/// Step 2 — deliveryOption, deliveryTimeDays, stockStatus and notes.
 class SupplierOfferDeliveryStep extends StatefulWidget {
   final VoidCallback onNext;
-  const SupplierOfferDeliveryStep({super.key, required this.onNext});
+  final SupplierCreateOfferController? controller;
+
+  const SupplierOfferDeliveryStep({
+    super.key,
+    required this.onNext,
+    this.controller,
+  });
 
   @override
   State<SupplierOfferDeliveryStep> createState() =>
@@ -99,11 +139,26 @@ class SupplierOfferDeliveryStep extends StatefulWidget {
 }
 
 class _SupplierOfferDeliveryStepState extends State<SupplierOfferDeliveryStep> {
-  final Set<String> _delivery = {'Courier'};
-  final Set<String> _stock = {'In Stock'};
+  late final Set<String> _delivery;
+  late final Set<String> _stock;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.controller;
+    if (c != null) {
+      _delivery = {c.deliveryOption.value.label};
+      _stock = {c.stockStatus.value.label};
+    } else {
+      _delivery = {'Standard delivery'};
+      _stock = {'In stock'};
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final c = widget.controller;
+
     return Column(
       children: [
         Expanded(
@@ -128,16 +183,30 @@ class _SupplierOfferDeliveryStepState extends State<SupplierOfferDeliveryStep> {
                   paddingBottom: 8,
                 ),
                 SupplierChoiceChips(
-                  options: const ['Courier', 'Collection', 'Own Driver'],
+                  options: const [
+                    'Standard delivery',
+                    'Express',
+                    'Local pickup',
+                  ],
                   selected: _delivery,
                   onToggle: (d) => setState(() {
                     _delivery
                       ..clear()
                       ..add(d);
+                    if (c != null) {
+                      if (d == 'Express') {
+                        c.deliveryOption.value = DeliveryOption.express;
+                      } else if (d == 'Local pickup') {
+                        c.deliveryOption.value = DeliveryOption.localPickup;
+                      } else {
+                        c.deliveryOption.value = DeliveryOption.standard;
+                      }
+                    }
                   }),
                 ),
                 const SizedBox(height: 18),
                 MyTextField(
+                  controller: c?.deliveryTimeController,
                   labelText: 'Delivery time (days)',
                   hintText: 'e.g. 2',
                   keyboardType: TextInputType.number,
@@ -149,28 +218,29 @@ class _SupplierOfferDeliveryStepState extends State<SupplierOfferDeliveryStep> {
                   paddingBottom: 8,
                 ),
                 SupplierChoiceChips(
-                  options: const ['In Stock', 'Order In', 'Low Stock'],
+                  options: const ['In stock', 'Low stock', 'On order'],
                   selected: _stock,
                   onToggle: (s) => setState(() {
                     _stock
                       ..clear()
                       ..add(s);
+                    if (c != null) {
+                      if (s == 'Low stock') {
+                        c.stockStatus.value = StockStatus.lowStock;
+                      } else if (s == 'On order') {
+                        c.stockStatus.value = StockStatus.onOrder;
+                      } else {
+                        c.stockStatus.value = StockStatus.inStock;
+                      }
+                    }
                   }),
                 ),
                 const SizedBox(height: 18),
-                SupplierCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SupplierTitleRow(
-                        icon: Assets.imagesPartBox,
-                        title: 'Part photos',
-                        subTitle: 'Up to 4 images of the actual unit',
-                      ),
-                      const SizedBox(height: 15),
-                      CommonImageView(svgPath: Assets.imagesUploadDocButton),
-                    ],
-                  ),
+                MyTextField(
+                  controller: c?.notesController,
+                  labelText: 'Notes for buyer (optional)',
+                  hintText: 'e.g. Original OEM part, includes mounting brackets',
+                  maxLines: 3,
                 ),
                 const SizedBox(height: 20),
               ],

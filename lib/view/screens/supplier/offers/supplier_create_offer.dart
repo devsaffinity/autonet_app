@@ -1,19 +1,22 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/controller/supplier/supplier_create_offer_controller.dart';
+import 'package:autonect/data/models/supplier_lead.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_offer_review.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_offer_steps.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Create AND edit an offer.
-///
-/// The backend enforces `@@unique([requestId, supplierId])` on Offer, so a
-/// supplier can only ever hold one offer per request — a second create path
-/// would be unbuildable against the API. Passing [existingOffer] swaps the CTA
-/// to 'Update Offer'; everything else is identical.
+/// Create AND edit a part offer.
 class SupplierCreateOfferPage extends StatefulWidget {
-  final Map<String, dynamic>? existingOffer;
-  const SupplierCreateOfferPage({super.key, this.existingOffer});
+  final String? requestId;
+  final SupplierOffer? existingOffer;
+
+  const SupplierCreateOfferPage({
+    super.key,
+    this.requestId,
+    this.existingOffer,
+  });
 
   @override
   State<SupplierCreateOfferPage> createState() =>
@@ -23,10 +26,20 @@ class SupplierCreateOfferPage extends StatefulWidget {
 class _SupplierCreateOfferPageState extends State<SupplierCreateOfferPage> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
+  late final SupplierCreateOfferController _controller;
 
   static const List<String> _stepLabels = ['Pricing', 'Delivery', 'Review'];
 
   bool get _isEdit => widget.existingOffer != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = SupplierCreateOfferController(
+      requestId: widget.requestId ?? widget.existingOffer?.requestId ?? '',
+      existingOffer: widget.existingOffer,
+    );
+  }
 
   void _next() {
     if (_currentStep < 2) {
@@ -52,22 +65,26 @@ class _SupplierCreateOfferPageState extends State<SupplierCreateOfferPage> {
     }
   }
 
-  void _submit() {
-    Get.bottomSheet(
-      OfferSentBSheet(
-        title: _isEdit ? 'Offer Updated' : 'Offer Sent to Buyer',
-        onContinue: () {
-          Get.back();
-          Get.back();
-        },
-      ),
-      isScrollControlled: true,
-    );
+  Future<void> _submit() async {
+    final success = await _controller.submit();
+    if (success) {
+      Get.bottomSheet(
+        OfferSentBSheet(
+          title: _isEdit ? 'Offer Updated' : 'Offer Sent to Buyer',
+          onContinue: () {
+            Get.back();
+            Get.back();
+          },
+        ),
+        isScrollControlled: true,
+      );
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -143,9 +160,16 @@ class _SupplierCreateOfferPageState extends State<SupplierCreateOfferPage> {
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          SupplierOfferPricingStep(onNext: _next),
-          SupplierOfferDeliveryStep(onNext: _next),
+          SupplierOfferPricingStep(
+            controller: _controller,
+            onNext: _next,
+          ),
+          SupplierOfferDeliveryStep(
+            controller: _controller,
+            onNext: _next,
+          ),
           SupplierOfferReviewStep(
+            controller: _controller,
             ctaLabel: _isEdit ? 'Update Offer' : 'Send Offer',
             onSubmit: _submit,
           ),

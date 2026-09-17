@@ -1,23 +1,23 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/data/models/supplier_lead.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_create_offer.dart';
-import 'package:autonect/view/screens/supplier/orders/supplier_order_detail.dart';
+import 'package:autonect/view/screens/supplier/offers/supplier_offer_sheets.dart';
+import 'package:autonect/view/screens/supplier/orders/supplier_orders.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
-import 'package:autonect/view/screens/supplier/offers/supplier_offer_sheets.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// One row of the supplier's own offers, tab-aware. This is the seller-side
-/// twin of the buyer's `_OfferCard` in buyer/detail/comparison.dart.
 class SupplierOfferCard extends StatelessWidget {
-  final Map<String, dynamic> offer;
+  final SupplierOffer offer;
   final int statusIndex; // 0 Pending, 1 Accepted, 2 Rejected
   final VoidCallback onWithdraw;
+
   const SupplierOfferCard({
     super.key,
     required this.offer,
@@ -27,6 +27,18 @@ class SupplierOfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = offer.request?.partName ?? 'Part Quote';
+    final priceStr = '£${(offer.pricePence / 100).toStringAsFixed(2)}';
+    final deliveryStr =
+        '${offer.deliveryOption?.label ?? 'Delivery'} (${offer.deliveryTimeDays ?? 2}d)';
+    final regionStr =
+        offer.request?.region != null ? ' - ${offer.request!.region!.label}' : '';
+    final statusLabel = switch (statusIndex) {
+      1 => 'Accepted',
+      2 => 'Rejected',
+      _ => 'Pending',
+    };
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: SupplierCard(
@@ -45,7 +57,7 @@ class SupplierOfferCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: MyText(
-                    text: offer['buyer'] as String,
+                    text: title,
                     size: 16,
                     weight: FontWeight.w600,
                     color: kSecondaryColor,
@@ -54,12 +66,12 @@ class SupplierOfferCard extends StatelessWidget {
                   ),
                 ),
                 SupplierStatusBadge(
-                  label: offer['status'] as String,
+                  label: statusLabel,
                   color: statusIndex == 1
                       ? const Color(0xff34C759)
                       : statusIndex == 2
-                      ? kRedColor
-                      : kSecondaryColor,
+                          ? kRedColor
+                          : kSecondaryColor,
                 ),
               ],
             ),
@@ -69,16 +81,16 @@ class SupplierOfferCard extends StatelessWidget {
                 CommonImageView(svgPath: Assets.imagesCpA),
                 const SizedBox(width: 4),
                 MyText(
-                  text: offer['price'] as String,
+                  text: priceStr,
                   size: 14,
-                  weight: FontWeight.w400,
+                  weight: FontWeight.w700,
                   color: kBlackColor,
                 ),
                 const Spacer(),
                 CommonImageView(svgPath: Assets.imagesCpD),
                 const SizedBox(width: 4),
                 MyText(
-                  text: offer['delivery'] as String,
+                  text: deliveryStr,
                   size: 14,
                   weight: FontWeight.w400,
                   color: kBlackColor,
@@ -87,7 +99,8 @@ class SupplierOfferCard extends StatelessWidget {
             ),
             MyText(
               paddingTop: 6,
-              text: offer['vehicle'] as String,
+              text:
+                  '${offer.condition?.label ?? 'Condition unspecified'}${offer.warrantyMonths != null ? ' • ${offer.warrantyMonths}m warranty' : ''}$regionStr',
               size: 12,
               weight: FontWeight.w500,
               color: kGreyTextColor,
@@ -96,11 +109,11 @@ class SupplierOfferCard extends StatelessWidget {
             if (statusIndex == 0) _buildPendingActions(),
             if (statusIndex == 1)
               MyButton(
-                buttonText: 'View Order',
+                buttonText: 'View Orders',
                 height: 36,
                 fontSize: 12,
                 radius: 9,
-                onTap: () => Get.to(() => const SupplierOrderDetailPage()),
+                onTap: () => Get.to(() => const SupplierOrdersPage()),
               ),
             if (statusIndex == 2)
               MyText(
@@ -130,8 +143,9 @@ class SupplierOfferCard extends StatelessWidget {
             backgroundColor: kPrimaryColor,
             outlineColor: kSecondaryColor,
             fontColor: kSecondaryColor,
-            onTap: () =>
-                Get.to(() => SupplierCreateOfferPage(existingOffer: offer)),
+            onTap: () => Get.to(
+              () => SupplierCreateOfferPage(existingOffer: offer),
+            ),
           ),
         ),
         const SizedBox(width: 10),
