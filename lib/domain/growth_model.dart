@@ -10,10 +10,9 @@ import 'package:autonect/domain/money_format.dart';
 ///
 /// The supplier PICKS one, and the choice is sent with the registration and
 /// stored on their profile. It is a stated preference, not a purchase: nothing
-/// charges on it, because Stripe Checkout answers with a hosted URL this app
-/// cannot open (no url_launcher, no webview, no registered scheme). Billing is
-/// arranged after approval, and the reviewer gets an answer instead of having
-/// to ask.
+/// charges during registration. Paying happens after approval, in Stripe's
+/// in-app payment sheet on Plans & Billing, and the reviewer gets an answer
+/// instead of having to ask.
 enum GrowthModel {
   subscription(
     wire: 'SUBSCRIPTION',

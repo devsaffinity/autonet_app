@@ -1,6 +1,5 @@
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
-import 'package:autonect/data/models/billing_plan.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
@@ -16,32 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
-class _FakeBillingRepo implements BillingRepository {
-  List<Map<String, dynamic>> returnLedger = [];
-
-  @override
-  Future<ApiResult<Map<String, dynamic>>> wallet() async => Ok({
-        'credits': 50,
-        'hasActiveSubscription': false,
-        'subscription': null,
-        'ledger': returnLedger,
-      });
-
-  @override
-  Future<ApiResult<List<BillingPlan>>> plans() async => const Ok([]);
-
-  @override
-  Future<ApiResult<Map<String, dynamic>>> subscribe(String lookupKey) =>
-      throw UnimplementedError();
-
-  @override
-  Future<ApiResult<Map<String, dynamic>>> purchaseCredits(String lookupKey) =>
-      throw UnimplementedError();
-
-  @override
-  Future<ApiResult<Map<String, dynamic>>> cancelSubscription() =>
-      throw UnimplementedError();
-}
+import '../fakes/fake_billing.dart';
 
 class _StubSupplierRepo implements SupplierRepository {
   @override
@@ -194,11 +168,11 @@ class _StubOrdersRepo implements OrdersRepository {
 }
 
 void main() {
-  late _FakeBillingRepo fakeBilling;
+  late FakeBillingRepository fakeBilling;
 
   setUp(() {
     Get.reset();
-    fakeBilling = _FakeBillingRepo();
+    fakeBilling = FakeBillingRepository()..walletCredits = 50;
     final stubSupplier = _StubSupplierRepo();
     final stubOrders = _StubOrdersRepo();
 
@@ -215,7 +189,7 @@ void main() {
 
   testWidgets('SupplierCreditsPage mounts and displays empty state when ledger is empty',
       (tester) async {
-    fakeBilling.returnLedger = [];
+    fakeBilling.ledger = [];
 
     await tester.pumpWidget(
       const GetMaterialApp(
@@ -232,7 +206,7 @@ void main() {
 
   testWidgets('SupplierCreditsPage displays live ledger transactions when populated',
       (tester) async {
-    fakeBilling.returnLedger = [
+    fakeBilling.ledger = [
       {
         'id': 'led_1',
         'delta': 50,

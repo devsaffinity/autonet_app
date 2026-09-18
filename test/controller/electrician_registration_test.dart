@@ -1,6 +1,7 @@
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/electrician/electrician_registration_controller.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -120,7 +121,7 @@ void main() {
     expect(c.services, isEmpty);
   });
 
-  test('submits selected tier in draft to body and defaults to FREE', () async {
+  test('submits the chosen plan, defaulting to FREE', () async {
     final repo = FakeProfileRepository();
     final c = _controller(repo);
     c.fullName.value = 'Jack Brennan';
@@ -129,11 +130,37 @@ void main() {
     expect(c.tier.value, 'FREE');
     expect(c.draft.toBody()['tier'], 'FREE');
 
-    c.tier.value = 'PRO';
-    final profile = await c.submit();
-    expect(profile, isNotNull);
-    expect(repo.electricianDraft!.tier, 'PRO');
-    expect(repo.electricianDraft!.toBody()['tier'], 'PRO');
+    c.chooseTier('PAY_PER_LEAD');
+    expect(await c.submit(), isNotNull);
+    expect(repo.electricianDraft!.toBody()['tier'], 'PAY_PER_LEAD');
+  });
+
+  test('PRO cannot be chosen at registration — it starts only by paying', () {
+    final c = _controller(FakeProfileRepository());
+    c.chooseTier('PRO');
+    expect(c.tier.value, 'FREE');
+    c.chooseTier('PAY_PER_LEAD');
+    c.chooseTier('PRO');
+    expect(c.tier.value, 'PAY_PER_LEAD');
+  });
+
+  test('editing the profile never sends a plan, even for a Pro subscriber', () async {
+    final repo = FakeProfileRepository();
+    final c = _controller(repo);
+    c.prefillFrom(
+      const ElectricianProfile(
+        fullName: 'Jack Brennan',
+        approved: true,
+        tier: 'PRO',
+        hasActiveSubscription: true,
+        services: [BookingServiceType.repair],
+      ),
+    );
+
+    expect(c.tier.value, 'FREE', reason: 'the paid projection is not copied into the form');
+    expect(await c.submit(), isNotNull);
+    expect(repo.electricianDraft!.tier, isNull);
+    expect(repo.electricianDraft!.toBody().containsKey('tier'), isFalse);
   });
 
   test('ProfileController updates electrician tier via repository', () async {

@@ -4,6 +4,7 @@ import 'package:autonect/controller/electrician/provider_dashboard_controller.da
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/me_profile.dart';
 import 'package:autonect/data/models/provider_dashboard.dart';
+import 'package:autonect/data/repositories/billing_repository.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/data/repositories/notifications_repository.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
+import '../fakes/fake_billing.dart';
 import '../fakes/fake_buyer_repositories.dart';
 
 /// MOUNTING THE WIZARD AND THE PROVIDER PROFILE.
@@ -65,6 +67,8 @@ void main() {
     Future<FakeProfileRepository> pump(WidgetTester tester) async {
       final repo = FakeProfileRepository();
       Get.put<ProfileRepository>(repo);
+      // The Access Tier step shows server prices (read-only, nothing sold).
+      Get.put<BillingRepository>(FakeBillingRepository());
       Get.put(
         ElectricianRegistrationController(
           repo,

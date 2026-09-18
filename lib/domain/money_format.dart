@@ -22,3 +22,12 @@ String formatPence(int pence) {
   final sign = negative ? '-' : '';
   return '$sign£$grouped.$pennies';
 }
+
+/// A price TAG as the plan cards show it: `14900 -> '£149'`, `1250 -> '£12.50'`.
+///
+/// Whole pounds drop the pence (the design's '£149'); anything else keeps them,
+/// so a price is never rounded into a different one.
+String formatPriceTag(int pence) {
+  final full = formatPence(pence);
+  return pence % 100 == 0 ? full.substring(0, full.length - 3) : full;
+}

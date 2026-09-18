@@ -5,16 +5,17 @@ import 'package:autonect/data/repositories/billing_repository.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:get/get.dart';
 
-/// The registration wizard's plan step.
+/// Plan PRICES for the caller's role — both registration wizards' plan steps.
 ///
-/// Read-only: there is no purchase path from the app. See [BillingRepository].
-class SupplierPlanController extends ApiController {
-  SupplierPlanController(this._repo);
+/// Read-only on purpose: nothing is bought during registration. Purchases
+/// happen on the plans screen, through ProviderBillingController.
+class BillingPlansController extends ApiController {
+  BillingPlansController(this._repo);
 
-  static SupplierPlanController ensure() =>
-      Get.isRegistered<SupplierPlanController>()
-      ? Get.find<SupplierPlanController>()
-      : Get.put(SupplierPlanController(Get.find<BillingRepository>()));
+  static BillingPlansController ensure() =>
+      Get.isRegistered<BillingPlansController>()
+      ? Get.find<BillingPlansController>()
+      : Get.put(BillingPlansController(Get.find<BillingRepository>()));
 
   final BillingRepository _repo;
 

@@ -63,8 +63,18 @@ class ElectricianRegistrationController extends ApiController {
   /// not said — claiming zero vehicles serviced is worse than saying nothing.
   final Rxn<int> vehiclesServiced = Rxn<int>();
 
-  /// Access tier preference ('FREE', 'PRO', 'PAY_PER_LEAD').
+  /// The wizard's plan choice: 'FREE' or 'PAY_PER_LEAD' — never 'PRO', which
+  /// starts only by subscribing (after approval, on the plans screen). The
+  /// server ignores PRO here anyway; this keeps the app from promising it.
   final RxString tier = 'FREE'.obs;
+
+  /// Set by [prefillFrom]: the edit-profile screen re-submits the profile, and
+  /// must not send a plan at all — the plan is billing's, not the profile's.
+  bool _editing = false;
+
+  void chooseTier(String value) {
+    if (value == 'FREE' || value == 'PAY_PER_LEAD') tier.value = value;
+  }
 
   // ── Result ─────────────────────────────────────────────────────────────────
   /// What the server returned. Its `approved` flag decides the landing screen,
@@ -101,7 +111,9 @@ class ElectricianRegistrationController extends ApiController {
     headline.value = p.headline ?? '';
     bio.value = p.bio ?? '';
     vehiclesServiced.value = p.vehiclesServiced;
-    tier.value = p.tier;
+    // Not the tier: p.tier is a projection of what the account PAYS for
+    // ('PRO' while subscribed), not a registration answer to send back.
+    _editing = true;
   }
 
   ElectricianRegistrationDraft get draft => ElectricianRegistrationDraft(
@@ -115,7 +127,7 @@ class ElectricianRegistrationController extends ApiController {
     headline: headline.value,
     bio: bio.value,
     vehiclesServiced: vehiclesServiced.value,
-    tier: tier.value,
+    tier: _editing ? null : tier.value,
     // Derived from the services rather than collected twice: neither screen has
     // a free-text skills field, and inventing one would put words in the
     // provider's mouth.

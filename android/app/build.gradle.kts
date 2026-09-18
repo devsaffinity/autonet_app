@@ -35,10 +35,18 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Stripe needs its keep rules under R8 (see proguard-rules.pro).
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // The AppCompat themes in res/values*/styles.xml, which the payment sheet
+    // requires, are declared here rather than relied on transitively.
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

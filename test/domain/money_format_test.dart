@@ -22,4 +22,18 @@ void main() {
       expect(formatPence(-100), '-£1.00');
     });
   });
+
+  group('formatPriceTag', () {
+    test('drops the pence on a whole-pound price', () {
+      expect(formatPriceTag(14900), '£149');
+      expect(formatPriceTag(1000), '£10');
+      expect(formatPriceTag(0), '£0');
+      expect(formatPriceTag(129900), '£1,299');
+    });
+
+    test('keeps the pence otherwise', () {
+      expect(formatPriceTag(1299), '£12.99');
+      expect(formatPriceTag(50), '£0.50');
+    });
+  });
 }

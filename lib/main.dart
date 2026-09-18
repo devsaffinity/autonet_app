@@ -37,7 +37,9 @@ import 'package:autonect/data/repositories/vehicles_api_repository.dart';
 import 'package:autonect/data/repositories/vehicles_repository.dart';
 import 'package:autonect/services/document_picker_service.dart';
 import 'package:autonect/services/image_picker_service.dart';
+import 'package:autonect/services/payment_sheet_gateway.dart';
 import 'package:autonect/services/session_store.dart';
+import 'package:autonect/services/stripe_payment_sheet_gateway.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -123,6 +125,9 @@ void main() async {
     BillingApiRepository(client, tokens),
     permanent: true,
   );
+  // Stripe's in-app payment sheet. Configured lazily with the publishable key
+  // the server hands out (GET /v1/billing/config), never a baked-in one.
+  Get.put<PaymentSheetGateway>(StripePaymentSheetGateway(), permanent: true);
   Get.put<NotificationsRepository>(
     NotificationsApiRepository(client, tokens),
     permanent: true,

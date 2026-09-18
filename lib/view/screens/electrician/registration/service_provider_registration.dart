@@ -13,6 +13,10 @@ import 'package:autonect/data/models/provider_schedule.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/select_option.dart';
 import 'package:autonect/view/screens/supplier/widgets/access_tier.dart';
+import 'package:autonect/controller/billing/billing_plans_controller.dart';
+import 'package:autonect/data/models/billing_plan.dart';
+import 'package:autonect/domain/plan_cards.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/custom_textfield.dart';
 import 'package:autonect/view/widget/dashed_border.dart';
@@ -43,6 +47,9 @@ class _ServiceProviderRegistrationPageState
   final PageController _pageController = PageController();
   final ElectricianRegistrationController c =
       ElectricianRegistrationController.ensure();
+
+  /// Plan prices for the Access Tier step — read-only, nothing is sold here.
+  final BillingPlansController _plans = BillingPlansController.ensure();
 
   AvailabilityController? get _availCtrl {
     try {
@@ -200,6 +207,7 @@ class _ServiceProviderRegistrationPageState
   @override
   void initState() {
     super.initState();
+    _plans.load();
     _profileCtrl?.load();
     _nameCtrl.text = c.fullName.value;
     _phoneCtrl.text = c.phone.value;
@@ -2243,21 +2251,25 @@ class _ServiceProviderRegistrationPageState
                   lineHeight: 1.4,
                 ),
                 const SizedBox(height: 20),
-                Obx(
-                  () => AccessTier(
-                    currentTier: c.tier.value,
-                    onPlanSelected: (plan) {
-                      c.tier.value = plan;
-                      final tierName = switch (plan) {
-                        'PRO' => 'Pro',
-                        'PAY_PER_LEAD' => 'Pay-Per-Lead',
-                        _ => 'Free',
-                      };
-                      displayToast(msg: 'Selected $tierName tier');
+                // Prices from the server; nothing is bought here. Pro is shown
+                // but starts only by subscribing, once the account is approved.
+                Obx(() {
+                  final plans = switch (_plans.plans.value) {
+                    Data<List<BillingPlan>>(:final value) => value,
+                    _ => const <BillingPlan>[],
+                  };
+                  return AccessTier(
+                    cards: registrationTierCards(plans, selectedTier: c.tier.value),
+                    onAction: (action) {
+                      final (wire, name) = action == TierAction.choosePayPerLead
+                          ? ('PAY_PER_LEAD', 'Pay-Per-Lead')
+                          : ('FREE', 'Free');
+                      c.chooseTier(wire);
+                      displayToast(msg: 'Selected $name');
                       _finish();
                     },
-                  ),
-                ),
+                  );
+                }),
                 const SizedBox(height: 24),
               ],
             ),
@@ -2269,7 +2281,7 @@ class _ServiceProviderRegistrationPageState
           child: MyButton(
             buttonText: 'Skip for Now',
             onTap: () {
-              c.tier.value = 'FREE';
+              c.chooseTier('FREE');
               _finish();
             },
           ),

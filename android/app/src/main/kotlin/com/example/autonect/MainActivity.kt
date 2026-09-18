@@ -1,5 +1,7 @@
 package com.example.autonect
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity, not FlutterActivity: Stripe's payment sheet is
+// shown through the AndroidX fragment manager and fails without it.
+class MainActivity : FlutterFragmentActivity()

@@ -1,94 +1,87 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
+import 'package:autonect/domain/plan_cards.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 
-/// The plan picker.
+/// The electrician's three plan cards: Free < Pay-Per-Lead < Pro.
 ///
-/// LIVED IN THE ELECTRICIAN REGISTRATION WIZARD, which was the wrong home for
-/// it twice over: billing is SUPPLIER-only by design — `ElectricianProfile`
-/// has no credit balance and nothing bills a provider — and the only other
-/// caller, `supplier_credits.dart`, had to reach across into an electrician
-/// screen to use it. Moved here, where its one real caller lives.
+/// The design's static half — tags, titles, feature bullets — lives here. The
+/// dynamic half — price, button, whether it can be tapped — comes in as
+/// [TierCards] built from the SERVER's status (plan_cards.dart), so a price or
+/// an allowed move is never hard-coded in the widget. Used by the plans screen
+/// and the registration wizard.
 class AccessTier extends StatelessWidget {
-  /// Fired when a plan is chosen. Optional so `AccessTier()` still compiles
-  /// wherever the widget is only being displayed (e.g. a pricing sheet).
-  final ValueChanged<String>? onPlanSelected;
+  const AccessTier({super.key, required this.cards, this.onAction});
 
-  /// The active plan for the user ('FREE', 'PRO', 'PAY_PER_LEAD'), if any.
-  final String? currentTier;
+  final TierCards cards;
 
-  const AccessTier({super.key, this.onPlanSelected, this.currentTier});
+  /// Fired with the tapped card's action. Null renders the cards read-only.
+  final ValueChanged<TierAction>? onAction;
+
+  VoidCallback? _tap(TierCardModel m) {
+    final handler = onAction;
+    if (handler == null || m.action == TierAction.none || !m.enabled) return null;
+    return () => handler(m.action);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // ── Free Card ─────────────────────────────────────────────────────
-          _PricingCard(
-            tag: 'Entry',
-            tagColor: kGreyTextColor,
-            title: 'Free',
-            price: '\$0',
-            period: '/Lifetime',
-            features: const [
-              _Feature(label: 'Basic Company Profile', enabled: true),
-              _Feature(label: 'Public Listing In Directory', enabled: true),
-              _Feature(label: 'Standard Email Support', enabled: true),
-              _Feature(label: 'Direct Client Leads', enabled: false),
-            ],
-            buttonText: currentTier == 'FREE' ? 'Active Plan' : 'Switch to Free',
-            isHighlighted: false,
-            isCurrent: currentTier == 'FREE',
-            onTap: () => onPlanSelected?.call('FREE'),
-          ),
-          const SizedBox(height: 16),
+    return Column(
+      children: [
+        // ── Free Card ───────────────────────────────────────────────────────
+        _PricingCard(
+          tag: 'Entry',
+          tagColor: kGreyTextColor,
+          title: 'Free',
+          model: cards.free,
+          features: const [
+            _Feature(label: 'Basic Company Profile', enabled: true),
+            _Feature(label: 'Public Listing In Directory', enabled: true),
+            _Feature(label: 'Standard Email Support', enabled: true),
+            _Feature(label: 'Direct Client Leads', enabled: false),
+          ],
+          isHighlighted: false,
+          onTap: _tap(cards.free),
+        ),
+        const SizedBox(height: 16),
 
-          // ── Pro Card ──────────────────────────────────────────────────────
-          _PricingCard(
-            tag: 'Growth',
-            tagColor: kWhiteColor,
-            title: 'Pro (Monthly)',
-            price: '\$149',
-            period: '/Month',
-            features: const [
-              _Feature(label: 'Unlimited High-Intent Leads', enabled: true),
-              _Feature(label: 'Premium Badge & Verified Status', enabled: true),
-              _Feature(label: 'Advanced Analytics Dashboard', enabled: true),
-              _Feature(label: '24/7 Priority Concierge', enabled: true),
-            ],
-            buttonText: currentTier == 'PRO' ? 'Manage / Cancel' : 'Start Pro Trial',
-            isHighlighted: true,
-            showBestValue: currentTier != 'PRO',
-            isCurrent: currentTier == 'PRO',
-            onTap: () => onPlanSelected?.call('PRO'),
-          ),
-          const SizedBox(height: 16),
+        // ── Pro Card ────────────────────────────────────────────────────────
+        _PricingCard(
+          tag: 'Growth',
+          tagColor: kWhiteColor,
+          title: 'Pro (Monthly)',
+          model: cards.pro,
+          features: const [
+            _Feature(label: 'Unlimited High-Intent Leads', enabled: true),
+            _Feature(label: 'Premium Badge & Verified Status', enabled: true),
+            _Feature(label: 'Advanced Analytics Dashboard', enabled: true),
+            _Feature(label: '24/7 Priority Concierge', enabled: true),
+          ],
+          isHighlighted: true,
+          onTap: _tap(cards.pro),
+        ),
+        const SizedBox(height: 16),
 
-          // ── Pay-Per-Lead Card ─────────────────────────────────────────────
-          _PricingCard(
-            tag: 'Flexible',
-            tagColor: kSecondaryColor,
-            title: 'Pay-Per-Lead',
-            price: '\$12',
-            period: '/Per Lead',
-            features: const [
-              _Feature(label: 'Credit-Based System', enabled: true),
-              _Feature(label: 'No Fixed Monthly Fees', enabled: true),
-              _Feature(label: 'Select Leads Manually', enabled: true),
-              _Feature(label: 'Top-Up Credits Anytime', enabled: true),
-            ],
-            buttonText: currentTier == 'PAY_PER_LEAD' ? 'Top-Up / Manage' : 'Choose Credits',
-            isHighlighted: false,
-            isCurrent: currentTier == 'PAY_PER_LEAD',
-            onTap: () => onPlanSelected?.call('PAY_PER_LEAD'),
-          ),
+        // ── Pay-Per-Lead Card ───────────────────────────────────────────────
+        _PricingCard(
+          tag: 'Flexible',
+          tagColor: kSecondaryColor,
+          title: 'Pay-Per-Lead',
+          model: cards.payPerLead,
+          features: const [
+            _Feature(label: 'Credit-Based System', enabled: true),
+            _Feature(label: 'No Fixed Monthly Fees', enabled: true),
+            _Feature(label: 'Select Leads Manually', enabled: true),
+            _Feature(label: 'Top-Up Credits Anytime', enabled: true),
+          ],
+          isHighlighted: false,
+          onTap: _tap(cards.payPerLead),
+        ),
 
-          const SizedBox(height: 24),
-        ],
-      ),
+        const SizedBox(height: 24),
+      ],
     );
   }
 }
@@ -109,28 +102,28 @@ class _PricingCard extends StatelessWidget {
   final String tag;
   final Color tagColor;
   final String title;
-  final String price;
-  final String period;
+  final TierCardModel model;
   final List<_Feature> features;
-  final String buttonText;
   final bool isHighlighted;
-  final bool showBestValue;
-  final bool isCurrent;
-  final VoidCallback onTap;
+
+  /// Null makes the button inert — the current plan, or a move not allowed.
+  final VoidCallback? onTap;
 
   const _PricingCard({
     required this.tag,
     required this.tagColor,
     required this.title,
-    required this.price,
-    required this.period,
+    required this.model,
     required this.features,
-    required this.buttonText,
     required this.isHighlighted,
     required this.onTap,
-    this.showBestValue = false,
-    this.isCurrent = false,
   });
+
+  String get price => model.price;
+  String get period => model.period;
+  String get buttonText => model.buttonText;
+  bool get isCurrent => model.isCurrent;
+  bool get showBestValue => model.showBestValue && !model.isCurrent;
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +210,9 @@ class _PricingCard extends StatelessWidget {
                 MyButton(
                   buttonText: buttonText,
                   onTap: onTap,
+                  // The current plan's button stays at full strength; a move
+                  // that is not allowed right now is visibly unavailable.
+                  enabled: model.enabled || isCurrent,
                   backgroundColor: isCurrent
                       ? (isHighlighted
                           ? kWhiteColor.withValues(alpha: 0.25)

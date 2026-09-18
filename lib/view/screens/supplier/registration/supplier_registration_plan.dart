@@ -1,7 +1,7 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
-import 'package:autonect/controller/supplier/supplier_plan_controller.dart';
+import 'package:autonect/controller/billing/billing_plans_controller.dart';
 import 'package:autonect/controller/supplier/supplier_registration_controller.dart';
 import 'package:autonect/data/models/billing_plan.dart';
 import 'package:autonect/domain/growth_model.dart';
@@ -15,10 +15,9 @@ import 'package:get/get.dart';
 ///
 /// The supplier PICKS one and it is sent with the registration, landing on
 /// `SupplierProfile.monetizationModel`. It is a stated preference rather than a
-/// purchase: nothing charges here, because Stripe Checkout answers with a
-/// hosted URL this app cannot open (no url_launcher, no webview, no registered
-/// scheme). Billing is arranged after approval — the note at the bottom says
-/// so — and the reviewer gets an answer instead of having to ask.
+/// purchase: nothing charges during registration. Paying happens after
+/// approval, on Plans & Billing, in Stripe's in-app payment sheet — the note at
+/// the bottom says so — and the reviewer gets an answer instead of having to ask.
 class SupplierPlanStep extends StatefulWidget {
   final VoidCallback onFinish;
 
@@ -33,7 +32,7 @@ class SupplierPlanStep extends StatefulWidget {
 }
 
 class _SupplierPlanStepState extends State<SupplierPlanStep> {
-  final _c = SupplierPlanController.ensure();
+  final _c = BillingPlansController.ensure();
   // The wizard's controller owns the answer, because it is submitted with the
   // rest of the registration rather than on its own.
   final _reg = Get.find<SupplierRegistrationController>();
