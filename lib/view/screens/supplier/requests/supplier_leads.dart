@@ -23,6 +23,7 @@ class _SupplierLeadsPageState extends State<SupplierLeadsPage> {
   late final SupplierLeadsController _controller;
 
   static const List<String> _filters = [
+    'All',
     'London',
     'South East',
     'South West',
@@ -64,13 +65,15 @@ class _SupplierLeadsPageState extends State<SupplierLeadsPage> {
                 color: kGreyTextColor,
                 paddingBottom: 10,
               ),
-              Obx(
-                () => SupplierChoiceChips(
+              Obx(() {
+                final active = _controller.activeFilterLabels.toSet();
+                final selected = active.isEmpty ? {'All'} : active;
+                return SupplierChoiceChips(
                   options: _filters,
-                  selected: _controller.activeFilterLabels,
+                  selected: selected,
                   onToggle: _controller.toggleFilter,
-                ),
-              ),
+                );
+              }),
               const SizedBox(height: 18),
               Obx(() {
                 return switch (_controller.state.value) {
@@ -124,7 +127,7 @@ class _SupplierLeadsPageState extends State<SupplierLeadsPage> {
                             ),
                             const SizedBox(height: 12),
                             MyText(
-                              text: title ?? 'No matches found',
+                              text: title ?? 'No matching leads',
                               size: 16,
                               weight: FontWeight.w600,
                               color: kBlackColor,
@@ -137,6 +140,21 @@ class _SupplierLeadsPageState extends State<SupplierLeadsPage> {
                               color: kGreyTextColor,
                               textAlign: TextAlign.center,
                             ),
+                            if (_controller.activeFilterLabels.isNotEmpty ||
+                                _controller.query.value.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: 140,
+                                child: MyButton(
+                                  buttonText: 'Clear Filters',
+                                  height: 38,
+                                  backgroundColor: kPrimaryColor,
+                                  outlineColor: kSecondaryColor,
+                                  fontColor: kSecondaryColor,
+                                  onTap: _controller.clearFilters,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -144,12 +162,29 @@ class _SupplierLeadsPageState extends State<SupplierLeadsPage> {
                   Data<List<SupplierLead>>(:final value) => Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        MyText(
-                          text: 'Showing ${value.length} matching leads',
-                          size: 14,
-                          weight: FontWeight.w500,
-                          color: kGreyTextColor,
-                          paddingBottom: 12,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            MyText(
+                              text: 'Showing ${value.length} matching leads',
+                              size: 13,
+                              weight: FontWeight.w600,
+                              color: kGreyTextColor,
+                              paddingBottom: 12,
+                            ),
+                            if (_controller.activeFilterLabels.isNotEmpty ||
+                                _controller.query.value.isNotEmpty)
+                              GestureDetector(
+                                onTap: _controller.clearFilters,
+                                child: MyText(
+                                  text: 'Clear all',
+                                  size: 12,
+                                  weight: FontWeight.w700,
+                                  color: kSecondaryColor,
+                                  paddingBottom: 12,
+                                ),
+                              ),
+                          ],
                         ),
                         ...value.map(
                           (lead) => SupplierLeadCard(lead: lead),

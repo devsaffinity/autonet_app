@@ -19,6 +19,8 @@ class SupplierApiRepository implements SupplierRepository {
     int limit = 20,
     String? partName,
     Region? region,
+    PartCondition? condition,
+    RequestUrgency? urgency,
     String? make,
     String? model,
     int? minOffers,
@@ -31,6 +33,8 @@ class SupplierApiRepository implements SupplierRepository {
       if (partName != null && partName.trim().isNotEmpty)
         'partName': partName.trim(),
       if (region != null) 'region': region.wire,
+      if (condition != null) 'condition': condition.wire,
+      if (urgency != null) 'urgency': urgency.wire,
       if (make != null && make.trim().isNotEmpty) 'make': make.trim(),
       if (model != null && model.trim().isNotEmpty) 'model': model.trim(),
       if (minOffers != null) 'minOffers': '$minOffers',

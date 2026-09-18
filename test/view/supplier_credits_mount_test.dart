@@ -35,6 +35,8 @@ class _StubSupplierRepo implements SupplierRepository {
     int limit = 20,
     String? partName,
     Region? region,
+    PartCondition? condition,
+    RequestUrgency? urgency,
     String? make,
     String? model,
     int? minOffers,

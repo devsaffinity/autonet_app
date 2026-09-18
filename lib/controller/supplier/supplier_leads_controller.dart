@@ -36,11 +36,24 @@ class SupplierLeadsController extends PagedController<SupplierLead> {
   }
 
   void toggleFilter(String label) {
+    if (label == 'All') {
+      activeFilterLabels.clear();
+      _applyActiveFilterLabels();
+      refreshForFilter();
+      return;
+    }
     if (activeFilterLabels.contains(label)) {
       activeFilterLabels.remove(label);
     } else {
       activeFilterLabels.add(label);
     }
+    _applyActiveFilterLabels();
+    refreshForFilter();
+  }
+
+  void clearFilters() {
+    activeFilterLabels.clear();
+    query.value = '';
     _applyActiveFilterLabels();
     refreshForFilter();
   }
@@ -79,6 +92,8 @@ class SupplierLeadsController extends PagedController<SupplierLead> {
         page: page,
         partName: query.value.isEmpty ? null : query.value,
         region: regionFilter.value,
+        condition: conditionFilter.value,
+        urgency: urgencyFilter.value,
       );
 
   @override

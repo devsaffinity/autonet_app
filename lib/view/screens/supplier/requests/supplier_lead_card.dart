@@ -2,12 +2,15 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
 import 'package:autonect/data/models/supplier_lead.dart';
+import 'package:autonect/constants/loading_animation.dart';
+import 'package:autonect/view/screens/supplier/offers/supplier_create_offer.dart';
 import 'package:autonect/view/screens/supplier/requests/supplier_request_detail.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_button.dart';
+import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -34,152 +37,254 @@ class SupplierLeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLocked = !lead.isUnlocked;
-    final brand = lead.vehicleMake ?? 'VEHICLE';
-    final vehicleModel = [
-      if (lead.vehicleMake != null) lead.vehicleMake,
-      if (lead.vehicleYear != null) '${lead.vehicleYear}',
-    ].join(' ');
-    final title = vehicleModel.isNotEmpty ? vehicleModel : lead.partName;
+    final vehicleStr = lead.vehicleMake != null
+        ? '${lead.vehicleYear ?? ''} ${lead.vehicleMake!}'.trim()
+        : (lead.category?.name ?? 'Vehicle Part Request');
+    final locationStr = (lead.region?.label ?? 'London, UK').toUpperCase();
+    final isUrgent = lead.urgency != null &&
+        (lead.urgency.toString().toLowerCase().contains('urgent') ||
+         lead.urgency.toString().toLowerCase().contains('emergency'));
+    final tagLabel = isUrgent ? 'URGENT' : 'STANDARD';
+    final tagBg = isUrgent ? const Color(0xFFFFEBE8) : const Color(0xFFF5F5F5);
+    final tagText = isUrgent ? const Color(0xFFD94D2F) : const Color(0xFF666666);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: SupplierCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                MyText(
-                  text: brand.toUpperCase(),
-                  size: 11,
-                  color: kGreyTextColor,
-                  weight: FontWeight.w700,
-                ),
-                const Spacer(),
-                MyText(
-                  text: _timeAgo(lead.createdAt),
-                  size: 12,
-                  color: kGreyTextColor,
-                  weight: FontWeight.w500,
-                ),
-              ],
-            ),
-            Row(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: kPrimaryColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFEEEEEE),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Get.to(
+            () => SupplierRequestDetailPage(requestId: lead.id),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      MyText(
-                        paddingTop: 2,
-                        text: title,
-                        size: 14,
-                        weight: FontWeight.w700,
+                // Row 1: Image thumbnail & Urgency Tag & Time
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      height: 56,
+                      width: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F7F7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CommonImageView(
+                          imagePath: Assets.imagesCar1,
+                          height: 56,
+                          width: 56,
+                          fit: BoxFit.cover,
+                          errorWidget: const Icon(
+                            Icons.directions_car_filled_outlined,
+                            color: kSecondaryColor,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        MyText(
+                          text: _timeAgo(lead.createdAt),
+                          size: 11,
+                          color: kGreyTextColor,
+                          weight: FontWeight.w500,
+                          paddingRight: 8,
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: tagBg,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            tagLabel,
+                            style: TextStyle(
+                              color: tagText,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Row 2: Part Name & Chat bubble icon
+                Row(
+                  children: [
+                    Expanded(
+                      child: MyText(
+                        text: lead.partName,
+                        size: 16,
+                        weight: FontWeight.w800,
                         color: kBlackColor,
                         maxLines: 1,
                         textOverflow: TextOverflow.ellipsis,
                       ),
-                      MyText(
-                        paddingTop: 4,
-                        text: lead.partName,
-                        size: 13,
-                        weight: FontWeight.w600,
-                        color: kSecondaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    MyRippleEffect(
+                      radius: 14,
+                      onTap: () {
+                        displayToast(
+                          msg: 'Send a quote to start direct chat with the buyer',
+                        );
+                        Get.to(
+                          () => SupplierRequestDetailPage(requestId: lead.id),
+                        );
+                      },
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: kSecondaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.chat_bubble_rounded,
+                          color: kWhiteColor,
+                          size: 13,
+                        ),
                       ),
-                      MyText(
-                        paddingTop: 4,
-                        text: isLocked
-                            ? 'Reg  ••• •••'
-                            : 'Reg  Unlocked',
-                        size: 12,
-                        weight: FontWeight.w500,
-                        color: isLocked ? kGreyTextColor : kBlackColor,
-                      ),
-                      MyText(
-                        paddingTop: 2,
-                        text: isLocked
-                            ? 'Buyer hidden until unlocked'
-                            : 'Buyer details unlocked',
-                        size: 12,
-                        weight: FontWeight.w500,
-                        color: isLocked ? kGreyTextColor : kBlackColor,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (lead.category != null)
-                            SupplierStatusBadge(
-                              label: lead.category!.name,
-                              color: kQuaternaryColor,
-                            ),
-                          if (lead.region != null)
-                            SupplierStatusBadge(label: lead.region!.label),
-                          if (lead.urgency != null)
-                            SupplierStatusBadge(
-                              label: lead.urgency!.label,
-                              color: lead.urgency!.label.toLowerCase() == 'urgent'
-                                  ? kRedColor
-                                  : kSecondaryColor,
-                            ),
-                          if (lead.offerCount > 0)
-                            SupplierStatusBadge(
-                              label: '${lead.offerCount} offers',
-                              color: kTertiaryColor,
-                            ),
-                        ],
-                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                // Row 3: Vehicle Specs
+                MyText(
+                  text: vehicleStr,
+                  size: 12,
+                  weight: FontWeight.w500,
+                  color: const Color(0xFF666666),
+                  maxLines: 1,
+                  textOverflow: TextOverflow.ellipsis,
+                ),
+                if (lead.condition != null || lead.category != null) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (lead.condition != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: kSecondaryColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: MyText(
+                            text: lead.condition!.label,
+                            size: 10,
+                            weight: FontWeight.w600,
+                            color: kSecondaryColor,
+                          ),
+                        ),
+                      if (lead.category != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEEEEE),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: MyText(
+                            text: lead.category!.name,
+                            size: 10,
+                            weight: FontWeight.w500,
+                            color: const Color(0xFF555555),
+                          ),
+                        ),
                     ],
                   ),
+                ],
+                const SizedBox(height: 10),
+                // Row 4: Location & Offers count
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: Color(0xFF333333),
+                    ),
+                    const SizedBox(width: 4),
+                    MyText(
+                      text: locationStr,
+                      size: 11,
+                      weight: FontWeight.w700,
+                      color: const Color(0xFF333333),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.people_outline_rounded,
+                      size: 14,
+                      color: Color(0xFF333333),
+                    ),
+                    const SizedBox(width: 4),
+                    MyText(
+                      text: '${lead.offerCount} Offers',
+                      size: 11,
+                      weight: FontWeight.w700,
+                      color: const Color(0xFF333333),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                CommonImageView(
-                  imagePath: Assets.imagesCar1,
-                  width: 100,
-                  fit: BoxFit.contain,
+                const SizedBox(height: 12),
+                // Row 5: Send Quote button
+                MyRippleEffect(
+                  radius: 10,
+                  onTap: () => Get.to(
+                    () => SupplierCreateOfferPage(requestId: lead.id),
+                  ),
+                  child: Container(
+                    height: 42,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: kSecondaryColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Send Quote',
+                      style: TextStyle(
+                        color: kWhiteColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (isLocked)
-              MyButton(
-                buttonText: 'Unlock Request',
-                height: 34,
-                fontSize: 12,
-                radius: 9,
-                onTap: () {
-                  final isSubscribed = Get.isRegistered<SupplierHomeController>()
-                      ? SupplierHomeController.ensure().isSubscribed
-                      : false;
-                  Get.bottomSheet(
-                    UnlockLeadBSheet(
-                      isSubscribed: isSubscribed,
-                      onConfirm: () {
-                        onUnlock?.call();
-                        Get.to(() => SupplierRequestDetailPage(requestId: lead.id));
-                      },
-                    ),
-                    isScrollControlled: true,
-                  );
-                },
-              )
-            else
-              MyButton(
-                buttonText: 'View Request',
-                height: 34,
-                fontSize: 12,
-                radius: 9,
-                backgroundColor: kPrimaryColor,
-                outlineColor: kSecondaryColor,
-                fontColor: kSecondaryColor,
-                onTap: () => Get.to(
-                  () => SupplierRequestDetailPage(requestId: lead.id),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
