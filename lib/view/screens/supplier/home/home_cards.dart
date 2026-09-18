@@ -1,8 +1,8 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
-import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
 import 'package:autonect/view/screens/supplier/dash_board/supplier_credits.dart';
+import 'package:autonect/view/screens/supplier/profile/supplier_access_tier_page.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
@@ -65,7 +65,7 @@ class SupplierHighlightsCard extends StatelessWidget {
                   MyRippleEffect(
                     radius: 14,
                     onTap: () async {
-                      await Get.to(() => const ElectricianAccessTierPage());
+                      await Get.to(() => const SupplierAccessTierPage());
                       controller.load();
                     },
                     child: Container(
@@ -127,7 +127,7 @@ class SupplierHighlightsCard extends StatelessWidget {
                   MyRippleEffect(
                     radius: 14,
                     onTap: () async {
-                      await Get.to(() => const ElectricianAccessTierPage());
+                      await Get.to(() => const SupplierAccessTierPage());
                       controller.load();
                     },
                     child: Container(

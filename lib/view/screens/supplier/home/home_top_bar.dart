@@ -1,4 +1,5 @@
 import 'package:autonect/constants/app_colors.dart';
+import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
@@ -82,13 +83,19 @@ class _SupplierHomeTopBarState extends State<SupplierHomeTopBar> {
                           width: 44,
                           height: 44,
                           fit: BoxFit.cover,
-                          errorWidget: InitialsAvatar(
-                            name: business,
-                            size: 44,
-                            radius: 100,
+                          errorWidget: CommonImageView(
+                            imagePath: Assets.imagesProfileImage,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
                           ),
                         )
-                      : InitialsAvatar(name: business, size: 44, radius: 100),
+                      : CommonImageView(
+                          imagePath: Assets.imagesProfileImage,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                        ),
                 ),
               ),
             ),

@@ -3,7 +3,7 @@ import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/repositories/billing_repository.dart';
-import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
+import 'package:autonect/view/screens/supplier/profile/supplier_access_tier_page.dart';
 import 'package:autonect/view/screens/supplier/dash_board/supplier_credit_chart.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
@@ -238,7 +238,7 @@ class _SupplierCreditsPageState extends State<SupplierCreditsPage> {
                 MyButton(
                   buttonText: 'Buy Credits & Manage Plans',
                   onTap: () async {
-                    await Get.to(() => const ElectricianAccessTierPage());
+                    await Get.to(() => const SupplierAccessTierPage());
                     if (!mounted) return;
                     await Future.wait([
                       SupplierHomeController.ensure().load(),
