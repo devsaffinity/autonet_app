@@ -119,7 +119,49 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
     }
 
     if (_order == null) {
-      return _buildStaticFallback();
+      return Scaffold(
+        appBar: GeneralAppBar(title: 'Order Details', centerdTitle: false),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 56,
+                  color: kGreyTextColor,
+                ),
+                const SizedBox(height: 12),
+                MyText(
+                  text: 'Order Not Found',
+                  size: 18,
+                  weight: FontWeight.w700,
+                  color: kBlackColor,
+                  paddingBottom: 8,
+                ),
+                MyText(
+                  text:
+                      'The requested order details could not be found or loaded.',
+                  size: 14,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
+                  textAlign: TextAlign.center,
+                  paddingBottom: 20,
+                ),
+                SizedBox(
+                  width: 130,
+                  child: MyButton(
+                    buttonText: 'Go Back',
+                    height: 40,
+                    onTap: () => Get.back(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     final order = _order!;
@@ -292,109 +334,6 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
               onTap: _advance,
             )
           : null,
-    );
-  }
-
-  Widget _buildStaticFallback() {
-    return Scaffold(
-      appBar: GeneralAppBar(title: 'Order #4818', centerdTitle: false),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            SupplierCard(
-              child: Row(
-                children: [
-                  CommonImageView(
-                    imagePath: Assets.imagesProfileImage,
-                    height: 44,
-                    width: 44,
-                    radius: 100,
-                    fit: BoxFit.cover,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MyText(
-                          text: 'Michael Chen',
-                          size: 16,
-                          weight: FontWeight.w700,
-                          color: kBlackColor,
-                        ),
-                        MyText(
-                          paddingTop: 2,
-                          text: 'Ford Mustang GT - Brake Discs',
-                          size: 12,
-                          weight: FontWeight.w400,
-                          color: kGreyTextColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SupplierStatusBadge(label: 'Preparing Order'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            OrderProgressCard(
-              steps: buildOrderSteps(OrderStatus.preparing, const []),
-            ),
-            const SizedBox(height: 14),
-            SupplierCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  SupplierPriceRow(label: 'Part Price', value: '£240.00'),
-                  SizedBox(height: 12),
-                  SupplierPriceRow(label: 'Delivery Fee', value: '£20.00'),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Divider(height: 1, color: kGreyTextColor),
-                  ),
-                  SupplierPriceRow(
-                    label: 'You receive',
-                    value: '£260.00',
-                    isTotal: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            SupplierCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SupplierDetailItem(
-                          label: 'Delivery',
-                          value: 'Courier - 1 day',
-                        ),
-                      ),
-                      Expanded(
-                        child: SupplierDetailItem(
-                          label: 'Deliver to',
-                          value: 'London, N1',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-      bottomNavigationBar: NavButton(
-        buttonText: 'Mark as Out for Delivery',
-        onTap: () {},
-      ),
     );
   }
 }

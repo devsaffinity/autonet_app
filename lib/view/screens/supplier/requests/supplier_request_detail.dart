@@ -10,6 +10,7 @@ import 'package:autonect/view/screens/supplier/requests/supplier_request_parts.d
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
+import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +52,49 @@ class _SupplierRequestDetailPageState extends State<SupplierRequestDetailPage> {
   @override
   Widget build(BuildContext context) {
     if (_controller == null) {
-      return _buildStaticFallback(context);
+      return Scaffold(
+        appBar: GeneralAppBar(title: 'Request Details'),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.search_off_rounded,
+                  size: 56,
+                  color: kGreyTextColor,
+                ),
+                const SizedBox(height: 12),
+                MyText(
+                  text: 'Request Not Found',
+                  size: 18,
+                  weight: FontWeight.w700,
+                  color: kBlackColor,
+                  paddingBottom: 8,
+                ),
+                MyText(
+                  text:
+                      'The requested lead details could not be found or loaded.',
+                  size: 14,
+                  weight: FontWeight.w400,
+                  color: kGreyTextColor,
+                  textAlign: TextAlign.center,
+                  paddingBottom: 20,
+                ),
+                SizedBox(
+                  width: 130,
+                  child: MyButton(
+                    buttonText: 'Go Back',
+                    height: 40,
+                    onTap: () => Get.back(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     return Obx(() {
@@ -266,149 +309,6 @@ class _SupplierRequestDetailPageState extends State<SupplierRequestDetailPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStaticFallback(BuildContext context) {
-    const summary = [
-      {
-        'icon': Assets.imagesPA,
-        'label': 'Vehicle',
-        'value': 'Toyota Yaris 2020',
-      },
-      {
-        'icon': Assets.imagesPB,
-        'label': 'Requested Part',
-        'value': 'Transmission',
-      },
-      {'icon': Assets.imagesPC, 'label': 'Condition', 'value': 'New or Refurb'},
-    ];
-
-    return Scaffold(
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SupplierVehicleHero(title: 'Toyota Yaris 2020'),
-            Padding(
-              padding: AppSizes.DEFAULT,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: MyText(
-                          text: 'Request #4821',
-                          size: 16,
-                          weight: FontWeight.w700,
-                          color: kBlackColor,
-                        ),
-                      ),
-                      const SupplierStatusBadge(
-                        label: 'Urgent',
-                        color: kRedColor,
-                      ),
-                    ],
-                  ),
-                  MyText(
-                    paddingTop: 4,
-                    paddingBottom: 14,
-                    text: 'Posted 12 minutes ago by Sarah Johnson - London',
-                    size: 14,
-                    weight: FontWeight.w400,
-                    color: kGreyTextColor,
-                  ),
-                  SupplierCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ...summary.map(
-                          (s) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: SupplierSummaryRow(
-                              icon: s['icon']!,
-                              label: s['label']!,
-                              value: s['value']!,
-                            ),
-                          ),
-                        ),
-                        const Divider(height: 24, color: kTertiaryColor),
-                        Row(
-                          children: const [
-                            Expanded(
-                              child: SupplierDetailItem(
-                                label: 'Reg Plate',
-                                value: 'LM20 XKR',
-                              ),
-                            ),
-                            Expanded(
-                              child: SupplierDetailItem(
-                                label: 'Quantity',
-                                value: '1 unit',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: const [
-                            Expanded(
-                              child: SupplierDetailItem(
-                                label: 'Delivery to',
-                                value: 'London, N1',
-                              ),
-                            ),
-                            Expanded(
-                              child: SupplierDetailItem(
-                                label: 'Offers so far',
-                                value: '4 suppliers',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SupplierCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MyText(
-                          text: "Buyer's notes",
-                          size: 16,
-                          weight: FontWeight.w700,
-                          color: kBlackColor,
-                          paddingBottom: 8,
-                        ),
-                        MyText(
-                          text:
-                              'Gearbox slipping in second. Happy with a refurbished unit if it carries at least 6 months warranty. Needs fitting this week.',
-                          size: 14,
-                          weight: FontWeight.w400,
-                          color: kGreyTextColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const SupplierNoteCard(
-                    title: 'One offer per request',
-                    body:
-                      'You can send a single offer against a request and edit it any time before the buyer decides.',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: NavButton(
-        buttonText: 'Send Offer',
-        onTap: () => Get.to(() => const SupplierCreateOfferPage()),
       ),
     );
   }
