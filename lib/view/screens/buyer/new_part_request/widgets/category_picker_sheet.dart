@@ -68,8 +68,12 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
     body: SizedBox(
       height: MediaQuery.sizeOf(context).height * _listHeightFactor,
       child: Column(children: [
-        MyText(text: 'Choose a part category', size: AppTextScale.title,
+        const MyText(text: 'Choose a part category', size: AppTextScale.title,
             weight: AppWeights.bold, color: kBlackColor,
+            paddingBottom: 4),
+        const MyText(
+            text: 'Reclaimed & recycled parts from licensed vehicle breaker yards',
+            size: 12, weight: FontWeight.w400, color: kGreyTextColor,
             paddingBottom: AppSizes.s12),
         SearchField(
           controller: _search, hint: 'Search categories',

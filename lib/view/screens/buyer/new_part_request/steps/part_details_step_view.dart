@@ -92,6 +92,27 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
     await _c.images.uploadAll();
   }
 
+  static bool _isConsumableWearItem(String text) {
+    final lower = text.toLowerCase().trim();
+    if (lower.isEmpty) return false;
+    const consumableKeywords = [
+      'brake pad',
+      'brake pads',
+      'brakepad',
+      'brakepads',
+      'brake disc',
+      'brake discs',
+      'oil filter',
+      'pollen filter',
+      'cabin filter',
+      'spark plug',
+      'spark plugs',
+      'wiper blade',
+      'wiper blades',
+    ];
+    return consumableKeywords.any((k) => lower.contains(k));
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _c.draft;
@@ -114,13 +135,71 @@ class _PartDetailsStepViewState extends State<PartDetailsStepView> {
           padding: AppSizes.DEFAULT,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSizes.s16),
+              padding: const EdgeInsets.all(AppSizes.s12),
+              decoration: BoxDecoration(
+                color: kSecondaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(_kFieldRadius),
+                border: Border.all(color: kSecondaryColor.withValues(alpha: 0.2)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 20, color: kSecondaryColor),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: MyText(
+                      text:
+                          'Autonect connects you with verified breaker yards for reclaimed parts (e.g. headlights, body panels, doors, interior, suspension, mechanical assemblies).',
+                      size: 12,
+                      weight: FontWeight.w500,
+                      color: kBlackColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             CountedTextField(controller: widget.partName, maxLength: 150,
-                labelText: 'Part Name', hintText: 'Front brake discs',
+                labelText: 'Part Name',
+                hintText: 'e.g. Nearside Headlight, Front Door, Suspension Strut',
                 isRequired: true,
                 errorText: _c.fieldErrorFor('partName'),
                 radius: _kFieldRadius, borderColor: kFieldBorderColor,
                 labelSize: _kLabelSize, quietCounter: true,
                 onChanged: (v) { d.partName = v; _edited('partName'); }),
+            if (_isConsumableWearItem(widget.partName.text)) ...[
+              const SizedBox(height: 6),
+              Container(
+                margin: const EdgeInsets.only(bottom: AppSizes.s8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFD54F)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: Color(0xFFE65100),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: MyText(
+                        text:
+                            'Notice: Breaker yards typically supply reclaimed OEM parts (calipers, ABS units, panels, suspension) rather than consumable wear items like brake pads or filters.',
+                        size: 11,
+                        weight: FontWeight.w500,
+                        color: Color(0xFFBF360C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             CountedTextField(controller: widget.partNumber, maxLength: 80,
                 labelText: 'Part Number',
                 errorText: _c.fieldErrorFor('partNumber'),
