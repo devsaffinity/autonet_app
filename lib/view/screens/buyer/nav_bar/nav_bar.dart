@@ -3,6 +3,7 @@ import 'package:autonect/view/screens/buyer/home/home.dart';
 import 'package:autonect/view/screens/buyer/new_part_request/new_part_request.dart';
 import 'package:autonect/view/screens/buyer/orders/my_orders.dart';
 import 'package:autonect/view/screens/buyer/request/request_status_tracking.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:autonect/view/screens/chat/chat_home.dart';
 import 'package:autonect/view/widget/role_nav_bar.dart';
@@ -75,20 +76,13 @@ class BuyerNavBar extends StatelessWidget {
   //   Home     -> AddPartRequest
   //   ChatHome -> ChatRoom
   //
-  // Tab 3 was the services/booking journey, which has NO backend at all; the
-  // orders list, which does, had no entry point anywhere in the app.
-  static const List<Widget> _screens = [
-    BuyerHomePage(),
-    RequestStatusTrackingPage(),
-    MyOrdersPage(),
-    ChatHomePage(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final chat = ChatInboxController.ensure();
+    final profile = ProfileController.ensure();
     return Obx(() {
       final unread = chat.totalUnreadCount;
+      final myId = profile.me?.id;
       final items = [
         _navItems[0],
         _navItems[1],
@@ -100,9 +94,15 @@ class BuyerNavBar extends StatelessWidget {
           badgeCount: unread,
         ),
       ];
+      final screens = [
+        const BuyerHomePage(),
+        const RequestStatusTrackingPage(),
+        const MyOrdersPage(),
+        ChatHomePage(myUserId: myId),
+      ];
       return RoleShell(
         items: items,
-        screens: _screens,
+        screens: screens,
         initialIndex: initialIndex,
         centerAction: NavCenterAction(
           semanticLabel: 'New part request',

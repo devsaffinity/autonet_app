@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 // shells share it for now.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:get/get.dart';
 
@@ -28,8 +29,11 @@ class ElectricianNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chat = ChatInboxController.ensure();
+    final profile = ProfileController.ensure();
     return Obx(() {
       final unread = chat.totalUnreadCount;
+      final avatarUrl = profile.me?.avatarUrl;
+      final myId = profile.me?.id;
       return RoleShell(
         items: [
           const NavItem(
@@ -53,19 +57,20 @@ class ElectricianNavBar extends StatelessWidget {
             iconOutline: Assets.imagesEChatOutline,
             badgeCount: unread,
           ),
-          const NavItem(
+          NavItem(
             label: 'Profile',
             iconFill: Assets.imagesProfileImage,
             iconOutline: Assets.imagesProfileImage,
             isAvatar: true,
+            avatarUrl: avatarUrl,
           ),
         ],
-        screens: const [
-          ElectricianHomePage(),
-          ElectricianMyBookingsPage(),
-          ElectricianBookingRequestPage(),
-          ChatHomePage(),
-          ElectricianProfilePage(),
+        screens: [
+          const ElectricianHomePage(),
+          const ElectricianMyBookingsPage(),
+          const ElectricianBookingRequestPage(),
+          ChatHomePage(myUserId: myId),
+          const ElectricianProfilePage(),
         ],
       );
     });

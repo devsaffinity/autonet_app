@@ -45,6 +45,41 @@ class CommonImageView extends StatelessWidget {
     this.errorWidget,
   });
 
+  /// Stable identity for network image caching.
+  ///
+  /// For presigned S3 / storage URLs, ephemeral query parameters (`X-Amz-*`,
+  /// `Signature`, `Expires`, `token`, etc.) change on every signature regeneration.
+  /// If the cache is keyed on the raw URL, every read misses and causes constant re-downloads.
+  /// Conversely, keying by user ID (e.g. `cacheKey: user.id`) causes stale images to stick
+  /// indefinitely even after a user uploads a new avatar.
+  ///
+  /// Stripping query parameters from signed storage URLs yields the canonical object location
+  /// (e.g. `https://bucket.s3.../avatars/<userId>/<uuid>`).
+  /// - Stable across presigned GET token regenerations.
+  /// - Automatically invalidates whenever a new image UUID is uploaded.
+  /// - Any caller passing `cacheKey: user.id` is safely overridden for signed URLs so
+  ///   stale user IDs can never poison the cache.
+  String? get effectiveCacheKey {
+    if (url == null || url!.isEmpty) return cacheKey;
+    final uri = Uri.tryParse(url!);
+    if (uri != null &&
+        (uri.queryParameters.containsKey('X-Amz-Signature') ||
+         uri.queryParameters.containsKey('x-amz-signature') ||
+         uri.queryParameters.containsKey('Signature') ||
+         uri.queryParameters.containsKey('signature') ||
+         uri.queryParameters.containsKey('X-Amz-Algorithm') ||
+         url!.contains('X-Amz-') ||
+         url!.contains('x-amz-'))) {
+      return url!.split('?').first;
+    }
+    if (cacheKey != null && cacheKey!.isNotEmpty) {
+      return cacheKey;
+    }
+    return (uri != null && uri.hasQuery)
+        ? url!.split('?').first
+        : url;
+  }
+
   @override
   Widget build(BuildContext context) {
     return _buildImageView(context);
@@ -125,12 +160,10 @@ class CommonImageView extends StatelessWidget {
           fit: fit,
           memCacheWidth: _decodeWidth(context),
           imageUrl: url!,
-          // Without this the cache is keyed on the URL. Every presigned S3 GET
-          // in this app carries a fresh signature and expiry, so the same photo
-          // looks like a new image on every read: re-downloaded each time, and
-          // any entry held from a previous read serves a 403 once it expires.
-          // Callers pass the stable object key instead.
-          cacheKey: cacheKey,
+          // Strips ephemeral query parameters from presigned S3 URLs so the key is
+          // canonical to the exact object UUID. Unchanging user IDs passed by callers
+          // are safely overridden so stale avatars cannot poison the cache.
+          cacheKey: effectiveCacheKey,
           placeholder: (context, url) => Container(
             height: 23,
             width: 23,

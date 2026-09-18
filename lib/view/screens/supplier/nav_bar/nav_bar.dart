@@ -45,14 +45,6 @@ class SupplierNavBar extends StatelessWidget {
     ),
   ];
 
-  static const List<Widget> _screens = [
-    SupplierHomePage(),
-    SupplierLeadsPage(),
-    SupplierOffersPage(),
-    ChatHomePage(),
-    SupplierProfilePage(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final chat = ChatInboxController.ensure();
@@ -78,7 +70,14 @@ class SupplierNavBar extends StatelessWidget {
           avatarUrl: avatarUrl,
         ),
       ];
-      return RoleShell(items: items, screens: _screens);
+      final screens = [
+        const SupplierHomePage(),
+        const SupplierLeadsPage(),
+        const SupplierOffersPage(),
+        ChatHomePage(myUserId: profile.me?.id),
+        const SupplierProfilePage(),
+      ];
+      return RoleShell(items: items, screens: screens);
     });
   }
 }

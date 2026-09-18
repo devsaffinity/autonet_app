@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_role.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/chat/chat_room_controller.dart';
 import 'package:autonect/controller/conttroller.dart';
 import 'package:autonect/data/models/conversation.dart';
@@ -58,13 +59,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   final ScrollController _scrollCtrl = ScrollController();
   final ChatRoomController c = ChatRoomController.ensure();
 
+  String? get _resolvedMyUserId =>
+      widget.myUserId ?? ProfileController.maybeFind()?.me?.id;
+
   @override
   void initState() {
     super.initState();
+    final effectiveUserId = _resolvedMyUserId;
     if (widget.type == ConversationType.booking) {
-      c.openForBooking(widget.contextId, asUserId: widget.myUserId);
+      c.openForBooking(widget.contextId, asUserId: effectiveUserId);
     } else {
-      c.openForOffer(widget.contextId, asUserId: widget.myUserId);
+      c.openForOffer(widget.contextId, asUserId: effectiveUserId);
     }
   }
 
@@ -100,7 +105,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
             // and a read down there would subscribe to nothing.
             child: Obx(() {
               final state = c.state.value;
-              final me = c.myUserId.value;
+              final me = c.myUserId.value ?? _resolvedMyUserId;
               // Falls back to the PEER when the caller did not say who I am:
               // anything the peer did not send is mine. Exact, and it needs no
               // second source of truth for the signed-in user's id.

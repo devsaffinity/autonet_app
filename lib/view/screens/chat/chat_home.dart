@@ -1,5 +1,6 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/controller/chat/chat_inbox_controller.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/domain/date_format.dart';
@@ -146,11 +147,12 @@ class _ChatHomePageState extends State<ChatHomePage> {
   }
 
   void _open(Conversation conversation) {
+    final effectiveUserId = widget.myUserId ?? ProfileController.maybeFind()?.me?.id;
     Get.to(
       () => ChatRoomPage(
         contextId: conversation.contextId,
         type: conversation.type ?? ConversationType.booking,
-        myUserId: widget.myUserId,
+        myUserId: effectiveUserId,
         title: conversation.peer?.displayName,
         peerAvatarUrl: conversation.peer?.avatarUrl,
       ),
@@ -185,7 +187,6 @@ class _ConversationRow extends StatelessWidget {
                     peer!.avatarUrl!.startsWith('https://')))
               CommonImageView(
                 url: peer.avatarUrl,
-                cacheKey: peer?.id,
                 width: 52,
                 height: 52,
                 radius: 100,
