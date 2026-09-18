@@ -1090,7 +1090,7 @@ class _ElectricianBookingDetailsPageState
                 fit: BoxFit.contain,
               ),
             ),
-            MyText(
+            const MyText(
               text: 'Job Completed',
               size: 20,
               weight: FontWeight.w800,
@@ -1165,25 +1165,27 @@ class _ElectricianBookingDetailsPageState
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.price_change_outlined, color: Color(0xffD94426)),
-              title: const Text('Update Quote / Final Price', style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () async {
-                Get.back();
-                if (_currentBooking != null) {
-                  final quoteRes = await showQuoteDialog(_currentBooking!);
-                  if (quoteRes != null && Get.isRegistered<BookingsRepository>()) {
-                    await Get.find<BookingsRepository>().quote(
-                      id: _currentBooking!.id,
-                      quotedPence: quoteRes.isFinal ? null : quoteRes.pence,
-                      finalPence: quoteRes.isFinal ? quoteRes.pence : null,
-                    );
-                    _fetchLatestBooking();
-                    widget.onBookingUpdated?.call();
+            if (ProviderBookingsController.canQuote(_status) &&
+                (_currentBooking?.receiptIssued != true))
+              ListTile(
+                leading: const Icon(Icons.price_change_outlined, color: Color(0xffD94426)),
+                title: const Text('Update Quote / Final Price', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () async {
+                  Get.back();
+                  if (_currentBooking != null) {
+                    final quoteRes = await showQuoteDialog(_currentBooking!);
+                    if (quoteRes != null && Get.isRegistered<BookingsRepository>()) {
+                      await Get.find<BookingsRepository>().quote(
+                        id: _currentBooking!.id,
+                        quotedPence: quoteRes.isFinal ? null : quoteRes.pence,
+                        finalPence: quoteRes.isFinal ? quoteRes.pence : null,
+                      );
+                      _fetchLatestBooking();
+                      widget.onBookingUpdated?.call();
+                    }
                   }
-                }
-              },
-            ),
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.navigation_outlined, color: Color(0xff101828)),
               title: const Text('Navigate to Client', style: TextStyle(fontWeight: FontWeight.w600)),

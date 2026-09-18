@@ -159,14 +159,23 @@ class ProviderBookingsController extends PagedController<Booking> {
     return ok;
   }
 
-  /// Whether this booking can carry a price yet.
+  /// Whether this booking can carry an editable quote or price update.
   ///
-  /// PENDING means the provider has not accepted, CANCELLED means they never
-  /// will — the server 409s both, so the control is not offered.
+  /// - PENDING: provider has not accepted yet.
+  /// - CANCELLED: booking was cancelled.
+  /// - COMPLETED: booking is finished and the final price is locked.
+  /// Only active bookings (CONFIRMED and IN_PROGRESS) can be quoted or edited.
   static bool canQuote(BookingStatus? status) =>
       status == BookingStatus.confirmed ||
-      status == BookingStatus.inProgress ||
-      status == BookingStatus.completed;
+      status == BookingStatus.inProgress;
+
+  /// Whether the booking allows price quotation or editing. Additionally checks
+  /// that a receipt has not already been issued (which locks the price).
+  static bool canQuoteBooking(Booking? booking) {
+    if (booking == null) return false;
+    if (booking.receiptIssued) return false;
+    return canQuote(booking.status);
+  }
 
   /// Declining is a CANCELLATION with a reason, not a status advance — which
   /// is exactly how the server models it, so the client must not invent a

@@ -7,6 +7,7 @@ import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/view/screens/electrician/home/booking_requests.dart';
 import 'package:autonect/view/screens/electrician/home/electrician_booking.dart';
+import 'package:autonect/view/screens/electrician/home/widgets/provider_booking_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -17,13 +18,21 @@ import '../fakes/fake_buyer_repositories.dart';
 /// booking sat at PENDING because the route to advance one existed but
 /// nothing could list the ids to advance.
 
-Booking _booking({String status = 'PENDING'}) => Booking.fromJson({
+Booking _booking({
+  String status = 'PENDING',
+  bool receiptIssued = false,
+  int? quotedPence,
+  int? finalPence,
+}) => Booking.fromJson({
   'id': 'bk-1', 'buyerId': 'b1', 'electricianId': 'e1',
   'scheduledAt': '2026-09-10T08:00:00.000Z',
   'createdAt': '2026-09-09T10:00:00.000Z',
   'serviceType': 'ECU_CODING', 'status': status,
   'description': 'Intermittent dash warning', 'regNumber': 'LM19XYZ',
   'durationMins': 90,
+  'quotedPence': ?quotedPence,
+  'finalPence': ?finalPence,
+  if (receiptIssued) 'receipt': {'number': 'REC-001', 'issuedAt': '2026-09-10T12:00:00.000Z'},
   'buyer': {'id': 'b1', 'name': 'Dana Okafor'},
   'events': [{'status': 'PENDING', 'at': '2026-09-09T10:00:00.000Z'}],
 });
@@ -37,7 +46,7 @@ Future<void> _pumpTall(WidgetTester tester, Widget home) async {
   tester.view.physicalSize = const Size(1200, 4000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(GetMaterialApp(home: home));
+  await tester.pumpWidget(GetMaterialApp(home: Scaffold(body: home)));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
 }
@@ -176,7 +185,7 @@ void main() {
       expect(find.text('Accept request'), findsNothing);
     });
 
-    testWidgets('a completed booking offers no action at all', (tester) async {
+    testWidgets('a completed booking offers no action at all and no price edit button', (tester) async {
       final repo = FakeBookingsRepository()
         ..listResult =
             Ok(Paged<Booking>([_booking(status: 'COMPLETED')], _meta(1)));
@@ -186,19 +195,37 @@ void main() {
 
       expect(find.text('Mark completed'), findsNothing);
       expect(find.text('Decline'), findsNothing);
+      expect(find.text('Change'), findsNothing);
+      expect(find.text('Set price'), findsNothing);
       // COMPLETED is terminal, and it is what makes the booking reviewable.
       expect(find.text('Completed'), findsWidgets);
+      expect(find.text('FINAL PRICE'), findsOneWidget);
     });
   });
 
   group('quoting', () {
-    test('canQuote mirrors the server: not PENDING, not CANCELLED', () {
-      // The server 409s both, so the control must not be offered there.
+    test('canQuote: only active bookings (CONFIRMED, IN_PROGRESS) can be quoted; COMPLETED is locked', () {
+      // The server and UX lock completed/pending/cancelled bookings.
       expect(ProviderBookingsController.canQuote(BookingStatus.pending), isFalse);
       expect(ProviderBookingsController.canQuote(BookingStatus.cancelled), isFalse);
       expect(ProviderBookingsController.canQuote(BookingStatus.confirmed), isTrue);
       expect(ProviderBookingsController.canQuote(BookingStatus.inProgress), isTrue);
-      expect(ProviderBookingsController.canQuote(BookingStatus.completed), isTrue);
+      expect(ProviderBookingsController.canQuote(BookingStatus.completed), isFalse);
+    });
+
+    test('canQuoteBooking: locks null, completed, cancelled, and receipt-issued bookings', () {
+      expect(ProviderBookingsController.canQuoteBooking(null), isFalse);
+      expect(ProviderBookingsController.canQuoteBooking(_booking(status: 'PENDING')), isFalse);
+      expect(ProviderBookingsController.canQuoteBooking(_booking(status: 'CANCELLED')), isFalse);
+      expect(ProviderBookingsController.canQuoteBooking(_booking(status: 'COMPLETED')), isFalse);
+      expect(ProviderBookingsController.canQuoteBooking(_booking(status: 'CONFIRMED')), isTrue);
+      expect(ProviderBookingsController.canQuoteBooking(_booking(status: 'IN_PROGRESS')), isTrue);
+      expect(
+        ProviderBookingsController.canQuoteBooking(
+          _booking(status: 'CONFIRMED', receiptIssued: true),
+        ),
+        isFalse,
+      );
     });
 
     test('sends quotedPence, and re-reads so the stored figure wins', () async {
@@ -246,6 +273,66 @@ void main() {
         'createdAt': '2026-09-09T10:00:00.000Z',
       });
       expect(b.buyer, isNull);
+    });
+  });
+
+  group('ProviderBookingCard', () {
+    testWidgets('completed booking displays FINAL PRICE without any edit button', (tester) async {
+      final b = _booking(status: 'COMPLETED', quotedPence: 5600);
+      await _pumpTall(tester, ProviderBookingCard(booking: b));
+
+      expect(find.text('FINAL PRICE'), findsOneWidget);
+      expect(find.text('£56.00'), findsOneWidget);
+      expect(find.text('Change'), findsNothing);
+      expect(find.text('Set price'), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    });
+
+    testWidgets('completed booking with finalPence displays final price and no edit button', (tester) async {
+      final b = _booking(status: 'COMPLETED', quotedPence: 5000, finalPence: 5600);
+      await _pumpTall(tester, ProviderBookingCard(booking: b));
+
+      expect(find.text('FINAL PRICE'), findsOneWidget);
+      expect(find.text('£56.00'), findsOneWidget);
+      expect(find.text('Change'), findsNothing);
+      expect(find.text('Set price'), findsNothing);
+    });
+
+    testWidgets('confirmed booking with quote displays QUOTED PRICE with Change button', (tester) async {
+      final b = _booking(status: 'CONFIRMED', quotedPence: 7500);
+      var quoteTapped = false;
+      await _pumpTall(
+        tester,
+        ProviderBookingCard(
+          booking: b,
+          onQuote: () => quoteTapped = true,
+        ),
+      );
+
+      expect(find.text('QUOTED PRICE'), findsOneWidget);
+      expect(find.text('£75.00'), findsOneWidget);
+      expect(find.text('Change'), findsOneWidget);
+
+      await tester.tap(find.text('Change'));
+      expect(quoteTapped, isTrue);
+    });
+
+    testWidgets('confirmed booking without quote displays ESTIMATED PAY and Set price button', (tester) async {
+      final b = _booking(status: 'CONFIRMED');
+      await _pumpTall(tester, ProviderBookingCard(booking: b));
+
+      expect(find.text('ESTIMATED PAY'), findsOneWidget);
+      expect(find.text('Not priced'), findsOneWidget);
+      expect(find.text('Set price'), findsOneWidget);
+    });
+
+    testWidgets('confirmed booking with receipt issued hides price edit button', (tester) async {
+      final b = _booking(status: 'CONFIRMED', quotedPence: 5000, receiptIssued: true);
+      await _pumpTall(tester, ProviderBookingCard(booking: b));
+
+      expect(find.text('Change'), findsNothing);
+      expect(find.text('Set price'), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
     });
   });
 }

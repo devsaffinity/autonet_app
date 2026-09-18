@@ -9,7 +9,6 @@ import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
-import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/status_badge.dart';
 import 'package:flutter/material.dart';
@@ -209,10 +208,10 @@ class ProviderBookingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     MyText(
-                      text: booking.isQuoted
-                          ? formatPence(booking.quotedPence!)
-                          : (booking.earnedPence != null
-                              ? formatPence(booking.earnedPence!)
+                      text: booking.earnedPence != null
+                          ? formatPence(booking.earnedPence!)
+                          : (booking.isQuoted
+                              ? formatPence(booking.quotedPence!)
                               : 'Not priced'),
                       size: 18,
                       weight: FontWeight.w800,
@@ -222,7 +221,7 @@ class ProviderBookingCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (ProviderBookingsController.canQuote(booking.status))
+                if (ProviderBookingsController.canQuoteBooking(booking))
                   InkWell(
                     onTap: onQuote,
                     borderRadius: BorderRadius.circular(8),
