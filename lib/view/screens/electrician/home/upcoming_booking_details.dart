@@ -18,6 +18,7 @@ import 'package:autonect/view/widget/my_BSheet.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Electrician Booking Details Page.
 ///
@@ -39,6 +40,7 @@ class ElectricianBookingDetailsPage extends StatefulWidget {
   final String clientName;
   final String clientImage;
   final String? clientAvatarUrl;
+  final String? clientPhone;
   final String location;
   final String service;
   final String date;
@@ -60,6 +62,7 @@ class ElectricianBookingDetailsPage extends StatefulWidget {
     this.clientName = 'Marcus Thorne',
     this.clientImage = Assets.imagesProfileImage,
     this.clientAvatarUrl,
+    this.clientPhone,
     this.location = 'Downtown District, Sector 7',
     this.service = 'ECU Coding',
     this.date = 'Oct 24, 2023',
@@ -116,6 +119,14 @@ class _ElectricianBookingDetailsPageState
 
   String? get _clientAvatarUrl =>
       _currentBooking?.buyer?.avatarUrl ?? widget.clientAvatarUrl;
+
+  String? get _clientPhone {
+    final bookingPhone = _currentBooking?.buyer?.phone?.trim();
+    if (bookingPhone != null && bookingPhone.isNotEmpty) return bookingPhone;
+    final widgetPhone = widget.clientPhone?.trim();
+    if (widgetPhone != null && widgetPhone.isNotEmpty) return widgetPhone;
+    return null;
+  }
 
   String get _service {
     if (_currentBooking?.serviceType != null) {
@@ -307,6 +318,27 @@ class _ElectricianBookingDetailsPageState
                   ),
                 ],
               ),
+              if (_clientPhone case final phone?) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.phone_outlined,
+                      size: 13,
+                      color: Color(0xff667085),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      phone,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xff667085),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -1136,16 +1168,15 @@ class _ElectricianBookingDetailsPageState
 
   void _showMoreOptions() {
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
+      Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
-        child: Column(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1189,19 +1220,39 @@ class _ElectricianBookingDetailsPageState
             ListTile(
               leading: const Icon(Icons.navigation_outlined, color: Color(0xff101828)),
               title: const Text('Navigate to Client', style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
+              onTap: () async {
                 Get.back();
+                final loc = _location.trim();
+                if (loc.isNotEmpty) {
+                  final mapUri = Uri.parse(
+                    'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(loc)}',
+                  );
+                  if (await canLaunchUrl(mapUri)) {
+                    await launchUrl(mapUri, mode: LaunchMode.externalApplication);
+                    return;
+                  }
+                }
                 _showFeedback('Navigation', 'Route: $_location');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.phone_outlined, color: Color(0xff101828)),
-              title: const Text('Call Client', style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
-                Get.back();
-                _showFeedback('Contact Client', 'Calling $_clientName');
-              },
-            ),
+            if (_clientPhone case final phone?)
+              ListTile(
+                leading: const Icon(Icons.phone_outlined, color: Color(0xff101828)),
+                title: const Text('Call Client', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  phone,
+                  style: const TextStyle(fontSize: 12, color: Color(0xff667085)),
+                ),
+                onTap: () async {
+                  Get.back();
+                  final phoneUri = Uri.parse('tel:$phone');
+                  if (await canLaunchUrl(phoneUri)) {
+                    await launchUrl(phoneUri);
+                  } else {
+                    _showFeedback('Contact Client', 'Phone: $phone');
+                  }
+                },
+              ),
             if (_status == BookingStatus.pending || _status == BookingStatus.confirmed)
               ListTile(
                 leading: const Icon(Icons.cancel_outlined, color: Colors.red),
@@ -1213,6 +1264,7 @@ class _ElectricianBookingDetailsPageState
               ),
             const SizedBox(height: 12),
           ],
+        ),
         ),
       ),
       isScrollControlled: true,

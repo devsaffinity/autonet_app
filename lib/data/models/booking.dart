@@ -42,18 +42,25 @@ class BookingProvider {
 
 /// The buyer on a booking — `booking.buyer` on the wire.
 ///
-/// Holds id, name and avatarUrl from the server's projection.
+/// Holds id, name, avatarUrl and phone from the server's projection.
 class BookingBuyer {
-  const BookingBuyer({required this.id, this.name, this.avatarUrl});
+  const BookingBuyer({
+    required this.id,
+    this.name,
+    this.avatarUrl,
+    this.phone,
+  });
 
   final String id;
   final String? name;
   final String? avatarUrl;
+  final String? phone;
 
   factory BookingBuyer.fromJson(Map<String, dynamic> j) => BookingBuyer(
         id: jsonString(j, 'id'),
         name: j['name'] as String?,
         avatarUrl: j['avatarUrl'] as String?,
+        phone: j['phone'] as String?,
       );
 }
 

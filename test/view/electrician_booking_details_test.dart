@@ -8,7 +8,7 @@ import 'package:get/get.dart';
 
 import '../fakes/fake_buyer_repositories.dart';
 
-Booking _booking({String status = 'IN_PROGRESS'}) => Booking.fromJson({
+Booking _booking({String status = 'IN_PROGRESS', String? phone}) => Booking.fromJson({
   'id': 'bk-100',
   'buyerId': 'b100',
   'electricianId': 'e100',
@@ -21,7 +21,11 @@ Booking _booking({String status = 'IN_PROGRESS'}) => Booking.fromJson({
   'location': 'Downtown District, Sector 7',
   'durationMins': 105,
   'quotedPence': 28500,
-  'buyer': {'id': 'b100', 'name': 'Marcus Thorne'},
+  'buyer': {
+    'id': 'b100',
+    'name': 'Marcus Thorne',
+    'phone': ?phone,
+  },
   'events': [{'status': status, 'at': '2026-10-20T09:00:00.000Z'}],
 });
 
@@ -87,6 +91,40 @@ void main() {
       await tester.tap(find.text('Start Job'));
       await tester.pump();
       expect(repo.calls, contains('advance:bk-100:IN_PROGRESS'));
+    });
+
+    testWidgets('omits Call Client action when buyer has no phone number', (tester) async {
+      final repo = FakeBookingsRepository();
+      Get.put<BookingsRepository>(repo);
+
+      final b = _booking(status: 'CONFIRMED');
+      await _pumpTall(tester, ElectricianBookingDetailsPage(booking: b));
+
+      // Tap more options (...) button
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Booking Actions'), findsOneWidget);
+      expect(find.text('Navigate to Client'), findsOneWidget);
+      expect(find.text('Call Client'), findsNothing);
+    });
+
+    testWidgets('displays phone in header and renders Call Client action when buyer provided phone', (tester) async {
+      final repo = FakeBookingsRepository();
+      Get.put<BookingsRepository>(repo);
+
+      final b = _booking(status: 'CONFIRMED', phone: '+44 7700 900077');
+      await _pumpTall(tester, ElectricianBookingDetailsPage(booking: b));
+
+      expect(find.text('+44 7700 900077'), findsOneWidget);
+
+      // Tap more options (...) button
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Booking Actions'), findsOneWidget);
+      expect(find.text('Call Client'), findsOneWidget);
+      expect(find.text('+44 7700 900077'), findsNWidgets(2)); // header + action subtitle
     });
   });
 }
