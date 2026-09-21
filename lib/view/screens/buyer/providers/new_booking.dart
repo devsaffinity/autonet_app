@@ -15,6 +15,7 @@ import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/month_calendar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/service_location_card.dart';
 import 'package:autonect/view/widget/slot_picker.dart';
 import 'package:autonect/view/widget/state_view.dart';
 import 'package:flutter/material.dart';
@@ -231,7 +232,8 @@ class _NewBookingPageState extends State<NewBookingPage> {
     );
   });
 
-  /// The comp's Location panel, as an address rather than a map.
+  /// The comp's Location panel, rendering an interactive map card with
+  /// one-tap navigation to Google Maps / default map app.
   ///
   /// Omitted entirely when the provider has not given one — a 'Service
   /// Location' heading over an empty card tells a buyer nothing and looks
@@ -241,64 +243,39 @@ class _NewBookingPageState extends State<NewBookingPage> {
     if (location == null || location.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSizes.s16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        MyText(text: 'Location', size: AppTextScale.body,
-            weight: AppWeights.semibold, color: kBlackColor),
-        const SizedBox(height: AppSizes.s8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSizes.s16),
-          decoration: BoxDecoration(
-            color: kSecondaryColor.withValues(alpha: .08),
-            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-          ),
-          child: Row(children: [
-            Container(
-              height: 32,
-              width: 32,
-              decoration: const BoxDecoration(
-                  color: kSecondaryColor, shape: BoxShape.circle),
-              child: const Icon(Icons.place, size: AppSizes.s16,
-                  color: kWhiteColor),
-            ),
-            const SizedBox(width: AppSizes.s12),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MyText(text: 'SERVICE LOCATION', size: AppTextScale.caption,
-                    weight: AppWeights.bold, color: kSecondaryColor,
-                    letterSpacing: 0.5),
-                MyText(text: location, size: AppTextScale.label,
-                    color: kBlackColor),
-              ],
-            )),
-          ]),
-        ),
-      ]),
+      child: Obx(() => ServiceLocationCard(
+        location: location,
+        durationMinutes: _c.serviceType.value?.typicalMinutes,
+        showDuration: true,
+      )),
     );
   }
 
-  /// The comp's 'Approximate service duration: 90 mins'.
-  ///
-  /// APPROXIMATE is the honest word and the comp's own. Nothing in the schema
-  /// records how long a job takes; this is a per-callout product constant on
-  /// BookingServiceType, sent as durationMins so the provider's day has a
-  /// length to plan around.
-  Widget _duration() => Obx(() {
-    final service = _c.serviceType.value;
-    if (service == null) return const SizedBox.shrink();
-    return Row(children: [
-      const Icon(Icons.schedule, size: AppSizes.s16, color: kGreyTextColor),
-      const SizedBox(width: AppSizes.s8),
-      Expanded(child: MyText(
-        text: 'Approximate service duration: '
-            '${service.typicalMinutes} mins',
-        size: AppTextScale.label,
-        color: kGreyTextColor,
-      )),
-    ]);
-  });
+  /// Fallback duration row if the provider has no location specified (so the
+  /// location card was omitted), but a service with a known typical duration
+  /// is selected.
+  Widget _duration() {
+    final loc = widget.provider.location?.trim();
+    if (loc != null && loc.isNotEmpty) return const SizedBox.shrink();
+
+    return Obx(() {
+      final service = _c.serviceType.value;
+      if (service == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSizes.s16),
+        child: Row(children: [
+          const Icon(Icons.info_outline, size: AppSizes.s16, color: kGreyTextColor),
+          const SizedBox(width: AppSizes.s8),
+          Expanded(child: MyText(
+            text: 'Approximate service duration: '
+                '${service.typicalMinutes} mins',
+            size: AppTextScale.label,
+            color: kGreyTextColor,
+          )),
+        ]),
+      );
+    });
+  }
 
   /// Service selection: renders active custom services with their real prices if available,
   /// with a fallback to provider specialization chips or a manual description field.

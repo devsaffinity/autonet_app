@@ -11,6 +11,7 @@ import 'package:autonect/view/widget/app_card.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/view/widget/service_location_card.dart';
 import 'package:autonect/view/widget/status_badge.dart';
 import 'package:autonect/view/widget/submitted_review_line.dart';
 import 'package:autonect/view/widget/technician_panel.dart';
@@ -62,7 +63,15 @@ class BookingDetailPage extends StatelessWidget {
           _scheduleCard(at),
           if (_hasJobDetails) ...[
             const SizedBox(height: AppSizes.s16),
-            _jobCard(),
+            _jobCard(context),
+          ],
+          if (booking.location case final l? when l.isNotEmpty) ...[
+            const SizedBox(height: AppSizes.s16),
+            ServiceLocationCard(
+              location: l,
+              durationMinutes: booking.durationMins,
+              showDuration: false,
+            ),
           ],
           if (booking.events.isNotEmpty) ...[
             const SizedBox(height: AppSizes.s16),
@@ -203,13 +212,25 @@ class BookingDetailPage extends StatelessWidget {
     ]),
   );
 
-  Widget _jobCard() => AppCard(
+  Widget _jobCard(BuildContext context) => AppCard(
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       MyText(text: 'Job Details', size: AppTextScale.caption,
           color: kGreyTextColor, letterSpacing: 0.5),
       const SizedBox(height: AppSizes.s8),
       if (booking.location case final l? when l.isNotEmpty)
-        _row(Icons.place_outlined, l),
+        InkWell(
+          onTap: () => ServiceLocationCard.openLocationInMaps(l, context: context),
+          borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+          child: _row(
+            Icons.place_outlined,
+            l,
+            trailing: const Icon(
+              Icons.open_in_new_rounded,
+              size: 14,
+              color: kGreyTextColor,
+            ),
+          ),
+        ),
       if (booking.regNumber case final r? when r.isNotEmpty)
         _row(Icons.directions_car_outlined, r),
       if (booking.durationMins case final m?)
@@ -266,7 +287,7 @@ class BookingDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _row(IconData icon, String text) => Padding(
+  Widget _row(IconData icon, String text, {Widget? trailing}) => Padding(
     padding: const EdgeInsets.only(bottom: AppSizes.s8),
     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
@@ -276,6 +297,10 @@ class BookingDetailPage extends StatelessWidget {
       const SizedBox(width: AppSizes.s8),
       Expanded(child: MyText(text: text, size: AppTextScale.label,
           color: kGreyTextColor)),
+      if (trailing != null) ...[
+        const SizedBox(width: AppSizes.s8),
+        trailing,
+      ],
     ]),
   );
 }
