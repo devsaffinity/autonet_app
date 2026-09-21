@@ -1,5 +1,6 @@
 import 'package:autonect/data/models/auth_user.dart' show jsonString;
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/request_enums.dart';
 
 /// An approved electrician from `GET /v1/providers`.
@@ -22,6 +23,7 @@ class ServiceProvider {
     required this.ratingCount,
     required this.skills,
     required this.services,
+    this.customServices = const [],
     this.tier = 'FREE',
     this.headline,
     this.bio,
@@ -68,6 +70,10 @@ class ServiceProvider {
   /// electrician — one provider table, filtered, not two populations.
   final List<BookingServiceType> services;
 
+  /// Real custom services added by this provider, with active pricing, custom
+  /// titles and descriptions. Empty for providers who haven't added custom services.
+  final List<ElectricianService> customServices;
+
   /// A PRESIGNED GET when the provider uploaded a photo, a plain external url
   /// on older rows, and null when they have neither. Short-lived either way, so
   /// cache it against [id] rather than the url.
@@ -105,6 +111,13 @@ class ServiceProvider {
           .whereType<BookingServiceType>()
           .toList(growable: false),
       _ => const <BookingServiceType>[],
+    },
+    customServices: switch (j['customServices']) {
+      final List<dynamic> list => list
+          .whereType<Map>()
+          .map((m) => ElectricianService.fromJson(m.cast<String, dynamic>()))
+          .toList(growable: false),
+      _ => const <ElectricianService>[],
     },
     location: j['location'] as String?,
     region: Region.fromWire(j['region'] as String?),

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:autonect/data/core/api_envelope.dart';
+import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/offer.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
@@ -9,6 +11,7 @@ import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/review.dart';
+import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/models/upload_ticket.dart';
 import 'package:autonect/data/models/vehicle.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -226,5 +229,62 @@ void main() {
     expect(t.key, 'requests/usr_buyer/ccc.jpg');
     expect(t.url, startsWith('https://'));
     expect(t.expiresInSec, 300);
+  });
+
+  group('ServiceProvider & ElectricianService', () {
+    test('decodes customServices array with full details', () {
+      final p = ServiceProvider.fromJson(const {
+        'id': 'usr_elec_1',
+        'fullName': 'Auto Electrical Ltd',
+        'brands': ['BMW', 'Audi'],
+        'services': ['DIAGNOSTIC', 'ECU_CODING'],
+        'customServices': [
+          {
+            'id': 'srv_1',
+            'electricianId': 'usr_elec_1',
+            'name': 'ECU Remapping',
+            'price': '£360',
+            'pricingType': 'Fixed Price',
+            'serviceType': 'ECU_CODING',
+            'description': 'Stage 1 remap and dyno run',
+          },
+          {
+            'id': 'srv_2',
+            'electricianId': 'usr_elec_1',
+            'name': 'Diagnostic Sweep',
+            'price': '£89',
+            'pricingType': 'Per Session',
+            'description': 'Full OBD scan and fault clearing',
+          },
+        ],
+      });
+
+      expect(p.id, 'usr_elec_1');
+      expect(p.fullName, 'Auto Electrical Ltd');
+      expect(p.customServices.length, 2);
+
+      final s1 = p.customServices[0];
+      expect(s1.name, 'ECU Remapping');
+      expect(s1.price, '£360');
+      expect(s1.pricingType, 'Fixed Price');
+      expect(s1.serviceType, BookingServiceType.ecuCoding);
+      expect(s1.resolvedServiceType, BookingServiceType.ecuCoding);
+
+      final s2 = p.customServices[1];
+      expect(s2.name, 'Diagnostic Sweep');
+      expect(s2.price, '£89');
+      expect(s2.pricingType, 'Per Session');
+      expect(s2.serviceType, isNull);
+      // Inferred from 'Diagnostic' in name
+      expect(s2.resolvedServiceType, BookingServiceType.diagnostic);
+    });
+
+    test('defaults customServices to empty list when absent', () {
+      final p = ServiceProvider.fromJson(const {
+        'id': 'usr_elec_2',
+        'fullName': 'Plain Provider',
+      });
+      expect(p.customServices, isEmpty);
+    });
   });
 }

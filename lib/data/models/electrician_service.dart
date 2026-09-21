@@ -1,4 +1,4 @@
-﻿import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/data/models/booking_enums.dart';
 
 class ElectricianService {
@@ -48,6 +48,47 @@ class ElectricianService {
       return Assets.imagesMsB;
     }
     return Assets.imagesMsC;
+  }
+
+  /// Returns the resolved BookingServiceType enum, inferring from serviceType
+  /// or matching keywords in name if serviceType was null.
+  BookingServiceType get resolvedServiceType {
+    if (serviceType != null) return serviceType!;
+    final lower = name.toLowerCase();
+    if (lower.contains('ecu') ||
+        lower.contains('remap') ||
+        lower.contains('tuning') ||
+        lower.contains('tune') ||
+        lower.contains('coding')) {
+      return BookingServiceType.ecuCoding;
+    }
+    if (lower.contains('diagnostic') ||
+        lower.contains('sweep') ||
+        lower.contains('scan') ||
+        lower.contains('fault') ||
+        lower.contains('code')) {
+      return BookingServiceType.diagnostic;
+    }
+    if (lower.contains('install') ||
+        lower.contains('dashcam') ||
+        lower.contains('alarm') ||
+        lower.contains('upgrade') ||
+        lower.contains('retrofit')) {
+      return BookingServiceType.installation;
+    }
+    if (lower.contains('wire') ||
+        lower.contains('wiring') ||
+        lower.contains('repair') ||
+        lower.contains('fix') ||
+        lower.contains('loom')) {
+      return BookingServiceType.repair;
+    }
+    if (lower.contains('inspect') ||
+        lower.contains('check') ||
+        lower.contains('mot')) {
+      return BookingServiceType.inspection;
+    }
+    return BookingServiceType.diagnostic;
   }
 
   factory ElectricianService.fromJson(Map<String, dynamic> json) {

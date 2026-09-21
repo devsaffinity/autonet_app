@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/provider_detail_controller.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/domain/date_format.dart';
@@ -86,7 +87,10 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
             _header(p),
             if (p.bio case final bio? when bio.isNotEmpty) _expertise(bio),
             if (p.vehiclesServiced case final n? when n > 0) _servedCounter(n),
-            if (p.services.isNotEmpty) _specializations(p),
+            if (p.customServices.isNotEmpty)
+              _servicesOffered(p)
+            else if (p.services.isNotEmpty)
+              _specializations(p),
             if (p.brands.isNotEmpty) _brands(p),
             _testimonials(reviews),
             const SizedBox(height: AppSizes.s24),
@@ -97,7 +101,11 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
               // screen needs their region and services to build a valid
               // request, and re-fetching what this screen already holds
               // would be a round trip for nothing.
-              onTap: () => Get.to(() => NewBookingPage(provider: p)),
+              onTap: () => Get.to(() => NewBookingPage(
+                    provider: p,
+                    selectedService:
+                        p.customServices.isNotEmpty ? p.customServices.first : null,
+                  )),
             ),
             const SizedBox(height: AppSizes.s12),
             // The comp's outlined second action. Same height and radius as
@@ -119,10 +127,14 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
     }),
   );
 
-  /// 'Book Diagnostic' in the comp — but taken from what THIS provider
-  /// offers, so a coder is not invited to book a diagnostic.
-  String _primaryServiceLabel(ServiceProvider p) =>
-      p.services.isEmpty ? 'a callout' : p.services.first.label;
+  /// Label for the main booking CTA, preferring the first active custom service name
+  /// over the generic callout label.
+  String _primaryServiceLabel(ServiceProvider p) {
+    if (p.customServices.isNotEmpty) {
+      return p.customServices.first.name;
+    }
+    return p.services.isEmpty ? 'a callout' : p.services.first.label;
+  }
 
   /// The Messages tab. See the class doc: the thread for THIS provider is
   /// not openable until the chat DTO accepts a booking as a context.
@@ -299,6 +311,159 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
     ),
   );
 
+  /// Real services added by the electrician from their 'Manage Services' inventory.
+  /// Renders each active service with its icon, name, pricing (e.g. £360 Fixed Price),
+  /// description, and an interactive 'Book' button that preselects this service on the
+  /// booking screen.
+  Widget _servicesOffered(ServiceProvider p) => Padding(
+    padding: const EdgeInsets.only(top: AppSizes.s20),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          MyText(
+            text: 'Services Offered',
+            size: AppTextScale.subtitle,
+            weight: AppWeights.bold,
+            color: kBlackColor,
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.s8,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: kMutedSurfaceColor,
+              borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+            ),
+            child: MyText(
+              text: '${p.customServices.length} available',
+              size: AppTextScale.caption,
+              weight: AppWeights.semibold,
+              color: kGreyTextColor,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: AppSizes.s4),
+      MyText(
+        text: 'Tap a service to book directly with ${p.fullName}.',
+        size: AppTextScale.label,
+        color: kGreyTextColor,
+      ),
+      const SizedBox(height: AppSizes.s12),
+      for (final s in p.customServices) _serviceCard(p, s),
+    ]),
+  );
+
+  Widget _serviceCard(ServiceProvider p, ElectricianService s) => Container(
+    margin: const EdgeInsets.only(bottom: AppSizes.s12),
+    decoration: AppStyling().myShadowStyle(),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+        onTap: () => Get.to(() => NewBookingPage(provider: p, selectedService: s)),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.s12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: kLightOrangeColor,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                ),
+                child: CommonImageView(
+                  svgPath: s.iconAsset,
+                  height: 24,
+                  width: 24,
+                ),
+              ),
+              const SizedBox(width: AppSizes.s12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MyText(
+                      text: s.name,
+                      size: AppTextScale.body,
+                      weight: AppWeights.bold,
+                      color: kBlackColor,
+                      maxLines: 1,
+                      textOverflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSizes.s4),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: AppSizes.s8,
+                      children: [
+                        MyText(
+                          text: s.price,
+                          size: AppTextScale.body,
+                          weight: AppWeights.bold,
+                          color: kSecondaryColor,
+                        ),
+                        MyText(
+                          text: s.pricingType,
+                          size: AppTextScale.caption,
+                          weight: AppWeights.medium,
+                          color: kGreyTextColor,
+                        ),
+                      ],
+                    ),
+                    if (s.description case final desc? when desc.isNotEmpty) ...[
+                      const SizedBox(height: AppSizes.s4),
+                      MyText(
+                        text: desc,
+                        size: AppTextScale.caption,
+                        color: kGreyTextColor,
+                        maxLines: 2,
+                        textOverflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSizes.s8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.s12,
+                  vertical: AppSizes.s4,
+                ),
+                decoration: BoxDecoration(
+                  color: kSecondaryColor,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusPill),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MyText(
+                      text: 'Book',
+                      size: AppTextScale.caption,
+                      weight: AppWeights.bold,
+                      color: kWhiteColor,
+                    ),
+                    const SizedBox(width: AppSizes.s4),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 12,
+                      color: kWhiteColor,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
   /// The comp's tile grid, driven by what the provider ACTUALLY offers rather
   /// than four hardcoded tiles. Each callout carries its own label and blurb
   /// on the enum, so this renders one to five tiles honestly.
@@ -314,34 +479,45 @@ class _ProviderDetailPageState extends State<ProviderDetailPage> {
       Wrap(
         spacing: AppSizes.s12,
         runSpacing: AppSizes.s12,
-        children: [for (final s in p.services) _specializationTile(context, s)],
+        children: [for (final s in p.services) _specializationTile(context, p, s)],
       ),
     ]),
   );
 
-  Widget _specializationTile(BuildContext context, BookingServiceType s) {
+  Widget _specializationTile(
+    BuildContext context,
+    ServiceProvider p,
+    BookingServiceType s,
+  ) {
     // Two per row at the page's content width, minus the gap between them.
     final available =
         MediaQuery.sizeOf(context).width - AppSizes.s20 * 2 - AppSizes.s12;
     final width = available / 2;
-    return Container(
-      width: width < 120 ? 120 : width,
-      padding: const EdgeInsets.all(AppSizes.s12),
-      decoration: AppStyling().myShadowStyle(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_serviceIcon(s), size: AppSizes.s24, color: kSecondaryColor),
-          const SizedBox(height: AppSizes.s8),
-          MyText(text: s.label, size: AppTextScale.body,
-              weight: AppWeights.semibold, color: kBlackColor,
-              maxLines: 1, textOverflow: TextOverflow.ellipsis),
-          const SizedBox(height: AppSizes.s4),
-          MyText(text: s.blurb, size: AppTextScale.caption,
-              color: kGreyTextColor, maxLines: 2,
-              textOverflow: TextOverflow.ellipsis),
-        ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+        onTap: () => Get.to(() => NewBookingPage(provider: p, initialServiceType: s)),
+        child: Container(
+          width: width < 120 ? 120 : width,
+          padding: const EdgeInsets.all(AppSizes.s12),
+          decoration: AppStyling().myShadowStyle(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_serviceIcon(s), size: AppSizes.s24, color: kSecondaryColor),
+              const SizedBox(height: AppSizes.s8),
+              MyText(text: s.label, size: AppTextScale.body,
+                  weight: AppWeights.semibold, color: kBlackColor,
+                  maxLines: 1, textOverflow: TextOverflow.ellipsis),
+              const SizedBox(height: AppSizes.s4),
+              MyText(text: s.blurb, size: AppTextScale.caption,
+                  color: kGreyTextColor, maxLines: 2,
+                  textOverflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
       ),
     );
   }

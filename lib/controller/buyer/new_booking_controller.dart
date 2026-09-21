@@ -2,9 +2,11 @@ import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/booking.dart';
 import 'package:autonect/data/models/booking_enums.dart';
+import 'package:autonect/data/models/electrician_service.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/service_provider.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
+import 'package:autonect/data/repositories/providers_repository.dart';
 import 'package:autonect/domain/view_state.dart';
 import 'package:get/get.dart';
 
@@ -50,6 +52,12 @@ class NewBookingController extends ApiController {
 
   final Rxn<BookingServiceType> serviceType = Rxn<BookingServiceType>();
 
+  /// Available custom services offered by the electrician.
+  final RxList<ElectricianService> availableServices = <ElectricianService>[].obs;
+
+  /// The selected custom service if one has been chosen.
+  final Rxn<ElectricianService> selectedCustomService = Rxn<ElectricianService>();
+
   /// The booking that came back, so the confirmation screen renders the
   /// server's row rather than what we hoped we sent.
   final Rxn<Booking> created = Rxn<Booking>();
@@ -61,19 +69,67 @@ class NewBookingController extends ApiController {
   /// the booking so it is recorded on the row rather than only on screen.
   String? providerLocation;
 
-  /// Seeds from the provider being booked. [services] decides the default
-  /// callout — the first one they offer, which is what the profile's CTA
-  /// named, so the two screens agree.
-  void start(ServiceProvider provider) {
+  /// Seeds from the provider being booked. If [initialService] is given, it is
+  /// pre-selected. Otherwise, the first custom service (or first enum service)
+  /// is chosen as default.
+  void start(
+    ServiceProvider provider, {
+    ElectricianService? initialService,
+    BookingServiceType? initialServiceType,
+  }) {
     _providerId = provider.id;
-    _region = provider.region;
+    _region = provider.region ?? Region.london;
     providerLocation = provider.location;
-    serviceType.value = provider.services.isEmpty ? null : provider.services.first;
     selectedSlot.value = null;
     created.value = null;
     // Today, so a buyer who wants the soonest slot does not have to navigate.
     selectedDay.value = DateTime.now();
+
+    availableServices.assignAll(provider.customServices);
+
+    if (initialService != null) {
+      selectedCustomService.value = initialService;
+      serviceType.value = initialService.resolvedServiceType;
+    } else if (availableServices.isNotEmpty) {
+      selectedCustomService.value = availableServices.first;
+      serviceType.value = availableServices.first.resolvedServiceType;
+    } else {
+      selectedCustomService.value = null;
+      serviceType.value = initialServiceType ??
+          (provider.services.isNotEmpty
+              ? provider.services.first
+              : BookingServiceType.diagnostic);
+    }
+
+    if (availableServices.isEmpty && _providerId != null) {
+      _loadProviderServices(_providerId!);
+    }
+
     loadSlots();
+  }
+
+  void selectService(ElectricianService service) {
+    selectedCustomService.value = service;
+    serviceType.value = service.resolvedServiceType;
+  }
+
+  void selectServiceType(BookingServiceType type) {
+    serviceType.value = type;
+    selectedCustomService.value = null;
+  }
+
+  Future<void> _loadProviderServices(String id) async {
+    if (!Get.isRegistered<ProvidersRepository>()) return;
+    final res = await Get.find<ProvidersRepository>().byId(id);
+    if (res case Ok(:final value)) {
+      if (value.customServices.isNotEmpty && availableServices.isEmpty) {
+        availableServices.assignAll(value.customServices);
+        if (selectedCustomService.value == null) {
+          selectedCustomService.value = availableServices.first;
+          serviceType.value = availableServices.first.resolvedServiceType;
+        }
+      }
+    }
   }
 
   Future<void> selectDay(DateTime day) {
