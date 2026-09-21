@@ -193,4 +193,33 @@ void main() {
         t.widget<MyButton>(find.widgetWithText(MyButton, 'View offer')).enabled,
         isFalse);
   });
+
+  testWidgets('offers cards only show Compare button when at least 2 offers exist',
+      (t) async {
+    // 1 offer: Compare button must not be shown on the offer card
+    requests.byIdResult = Ok(_request(1));
+    orders.offersQueue.add(Ok([_offer('a')]));
+
+    await t.pumpWidget(
+        GetMaterialApp(home: ComparisonPage(request: _request(1))));
+    await t.pumpAndSettle();
+
+    expect(find.text('View offer'), findsOneWidget);
+    expect(find.text('Delete Offer'), findsOneWidget);
+    expect(find.text('Compare'), findsNothing);
+    expect(find.text('Review and select the offer that suits you'),
+        findsOneWidget);
+
+    // 2 offers: Compare button must be shown on both offer cards
+    orders.offersQueue.add(Ok([_offer('a'), _offer('b')]));
+    await t.fling(find.byType(ListView), const Offset(0, 320), 1000);
+    await t.pumpAndSettle();
+
+    expect(find.text('View offer'), findsNWidgets(2));
+    expect(find.text('Delete Offer'), findsNWidgets(2));
+    expect(find.text('Compare'), findsNWidgets(2));
+    expect(find.text('Compare & choose the best offer for your needs'),
+        findsOneWidget);
+  });
 }
+

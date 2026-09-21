@@ -16,7 +16,6 @@ import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/initials_avatar.dart';
 import 'package:autonect/view/widget/my_button.dart';
-import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
 import 'package:autonect/view/widget/state_view.dart';
 import 'package:autonect/view/widget/status_badge.dart';
@@ -113,7 +112,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
                 color: kSecondaryColor.withValues(alpha: 0.4),
               ),
               const SizedBox(height: AppSizes.s8),
-              MyText(
+              const MyText(
                 text: 'No vehicle image uploaded',
                 size: AppTextScale.label,
                 weight: AppWeights.medium,
@@ -220,7 +219,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
                       request: request,
                       offers: selectedOffers,
                     )),
-                child: MyText(
+                child: const MyText(
                   text: 'View Comparison',
                   size: AppTextScale.label,
                   weight: AppWeights.bold,
@@ -292,7 +291,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
                             const Icon(Icons.star_rounded,
                                 size: 14, color: kWarningColor),
                             const SizedBox(width: 2),
-                            MyText(
+                            const MyText(
                               text: '4.8',
                               size: AppTextScale.caption,
                               weight: AppWeights.semibold,
@@ -302,8 +301,8 @@ class _ComparisonPageState extends State<ComparisonPage> {
                         ),
                         GestureDetector(
                           onTap: () => _openChat(o),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
+                          child: const Padding(
+                            padding: EdgeInsets.only(top: 2),
                             child: Row(
                               children: [
                                 MyText(
@@ -312,8 +311,8 @@ class _ComparisonPageState extends State<ComparisonPage> {
                                   weight: AppWeights.medium,
                                   color: kBlackColor,
                                 ),
-                                const SizedBox(width: AppSizes.s4),
-                                const Icon(
+                                SizedBox(width: AppSizes.s4),
+                                Icon(
                                   Icons.chat_bubble_outline_rounded,
                                   size: 13,
                                   color: kSecondaryColor,
@@ -357,6 +356,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
 
   Widget _body(List<Offer> all, PartRequest request) {
     final offers = _visible(all);
+    final canCompare = offers.length >= 2;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: AppSizes.DEFAULT,
@@ -364,7 +364,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
         _vehicleBanner(request),
         Row(
           children: [
-            MyText(
+            const MyText(
               text: 'Offers',
               size: AppTextScale.subtitle,
               weight: AppWeights.bold,
@@ -380,13 +380,15 @@ class _ComparisonPageState extends State<ComparisonPage> {
           ],
         ),
         MyText(
-          text: 'Compare & choose the best offer for your needs',
+          text: canCompare
+              ? 'Compare & choose the best offer for your needs'
+              : 'Review and select the offer that suits you',
           size: AppTextScale.body,
           color: kGreyTextColor,
           paddingTop: AppSizes.s4,
           paddingBottom: AppSizes.s16,
         ),
-        _comparingTray(offers, request),
+        if (canCompare) _comparingTray(offers, request),
         if (offers.isNotEmpty) ...[
           MyText(
             text: offers.length == 1 ? '1 offer' : '${offers.length} offers',
@@ -398,6 +400,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
             _OfferCard(
               offer: o,
               request: request,
+              canCompare: canCompare,
               isSelected: _selected.contains(o.id),
               onView: () => _open(o, request),
               onRemove: () {
@@ -419,7 +422,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
             ),
         ],
         if (offers.isEmpty)
-          MyText(
+          const MyText(
             text: 'You dismissed every offer on this request.',
             size: AppTextScale.body,
             color: kGreyTextColor,
@@ -457,11 +460,13 @@ class _OfferCard extends StatelessWidget {
     required this.onRemove,
     required this.onToggleCompare,
     required this.onChat,
+    this.canCompare = true,
   });
 
   final Offer offer;
   final PartRequest request;
   final bool isSelected;
+  final bool canCompare;
   final VoidCallback onView, onRemove, onToggleCompare, onChat;
 
   @override
@@ -500,7 +505,7 @@ class _OfferCard extends StatelessWidget {
               ),
               const Icon(Icons.star_rounded, size: 16, color: kWarningColor),
               const SizedBox(width: AppSizes.s4),
-              MyText(
+              const MyText(
                 text: '4.8',
                 size: AppTextScale.caption,
                 weight: AppWeights.bold,
@@ -538,7 +543,7 @@ class _OfferCard extends StatelessWidget {
           const SizedBox(height: AppSizes.s8),
           GestureDetector(
             onTap: onChat,
-            child: Row(
+            child: const Row(
               children: [
                 MyText(
                   text: 'Contact Seller',
@@ -546,8 +551,8 @@ class _OfferCard extends StatelessWidget {
                   color: kBlackColor,
                   weight: AppWeights.medium,
                 ),
-                const SizedBox(width: AppSizes.s4),
-                const Icon(
+                SizedBox(width: AppSizes.s4),
+                Icon(
                   Icons.chat_bubble_outline_rounded,
                   size: 14,
                   color: kSecondaryColor,
@@ -578,7 +583,7 @@ class _OfferCard extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: onRemove,
-                child: MyText(
+                child: const MyText(
                   text: 'Delete Offer',
                   size: AppTextScale.caption,
                   color: kRedColor,
@@ -587,7 +592,7 @@ class _OfferCard extends StatelessWidget {
               ),
               const Spacer(),
               SizedBox(
-                width: 105,
+                width: canCompare ? 105 : 120,
                 child: MyButton(
                   buttonText: 'View offer',
                   enabled: gone == null,
@@ -600,23 +605,25 @@ class _OfferCard extends StatelessWidget {
                   onTap: onView,
                 ),
               ),
-              const SizedBox(width: AppSizes.s8),
-              SizedBox(
-                width: 105,
-                child: MyButton(
-                  buttonText: isSelected ? 'In Compare' : 'Compare',
-                  enabled: gone == null,
-                  height: AppSizes.s32,
-                  radius: AppSizes.radiusSm,
-                  fontSize: AppTextScale.caption,
-                  backgroundColor:
-                      isSelected ? kSecondaryColor : kWhiteColor,
-                  outlineColor:
-                      isSelected ? kTransperentColor : kSecondaryColor,
-                  fontColor: isSelected ? kWhiteColor : kSecondaryColor,
-                  onTap: onToggleCompare,
+              if (canCompare) ...[
+                const SizedBox(width: AppSizes.s8),
+                SizedBox(
+                  width: 105,
+                  child: MyButton(
+                    buttonText: isSelected ? 'In Compare' : 'Compare',
+                    enabled: gone == null,
+                    height: AppSizes.s32,
+                    radius: AppSizes.radiusSm,
+                    fontSize: AppTextScale.caption,
+                    backgroundColor:
+                        isSelected ? kSecondaryColor : kWhiteColor,
+                    outlineColor:
+                        isSelected ? kTransperentColor : kSecondaryColor,
+                    fontColor: isSelected ? kWhiteColor : kSecondaryColor,
+                    onTap: onToggleCompare,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

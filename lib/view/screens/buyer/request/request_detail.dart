@@ -7,6 +7,7 @@ import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/offer_actionability.dart';
+import 'package:autonect/domain/view_state.dart';
 import 'package:autonect/view/screens/buyer/detail/comparison.dart';
 import 'package:autonect/view/screens/buyer/detail/offer_detail.dart';
 import 'package:autonect/view/widget/app_card.dart';
@@ -97,7 +98,7 @@ class _RequestDetailState extends State<BuyerRequestDetailPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            MyText(
+            const MyText(
               text: 'Offers',
               size: AppTextScale.title,
               color: kBlackColor,
@@ -105,10 +106,14 @@ class _RequestDetailState extends State<BuyerRequestDetailPage> {
             ),
             Obx(() {
               final r = c.requestOrNull;
-              if (r == null) return const SizedBox.shrink();
+              final offers = switch (c.offers.value) {
+                Data(:final value) => value,
+                _ => const <Offer>[],
+              };
+              if (r == null || offers.length < 2) return const SizedBox.shrink();
               return GestureDetector(
                 onTap: () => Get.to(() => ComparisonPage(request: r)),
-                child: MyText(
+                child: const MyText(
                   text: 'Compare Offers',
                   size: AppTextScale.body,
                   weight: AppWeights.bold,
