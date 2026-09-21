@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/order_detail_controller.dart';
+import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/view/screens/buyer/detail/review_page.dart';
 import 'package:autonect/view/widget/app_card.dart';
@@ -65,8 +66,16 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
     }
   }
 
-  void _review() => Get.to(() => ReviewPage.forOrder(orderId: widget.orderId,
-      supplierName: widget.supplierName ?? 'this supplier'));
+  Future<void> _review() async {
+    final result = await Get.to(() => ReviewPage.forOrder(
+          orderId: widget.orderId,
+          supplierName: widget.supplierName ?? 'this supplier',
+          onDone: () => Get.back(result: true),
+        ));
+    if (result == true) {
+      c.load(widget.orderId);
+    }
+  }
 
   Widget _header(Order order) {
     final location = order.deliveryLocation;
@@ -76,6 +85,29 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
           Expanded(child: MyText(text: order.request.partName,
               size: AppTextScale.subtitle, weight: AppWeights.bold,
               color: kBlackColor)),
+          if (order.hasReviewed) ...[
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: kSecondaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star_rounded, size: 13, color: kSecondaryColor),
+                  const SizedBox(width: 3),
+                  MyText(
+                    text: '${order.buyerReview?.rating ?? 5}',
+                    size: AppTextScale.label,
+                    weight: AppWeights.bold,
+                    color: kSecondaryColor,
+                  ),
+                ],
+              ),
+            ),
+          ],
           StatusBadge(label: order.status?.label ?? 'Unknown',
               color: orderStatusColor(order.status)),
         ]),
@@ -84,6 +116,62 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
           DetailItem(label: 'Delivering to', value: location),
         PriceRow(label: 'Total', pence: order.totalPence, emphasised: true),
       ]),
+    );
+  }
+
+  Widget _reviewedCard(SubmittedReview review) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, size: 20, color: kSecondaryColor),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: MyText(
+                  text: 'Your Review',
+                  size: AppTextScale.subtitle,
+                  weight: AppWeights.bold,
+                  color: kBlackColor,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 1; i <= 5; i++)
+                    Icon(
+                      i <= review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 16,
+                      color: kSecondaryColor,
+                    ),
+                  const SizedBox(width: 4),
+                  MyText(
+                    text: '${review.rating}/5',
+                    size: AppTextScale.label,
+                    weight: AppWeights.bold,
+                    color: kSecondaryColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (review.text != null && review.text!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            MyText(
+              text: review.text!,
+              size: AppTextScale.body,
+              color: kBlackColor,
+            ),
+          ],
+          const SizedBox(height: 8),
+          MyText(
+            text: 'Submitted on ${_isoDate(review.createdAt)}',
+            size: AppTextScale.label,
+            color: kGreyTextColor,
+          ),
+        ],
+      ),
     );
   }
 
@@ -106,6 +194,10 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
                   paddingTop: AppSizes.s12),
             const SizedBox(height: AppSizes.s12),
             OrderProgressCard(steps: c.steps),
+            if (order.hasReviewed && order.buyerReview != null) ...[
+              const SizedBox(height: AppSizes.s12),
+              _reviewedCard(order.buyerReview!),
+            ],
           ]),
         );
       }),
@@ -154,10 +246,10 @@ class _CancelDialogState extends State<_CancelDialog> {
         child: Padding(
           padding: const EdgeInsets.all(AppSizes.s20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            MyText(text: 'Cancel this order?', size: AppTextScale.title,
+            const MyText(text: 'Cancel this order?', size: AppTextScale.title,
                 weight: AppWeights.bold, color: kBlackColor,
                 paddingBottom: AppSizes.s8),
-            MyText(text: 'A buyer can only cancel while an order is still '
+            const MyText(text: 'A buyer can only cancel while an order is still '
                     'PLACED, and the supplier is told why.',
                 size: AppTextScale.body, color: kGreyTextColor,
                 textAlign: TextAlign.center, paddingBottom: AppSizes.s16),
@@ -179,4 +271,10 @@ class _CancelDialogState extends State<_CancelDialog> {
           ]),
         ),
       );
+}
+
+String _isoDate(DateTime at) {
+  final d = at.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)}';
 }

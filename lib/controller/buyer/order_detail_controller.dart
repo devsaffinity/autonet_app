@@ -1,6 +1,7 @@
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
@@ -57,7 +58,11 @@ class OrderDetailController extends ApiController {
 
   bool get canCancel => OrderTransitions.canBuyerCancel(status);
 
-  bool get canReview => status == OrderStatus.delivered;
+  bool get hasReviewed => orderOrNull?.hasReviewed ?? false;
+
+  bool get canReview => status == OrderStatus.delivered && !hasReviewed;
+
+  SubmittedReview? get review => orderOrNull?.buyerReview;
 
   /// Everything below the header belongs to ONE order. [staleNotice] is the
   /// dangerous half: it is written by a cancel and cleared by the next cancel,

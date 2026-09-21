@@ -1,5 +1,6 @@
 import 'package:autonect/controller/buyer/order_detail_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/view/screens/buyer/detail/order_status.dart';
@@ -17,7 +18,9 @@ import '../fakes/fake_buyer_repositories.dart';
 void main() {
   final at = DateTime.utc(2026, 9, 3, 9, 15);
 
-  Order orderWith(OrderStatus status, List<OrderStatus> evented) => Order(
+  Order orderWith(OrderStatus status, List<OrderStatus> evented,
+          {List<SubmittedReview> reviews = const []}) =>
+      Order(
         id: 'o1',
         offerId: 'of1',
         requestId: 'r1',
@@ -27,9 +30,10 @@ void main() {
         status: status,
         createdAt: at,
         updatedAt: at,
+        reviews: reviews,
         offer: const OrderOfferRef(id: 'of1', pricePence: 24000, quantity: 1),
         request: const OrderRequestRef(
-            id: 'r1', partName: 'Front Brake Pads', regNumber: 'AB12CDE'),
+            id: 'r1', partName: 'Nearside Headlight', regNumber: 'AB12CDE'),
         events: [
           for (var i = 0; i < evented.length; i++)
             OrderEvent(
@@ -100,5 +104,34 @@ void main() {
     await t.enterText(find.byType(TextField).first, 'Found it locally');
     await t.pumpAndSettle();
     expect(buttonNamed(t, 'Confirm cancellation').enabled, isTrue);
+  });
+
+  testWidgets(
+      'DELIVERED with existing review renders reviewed card and withholds Give Review button',
+      (t) async {
+    final reviewedOrder = orderWith(
+      OrderStatus.delivered,
+      OrderStatus.forwardPath,
+      reviews: [
+        SubmittedReview(
+          id: 'rev1',
+          authorId: 'b1',
+          rating: 5,
+          text: 'Great OEM headlight, fits perfectly!',
+          createdAt: at,
+        ),
+      ],
+    );
+    await pump(t, reviewedOrder);
+
+    // Withholds Give Review button
+    expect(find.text('Give Review'), findsNothing);
+    expect(find.text('Cancel order'), findsNothing);
+
+    // Displays review details
+    expect(find.text('Your Review'), findsOneWidget);
+    expect(find.text('5/5'), findsOneWidget);
+    expect(find.text('Great OEM headlight, fits perfectly!'), findsOneWidget);
+    expect(find.text('Submitted on 2026-09-03'), findsOneWidget);
   });
 }

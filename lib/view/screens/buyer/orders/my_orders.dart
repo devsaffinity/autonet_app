@@ -99,6 +99,29 @@ class _OrderRow extends StatelessWidget {
               Expanded(child: MyText(text: order.request.partName,
                   size: AppTextScale.body, weight: AppWeights.semibold,
                   color: kBlackColor)),
+              if (order.hasReviewed) ...[
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: kSecondaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, size: 12, color: kSecondaryColor),
+                      const SizedBox(width: 2),
+                      MyText(
+                        text: '${order.buyerReview?.rating ?? 5}',
+                        size: AppTextScale.label,
+                        weight: AppWeights.bold,
+                        color: kSecondaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               StatusBadge(label: order.status?.label ?? 'Unknown',
                   color: orderStatusColor(order.status)),
             ]),

@@ -1,4 +1,5 @@
 import 'package:autonect/data/models/auth_user.dart' show jsonString;
+import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
 
@@ -101,6 +102,7 @@ class Order {
     required this.offer,
     required this.request,
     required this.events,
+    this.reviews = const <SubmittedReview>[],
     this.deliveryMethod,
     this.deliveryLocation,
     this.etaDays,
@@ -119,9 +121,61 @@ class Order {
   final OrderOfferRef offer;
   final OrderRequestRef request;
   final List<OrderEvent> events;
+  final List<SubmittedReview> reviews;
+
+  /// The buyer's own review, if they have left one.
+  SubmittedReview? get buyerReview {
+    for (final r in reviews) {
+      if (r.authorId == buyerId) return r;
+    }
+    return reviews.isEmpty ? null : reviews.first;
+  }
+
+  bool get hasReviewed => buyerReview != null;
+
+  Order copyWith({
+    String? id,
+    String? offerId,
+    String? requestId,
+    String? buyerId,
+    String? supplierId,
+    int? totalPence,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    OrderOfferRef? offer,
+    OrderRequestRef? request,
+    List<OrderEvent>? events,
+    List<SubmittedReview>? reviews,
+    DeliveryOption? deliveryMethod,
+    String? deliveryLocation,
+    int? etaDays,
+    OrderStatus? status,
+    String? cancelReason,
+    String? cancelledById,
+  }) => Order(
+    id: id ?? this.id,
+    offerId: offerId ?? this.offerId,
+    requestId: requestId ?? this.requestId,
+    buyerId: buyerId ?? this.buyerId,
+    supplierId: supplierId ?? this.supplierId,
+    totalPence: totalPence ?? this.totalPence,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    offer: offer ?? this.offer,
+    request: request ?? this.request,
+    events: events ?? this.events,
+    reviews: reviews ?? this.reviews,
+    deliveryMethod: deliveryMethod ?? this.deliveryMethod,
+    deliveryLocation: deliveryLocation ?? this.deliveryLocation,
+    etaDays: etaDays ?? this.etaDays,
+    status: status ?? this.status,
+    cancelReason: cancelReason ?? this.cancelReason,
+    cancelledById: cancelledById ?? this.cancelledById,
+  );
 
   factory Order.fromJson(Map<String, dynamic> j) {
     final events = j['events'];
+    final reviews = j['reviews'];
     return Order(
       id: jsonString(j, 'id'),
       offerId: jsonString(j, 'offerId'),
@@ -146,6 +200,11 @@ class Order {
                 .map((e) => OrderEvent.fromJson((e as Map).cast<String, dynamic>()))
                 .toList(growable: false)
           : const <OrderEvent>[],
+      reviews: reviews is List
+          ? reviews
+                .map((r) => SubmittedReview.fromJson((r as Map).cast<String, dynamic>()))
+                .toList(growable: false)
+          : const <SubmittedReview>[],
     );
   }
 }
