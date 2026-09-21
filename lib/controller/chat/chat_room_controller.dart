@@ -111,6 +111,9 @@ class ChatRoomController extends ApiController {
   Future<void> openForOffer(String offerId, {String? asUserId}) =>
       _open(() => _repo.openForOffer(offerId), offerId, asUserId);
 
+  Future<void> openById(String conversationId, {String? asUserId}) =>
+      _open(() => _repo.byId(conversationId), conversationId, asUserId);
+
   Future<void> _open(
     Future<ApiResult<Conversation>> Function() open,
     String contextId,

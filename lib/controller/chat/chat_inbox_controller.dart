@@ -184,6 +184,10 @@ class _StubChatRepository implements ChatRepository {
       const Err(ApiError(code: ApiErrorCode.internal, message: 'Not implemented in stub'));
 
   @override
+  Future<ApiResult<Conversation>> byId(String conversationId) async =>
+      const Err(ApiError(code: ApiErrorCode.internal, message: 'Not implemented in stub'));
+
+  @override
   Future<ApiResult<CursorPage<ChatMessage>>> messages(
     String conversationId, {
     String? cursor,

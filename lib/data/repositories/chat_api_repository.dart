@@ -48,6 +48,23 @@ class ChatApiRepository implements ChatRepository {
       _open('OFFER', offerId);
 
   @override
+  Future<ApiResult<Conversation>> byId(String conversationId) async {
+    final res = await _c.send(
+      method: 'GET',
+      path: '/v1/conversations/$conversationId',
+      decode: _conversation,
+    );
+    if (res is Ok<Conversation>) return res;
+    final inboxRes = await inbox(limit: 50);
+    if (inboxRes is Ok<CursorPage<Conversation>>) {
+      final found =
+          inboxRes.value.items.where((c) => c.id == conversationId).firstOrNull;
+      if (found != null) return Ok(found);
+    }
+    return res;
+  }
+
+  @override
   Future<ApiResult<CursorPage<Conversation>>> inbox({
     String? cursor,
     int limit = _defaultLimit,
@@ -56,7 +73,7 @@ class ChatApiRepository implements ChatRepository {
     path: '/v1/conversations',
     query: {
       'limit': '${limit.clamp(1, _maxLimit)}',
-      if (cursor != null) 'cursor': cursor,
+      'cursor': ?cursor,
     },
     decode: _page(Conversation.fromJson),
   );
@@ -71,7 +88,7 @@ class ChatApiRepository implements ChatRepository {
     path: '/v1/conversations/$conversationId/messages',
     query: {
       'limit': '${limit.clamp(1, _maxLimit)}',
-      if (cursor != null) 'cursor': cursor,
+      'cursor': ?cursor,
     },
     decode: _page(ChatMessage.fromJson),
   );

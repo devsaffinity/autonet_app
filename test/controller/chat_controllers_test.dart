@@ -82,6 +82,19 @@ void main() {
       expect(c.state.value, isA<Data<List<ChatMessage>>>());
     });
 
+    test('opens by CONVERSATION ID directly', () async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation(id: 'c99', peerId: 'p99'))
+        ..messagesResult = Ok(_page([_message(id: 'm1')]));
+      final c = _room(repo);
+
+      await c.openById('c99');
+
+      expect(repo.calls, contains('byId:c99'));
+      expect(c.conversation.value?.id, 'c99');
+      expect(c.state.value, isA<Data<List<ChatMessage>>>());
+    });
+
     test('marks the thread read on open', () async {
       final repo = FakeChatRepository()
         ..openResult = Ok(_conversation())

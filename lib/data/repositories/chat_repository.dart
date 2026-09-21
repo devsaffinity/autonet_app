@@ -16,6 +16,9 @@ abstract class ChatRepository {
   /// Get-or-create the thread for an offer.
   Future<ApiResult<Conversation>> openForOffer(String offerId);
 
+  /// Fetch a conversation by its id directly (e.g. from notification or deep-link).
+  Future<ApiResult<Conversation>> byId(String conversationId);
+
   /// The inbox, newest thread first.
   Future<ApiResult<CursorPage<Conversation>>> inbox({String? cursor, int limit});
 

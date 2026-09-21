@@ -1,3 +1,5 @@
+import 'dart:convert' show jsonDecode;
+
 import 'package:autonect/data/models/auth_user.dart' show jsonString;
 
 /// One row of `GET /v1/notifications`.
@@ -31,7 +33,11 @@ class AppNotification {
   String? get requestId => _idFor('requestId');
   String? get orderId => _idFor('orderId');
   String? get bookingId => _idFor('bookingId');
-  String? get conversationId => _idFor('conversationId');
+  String? get conversationId =>
+      _idFor('conversationId') ??
+      (type.startsWith('message') || type.startsWith('chat')
+          ? (_idFor('contextId') ?? _idFor('id'))
+          : null);
   String? get offerId => _idFor('offerId');
 
   String? _idFor(String key) {
@@ -50,7 +56,20 @@ class AppNotification {
   );
 
   factory AppNotification.fromJson(Map<String, dynamic> j) {
-    final data = j['data'];
+    final rawData = j['data'];
+    Map<String, dynamic>? data;
+    if (rawData is Map) {
+      data = rawData.cast<String, dynamic>();
+    } else if (rawData is String && rawData.trim().startsWith('{')) {
+      try {
+        final decoded = jsonDecode(rawData);
+        data = decoded is Map ? decoded.cast<String, dynamic>() : null;
+      } catch (_) {
+        data = null;
+      }
+    } else {
+      data = null;
+    }
     final at = j['createdAt'];
     return AppNotification(
       id: jsonString(j, 'id'),
@@ -63,7 +82,7 @@ class AppNotification {
       createdAt: at is String
           ? (DateTime.tryParse(at) ?? DateTime.now())
           : DateTime.now(),
-      data: data is Map ? data.cast<String, dynamic>() : null,
+      data: data,
     );
   }
 }

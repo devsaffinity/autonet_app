@@ -602,6 +602,12 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
+  Future<ApiResult<Conversation>> byId(String conversationId) async {
+    calls.add('byId:$conversationId');
+    return openResult ?? _none('chat.byId');
+  }
+
+  @override
   Future<ApiResult<CursorPage<Conversation>>> inbox({
     String? cursor,
     int limit = 30,

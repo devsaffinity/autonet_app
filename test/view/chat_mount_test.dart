@@ -102,6 +102,34 @@ void main() {
       expect(find.text('Priya Raman'), findsOneWidget);
     });
 
+    testWidgets('mounts with conversationId directly', (tester) async {
+      final repo = FakeChatRepository()
+        ..openResult = Ok(_conversation(id: 'c55', peerId: 'p55'))
+        ..messagesResult = Ok(CursorPage<ChatMessage>([_message(id: 'm1', body: 'Hello direct')], null))
+        ..sendResult = Ok(_message(id: 'm9', senderId: 'me', body: 'hi'));
+      Get.put<ChatRepository>(repo);
+      Get.put(
+        ChatRoomController(
+          repo,
+          pollEvery: const Duration(minutes: 5),
+          toast: (_) {},
+          showBusy: () {},
+          hideBusy: () {},
+        ),
+      );
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: ChatRoomPage(conversationId: 'c55', title: 'Priya Raman'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+      expect(repo.calls, contains('byId:c55'));
+      expect(find.text('Hello direct'), findsOneWidget);
+    });
+
     testWidgets('none of the mocked conversation survives', (tester) async {
       await _pumpRoom(tester, messages: [_message()]);
 

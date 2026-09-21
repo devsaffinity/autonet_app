@@ -28,15 +28,23 @@ import 'package:get/get.dart';
 class ChatRoomPage extends StatefulWidget {
   const ChatRoomPage({
     super.key,
-    required this.contextId,
+    this.contextId,
+    this.conversationId,
     this.type = ConversationType.booking,
     this.myUserId,
     this.title,
     this.peerAvatarUrl,
-  });
+  }) : assert(
+          contextId != null || conversationId != null,
+          'Either contextId or conversationId must be provided',
+        );
 
-  /// The booking or offer this thread belongs to.
-  final String contextId;
+  /// The booking or offer this thread belongs to, when opened from a deal.
+  final String? contextId;
+
+  /// The conversation ID, when opened directly (e.g. from a notification or deep-link).
+  final String? conversationId;
+
   final ConversationType type;
 
   /// Whose side is 'mine'. Without it every bubble renders as the peer's,
@@ -66,10 +74,12 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   void initState() {
     super.initState();
     final effectiveUserId = _resolvedMyUserId;
-    if (widget.type == ConversationType.booking) {
-      c.openForBooking(widget.contextId, asUserId: effectiveUserId);
+    if (widget.conversationId != null) {
+      c.openById(widget.conversationId!, asUserId: effectiveUserId);
+    } else if (widget.type == ConversationType.booking) {
+      c.openForBooking(widget.contextId!, asUserId: effectiveUserId);
     } else {
-      c.openForOffer(widget.contextId, asUserId: effectiveUserId);
+      c.openForOffer(widget.contextId!, asUserId: effectiveUserId);
     }
   }
 
@@ -200,8 +210,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
           ],
         );
       }),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(1),
         child: Divider(color: kTertiaryColor, height: 1),
       ),
     );

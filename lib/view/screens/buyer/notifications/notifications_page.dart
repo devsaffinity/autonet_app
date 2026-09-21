@@ -6,6 +6,7 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/app_notification.dart';
 import 'package:autonect/data/models/booking.dart';
+import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/repositories/bookings_repository.dart';
 import 'package:autonect/view/screens/buyer/detail/order_status.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
@@ -78,7 +79,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ? const SizedBox.shrink()
             : TextButton(
                 onPressed: _c.markAllRead,
-                child: MyText(
+                child: const MyText(
                   text: 'Mark all read',
                   size: AppTextScale.label,
                   color: kSecondaryColor,
@@ -206,7 +207,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       }
       return;
     }
-    if (n.offerId case final id?) {
+    if (n.offerId != null) {
       if (role == 'SUPPLIER') {
         Get.to(() => const SupplierOffersPage());
         return;
@@ -228,7 +229,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
       return;
     }
     if (n.conversationId case final id?) {
-      Get.to(() => ChatRoomPage(contextId: id));
+      final senderTitle = n.title.startsWith('New message from ')
+          ? n.title.replaceFirst('New message from ', '').trim()
+          : null;
+      Get.to(() => ChatRoomPage(
+        conversationId: id,
+        contextId: n.bookingId ?? n.offerId,
+        type: n.offerId != null
+            ? ConversationType.offer
+            : ConversationType.booking,
+        title: senderTitle,
+      ));
       return;
     }
     // No payload: the row itself carried the whole message, and there is
