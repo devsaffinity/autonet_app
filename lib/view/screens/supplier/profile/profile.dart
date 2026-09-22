@@ -7,7 +7,6 @@ import 'package:autonect/view/screens/supplier/dash_board/manage_catalog.dart';
 import 'package:autonect/view/screens/supplier/dash_board/supplier_credits.dart';
 import 'package:autonect/view/screens/supplier/profile/edit_supplier_profile.dart';
 import 'package:autonect/view/screens/supplier/profile/supplier_access_tier_page.dart';
-import 'package:autonect/view/screens/supplier/registration/supplier_registration.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_widgets.dart';
 import 'package:autonect/controller/buyer/notifications_controller.dart';
@@ -279,11 +278,6 @@ class _SupplierProfilePageState extends State<SupplierProfilePage> {
               icon: Icons.inventory_2_outlined,
               label: 'Catalogue',
               onTap: () => Get.to(() => const ManageCatalogPage()),
-            ),
-            SupplierMenuTile(
-              icon: Icons.verified_user_outlined,
-              label: 'KYC documents',
-              onTap: () => Get.to(() => const SupplierRegistrationPage()),
             ),
             Obx(() {
               final unread = _notifications.unread.value;
