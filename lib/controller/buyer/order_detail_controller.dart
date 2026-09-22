@@ -64,6 +64,18 @@ class OrderDetailController extends ApiController {
 
   SubmittedReview? get review => orderOrNull?.buyerReview;
 
+  /// Optimistically attaches the newly created review so the screen switches
+  /// to the reviewed state immediately without waiting for the next network fetch.
+  void recordReview(SubmittedReview review) {
+    if (orderOrNull case final current?) {
+      final updatedReviews = [
+        review,
+        ...current.reviews.where((r) => r.id != review.id),
+      ];
+      order.value = Data<Order>(current.copyWith(reviews: updatedReviews));
+    }
+  }
+
   /// Everything below the header belongs to ONE order. [staleNotice] is the
   /// dangerous half: it is written by a cancel and cleared by the next cancel,
   /// so on an order that is not cancellable the button that would clear it is

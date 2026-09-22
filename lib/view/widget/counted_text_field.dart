@@ -25,6 +25,7 @@ class CountedTextField extends StatefulWidget {
     this.onChanged, this.textCapitalization = TextCapitalization.sentences,
     this.marginBottom = AppSizes.s16, this.radius, this.borderColor,
     this.labelSize, this.quietCounter = false, this.isRequired = false,
+    this.isReadOnly = false,
   });
 
   final TextEditingController controller;
@@ -33,6 +34,7 @@ class CountedTextField extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final TextCapitalization textCapitalization;
   final double marginBottom;
+  final bool isReadOnly;
 
   /// Null keeps the historical shape — a pill for one line, [AppSizes.radiusMd]
   /// for many. A screen reconciled against the design passes an explicit radius.
@@ -93,6 +95,7 @@ class _CountedTextFieldState extends State<CountedTextField> {
           maxLines: widget.maxLines, onChanged: widget.onChanged,
           textCapitalization: widget.textCapitalization,
           labelSize: widget.labelSize, isRequired: widget.isRequired,
+          isReadOnly: widget.isReadOnly,
           textInputAction:
               multiline ? TextInputAction.newline : TextInputAction.next,
           // Never null: MyTextField force-unwraps radius. radiusPill == its default.

@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/controller/buyer/review_controller.dart';
+import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/domain/review_context.dart';
 import 'package:autonect/view/widget/counted_text_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
@@ -25,6 +26,8 @@ class ReviewPage extends StatefulWidget {
     super.key,
     required this.context,
     required this.supplierName,
+    this.existingReview,
+    this.isReviewed = false,
     this.onDone,
   });
 
@@ -33,11 +36,15 @@ class ReviewPage extends StatefulWidget {
     super.key,
     required String orderId,
     required this.supplierName,
+    this.existingReview,
+    this.isReviewed = false,
     this.onDone,
   }) : context = OrderReview(orderId);
 
   final ReviewContext context;
   final String supplierName;
+  final SubmittedReview? existingReview;
+  final bool isReviewed;
 
   /// What to do once it is published.
   ///
@@ -59,11 +66,16 @@ class _ReviewPageState extends State<ReviewPage> {
   @override
   void initState() {
     super.initState();
-    // ZERO, not the four this screen used to seed: a buyer who taps nothing
-    // must not publish a rating they never chose. The controller is shared with
-    // the offer-detail Reviews tab, so a previous visit's value is cleared too.
-    c.setRating(0);
     c.clearErrors();
+    if (widget.existingReview != null || widget.isReviewed) {
+      c.markAlreadyReviewed(widget.existingReview);
+      if (widget.existingReview != null) {
+        c.setRating(widget.existingReview!.rating);
+        _text.text = widget.existingReview!.text ?? '';
+      }
+    } else {
+      c.setRating(0);
+    }
   }
 
   @override
@@ -98,44 +110,117 @@ class _ReviewPageState extends State<ReviewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: GeneralAppBar(title: 'Review', centerdTitle: false),
-      body: ListView(padding: AppSizes.DEFAULT, children: [
-        MyText(text: 'Rate your experience', size: AppTextScale.subtitle,
-            weight: AppWeights.bold, color: kBlackColor,
-            paddingTop: AppSizes.s20),
-        MyText(text: 'How did ${widget.supplierName} do?',
-            size: AppTextScale.body, color: kGreyTextColor,
-            paddingTop: AppSizes.s4, paddingBottom: AppSizes.s20),
-        Obx(() => StarRatingInput(
-            rating: c.rating.value, onChanged: c.setRating)),
-        Obx(() {
-          final e = c.fieldErrorFor('rating');
-          return e == null
-              ? const SizedBox.shrink()
-              : MyText(text: e, size: AppTextScale.label, color: kRedColor,
-                  paddingTop: AppSizes.s8);
-        }),
-        MyText(text: 'Write a review (optional)', size: AppTextScale.body,
-            weight: AppWeights.semibold, color: kBlackColor,
-            paddingTop: AppSizes.s20, paddingBottom: AppSizes.s8),
-        Obx(() => CountedTextField(controller: _text, maxLength: 1000,
-            maxLines: 5, hintText: 'What went well? What could be better?',
-            errorText: c.fieldErrorFor('text'))),
-        MyText(text: 'Reviews cannot be edited or removed once published.',
-            size: AppTextScale.label, color: kGreyTextColor),
-        Obx(() {
-          final e = c.formError.value;
-          return e == null
-              ? const SizedBox.shrink()
-              : MyText(text: e, size: AppTextScale.body, color: kRedColor,
-                  paddingTop: AppSizes.s12);
-        }),
-      ]),
+      body: Obx(() {
+        final isReviewed = c.alreadyReviewed.value;
+        final formError = c.formError.value;
+        final ratingError = c.fieldErrorFor('rating');
+        final textError = c.fieldErrorFor('text');
+
+        return ListView(padding: AppSizes.DEFAULT, children: [
+          if (isReviewed)
+            Container(
+              margin: const EdgeInsets.only(top: AppSizes.s12, bottom: AppSizes.s20),
+              padding: const EdgeInsets.all(AppSizes.s16),
+              decoration: BoxDecoration(
+                color: kSecondaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                border: Border.all(color: kSecondaryColor.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: kSecondaryColor, size: 22),
+                  const SizedBox(width: AppSizes.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const MyText(
+                          text: 'Review Already Submitted',
+                          size: AppTextScale.subtitle,
+                          weight: AppWeights.bold,
+                          color: kBlackColor,
+                        ),
+                        const SizedBox(height: AppSizes.s4),
+                        MyText(
+                          text: widget.context is OrderReview
+                              ? 'You have already reviewed this order. Reviews cannot be edited or removed.'
+                              : 'You have already reviewed this booking. Reviews cannot be edited or removed.',
+                          size: AppTextScale.label,
+                          color: kGreyTextColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            MyText(text: 'Rate your experience', size: AppTextScale.subtitle,
+                weight: AppWeights.bold, color: kBlackColor,
+                paddingTop: AppSizes.s20),
+            MyText(text: 'How did ${widget.supplierName} do?',
+                size: AppTextScale.body, color: kGreyTextColor,
+                paddingTop: AppSizes.s4, paddingBottom: AppSizes.s20),
+          ],
+          StarRatingInput(
+            rating: c.rating.value,
+            onChanged: isReviewed ? null : c.setRating,
+            enabled: !isReviewed,
+          ),
+          if (!isReviewed && ratingError != null)
+            MyText(text: ratingError, size: AppTextScale.label, color: kRedColor,
+                paddingTop: AppSizes.s8),
+          MyText(
+            text: isReviewed ? 'Your review' : 'Write a review (optional)',
+            size: AppTextScale.body,
+            weight: AppWeights.semibold,
+            color: kBlackColor,
+            paddingTop: AppSizes.s20,
+            paddingBottom: AppSizes.s8,
+          ),
+          CountedTextField(
+            controller: _text,
+            maxLength: 1000,
+            maxLines: 5,
+            hintText: isReviewed ? 'No comment provided' : 'What went well? What could be better?',
+            errorText: isReviewed ? null : textError,
+            isReadOnly: isReviewed,
+          ),
+          if (!isReviewed) ...[
+            MyText(text: 'Reviews cannot be edited or removed once published.',
+                size: AppTextScale.label, color: kGreyTextColor),
+            if (formError != null)
+              MyText(text: formError, size: AppTextScale.body, color: kRedColor,
+                  paddingTop: AppSizes.s12),
+          ],
+        ]);
+      }),
       bottomNavigationBar: Padding(
         padding: AppSizes.DEFAULT,
-        // Inert until 1..5 is chosen — the server's rating is an int 1..5 and
-        // there is no such thing as a zero-star review.
-        child: Obx(() => MyButton(buttonText: 'Confirm Review',
-            enabled: c.canSubmit, loading: c.busy.value, onTap: _submit)),
+        child: Obx(() {
+          final isReviewed = c.alreadyReviewed.value;
+          if (isReviewed) {
+            return MyButton(
+              buttonText: widget.context is OrderReview ? 'Back to Order' : 'Back to Bookings',
+              onTap: () {
+                final onDone = widget.onDone;
+                if (onDone != null) {
+                  onDone();
+                  return;
+                }
+                Get.back(result: true);
+              },
+            );
+          }
+          return MyButton(
+            buttonText: 'Confirm Review',
+            enabled: c.canSubmit,
+            loading: c.busy.value,
+            onTap: _submit,
+          );
+        }),
       ),
     );
   }

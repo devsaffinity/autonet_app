@@ -1,6 +1,7 @@
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/data/models/review.dart';
 import 'package:autonect/data/repositories/reviews_repository.dart';
 import 'package:autonect/domain/conflict_kind.dart';
@@ -25,6 +26,11 @@ class ReviewController extends ApiController {
 
   final Rxn<Review> created = Rxn<Review>();
 
+  /// Indicates if the order/booking has already been reviewed, which disables
+  /// submission and displays the existing review / read-only state.
+  final RxBool alreadyReviewed = false.obs;
+  final Rxn<SubmittedReview> existingReview = Rxn<SubmittedReview>();
+
   /// The READ side only. [rating] and [created] are the write side and belong
   /// to the review screen, which seeds them as it mounts.
   static const StateSlot _reviewsRead = StateSlot('supplierReviews');
@@ -32,9 +38,26 @@ class ReviewController extends ApiController {
   final Rx<ViewState<ReviewsPage>> supplierReviews =
       Rx<ViewState<ReviewsPage>>(const Loading());
 
-  bool get canSubmit => rating.value >= 1 && rating.value <= 5;
+  bool get canSubmit =>
+      !alreadyReviewed.value && rating.value >= 1 && rating.value <= 5;
+
+  void markAlreadyReviewed([SubmittedReview? review]) {
+    alreadyReviewed.value = true;
+    if (review != null) {
+      existingReview.value = review;
+      rating.value = review.rating;
+    }
+  }
+
+  @override
+  void clearErrors() {
+    super.clearErrors();
+    alreadyReviewed.value = false;
+    existingReview.value = null;
+  }
 
   void setRating(int stars) {
+    if (alreadyReviewed.value) return;
     rating.value = stars;
     clearFieldError('rating');
   }
@@ -109,10 +132,15 @@ class ReviewController extends ApiController {
       absorb(e);
       return;
     }
-    formError.value = switch (classifyConflict(e.message)) {
+    final kind = classifyConflict(e.message);
+    if (kind == ConflictKind.alreadyReviewed) {
+      alreadyReviewed.value = true;
+      formError.value = 'You have already reviewed this order.';
+      return;
+    }
+    formError.value = switch (kind) {
       ConflictKind.notDeliveredYet =>
         'You can review this order once it has been delivered.',
-      ConflictKind.alreadyReviewed => 'You have already reviewed this order.',
       _ => userMessageFor(e),
     };
   }

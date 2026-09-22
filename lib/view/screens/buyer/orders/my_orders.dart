@@ -91,7 +91,10 @@ class _OrderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MyRippleEffect(
         radius: AppSizes.radiusMd,
-        onTap: () => Get.to(() => OrderStatusPage(orderId: order.id)),
+        onTap: () async {
+          await Get.to(() => OrderStatusPage(orderId: order.id));
+          MyOrdersController.ensure().refreshFirst();
+        },
         child: AppCard(
           margin: const EdgeInsets.only(bottom: AppSizes.s12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

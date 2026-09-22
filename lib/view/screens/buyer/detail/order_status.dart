@@ -2,6 +2,7 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/order_detail_controller.dart';
+import 'package:autonect/controller/buyer/review_controller.dart';
 import 'package:autonect/data/models/booking.dart' show SubmittedReview;
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/view/screens/buyer/detail/review_page.dart';
@@ -67,14 +68,24 @@ class _OrderStatusPageState extends State<OrderStatusPage> {
   }
 
   Future<void> _review() async {
-    final result = await Get.to(() => ReviewPage.forOrder(
+    await Get.to(() => ReviewPage.forOrder(
           orderId: widget.orderId,
           supplierName: widget.supplierName ?? 'this supplier',
+          existingReview: c.review,
+          isReviewed: c.hasReviewed,
           onDone: () => Get.back(result: true),
         ));
-    if (result == true) {
-      c.load(widget.orderId);
+    final created = ReviewController.ensure().created.value;
+    if (created != null) {
+      c.recordReview(SubmittedReview(
+        id: created.id,
+        authorId: created.authorId,
+        rating: created.rating,
+        text: created.text,
+        createdAt: created.createdAt,
+      ));
     }
+    c.load(widget.orderId);
   }
 
   Widget _header(Order order) {

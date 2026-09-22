@@ -15,11 +15,13 @@ class StarRatingInput extends StatelessWidget {
     required this.rating,
     required this.onChanged,
     this.size = AppSizes.s32,
+    this.enabled = true,
   });
 
   final int rating;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<int>? onChanged;
   final double size;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +33,7 @@ class StarRatingInput extends StatelessWidget {
           children: [
             for (var star = 1; star <= 5; star++)
               GestureDetector(
-                onTap: () => onChanged(star),
+                onTap: enabled && onChanged != null ? () => onChanged!(star) : null,
                 child: Padding(
                   padding: const EdgeInsets.only(right: AppSizes.s8),
                   child: Icon(
@@ -43,8 +45,8 @@ class StarRatingInput extends StatelessWidget {
               ),
           ],
         ),
-        if (rating == 0)
-          MyText(text: 'Tap a star to rate', size: AppTextScale.label,
+        if (rating == 0 && enabled)
+          const MyText(text: 'Tap a star to rate', size: AppTextScale.label,
               color: kGreyTextColor, paddingTop: AppSizes.s8),
       ],
     );

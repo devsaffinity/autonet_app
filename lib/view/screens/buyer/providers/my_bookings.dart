@@ -136,10 +136,12 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       Get.back();
       _confirmCancel(booking);
     },
-    onReview: () {
-      Get.back();
-      _review(booking);
-    },
+    onReview: booking.status == BookingStatus.completed && !booking.isReviewed
+        ? () {
+            Get.back();
+            _review(booking);
+          }
+        : null,
   ));
 
   /// A completed callout can be rated — the thing that finally lets an
@@ -154,6 +156,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     supplierName: booking.provider?.fullName ??
         booking.provider?.name ??
         'your provider',
+    existingReview: booking.buyerReview,
+    isReviewed: booking.isReviewed,
     onDone: () {
       Get.back();
       c.refreshFirst();
