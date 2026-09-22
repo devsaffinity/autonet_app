@@ -96,109 +96,147 @@ class _SupplierOrdersPageState extends State<SupplierOrdersPage> {
                         ),
                       ),
                     ),
-                  Empty(:final title, :final body) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 60),
-                      child: Center(
-                        child: Column(
+                  Empty(:final title, :final body) =>
+                      _buildEmptyState(tabName, tabIdx),
+                  Data<List<Order>>(:final value) => value.isEmpty
+                      ? _buildEmptyState(tabName, tabIdx)
+                      : Column(
                           children: [
-                            const Icon(
-                              Icons.inventory_2_outlined,
-                              size: 50,
-                              color: kGreyTextColor,
-                            ),
-                            const SizedBox(height: 12),
-                            MyText(
-                              text: 'No $tabName orders yet',
-                              size: 15,
-                              weight: FontWeight.w600,
-                              color: kBlackColor,
-                              paddingBottom: 4,
-                            ),
-                            MyText(
-                              text:
-                                  'Orders requiring fulfillment will appear here once accepted.',
-                              size: 13,
-                              weight: FontWeight.w400,
-                              color: kGreyTextColor,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  Data<List<Order>>(:final value) => Column(
-                      children: [
-                        Container(
-                          decoration: AppStyling().myShadowDecoration(
-                            color: kPrimaryColor,
-                            radius: 14,
-                            borderColor: kTransperentColor,
-                          ),
-                          child: Column(
-                            children: List.generate(value.length * 2 - 1, (i) {
-                              if (i.isOdd) {
-                                return const Divider(
-                                  height: 1,
-                                  color: kTertiaryColor,
-                                  indent: 16,
-                                  endIndent: 16,
-                                );
-                              }
-                              final o = value[i ~/ 2];
-                              final shortId = o.id.length > 6
-                                  ? o.id.substring(o.id.length - 6)
-                                  : o.id;
-                              final badgeColor = tabIdx == 1
-                                  ? const Color(0xff34C759)
-                                  : tabIdx == 2
-                                      ? kRedColor
-                                      : kSecondaryColor;
-
-                              return SupplierListRow(
-                                image: Assets.imagesProfileImage,
-                                title: 'Order #$shortId',
-                                subtitle: o.request.partName,
-                                badge: SupplierStatusBadge(
-                                  label: o.status?.label ?? 'Placed',
-                                  color: badgeColor,
-                                ),
-                                onTap: () => Get.to(
-                                  () => SupplierOrderDetailPage(order: o),
-                                ),
-                              );
-                            }),
-                          ),
-                        ),
-                        if (_controller.hasMore)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: Obx(
-                                () => _controller.loadingMore.value
-                                    ? const CircularProgressIndicator(
-                                        color: kSecondaryColor,
-                                      )
-                                    : SizedBox(
-                                        width: 140,
-                                        child: MyButton(
-                                          buttonText: 'Load More',
-                                          height: 38,
-                                          backgroundColor: kPrimaryColor,
-                                          outlineColor: kSecondaryColor,
-                                          fontColor: kSecondaryColor,
-                                          onTap: _controller.loadMore,
-                                        ),
+                            Container(
+                              decoration: AppStyling().myShadowDecoration(
+                                color: kPrimaryColor,
+                                radius: 14,
+                                borderColor: kTransperentColor,
+                              ),
+                              child: Column(
+                                children: [
+                                  for (int i = 0; i < value.length; i++) ...[
+                                    if (i > 0)
+                                      const Divider(
+                                        height: 1,
+                                        color: kTertiaryColor,
+                                        indent: 16,
+                                        endIndent: 16,
                                       ),
+                                    () {
+                                      final o = value[i];
+                                      final shortId = o.id.length > 6
+                                          ? o.id
+                                              .substring(o.id.length - 6)
+                                              .toUpperCase()
+                                          : o.id.toUpperCase();
+                                      final badgeColor = tabIdx == 1
+                                          ? const Color(0xff34C759)
+                                          : tabIdx == 2
+                                              ? kRedColor
+                                              : kSecondaryColor;
+
+                                      return SupplierListRow(
+                                        image: Assets.imagesProfileImage,
+                                        title: 'Order #$shortId',
+                                        subtitle: o.request.partName,
+                                        badge: SupplierStatusBadge(
+                                          label: o.status?.label ?? 'Placed',
+                                          color: badgeColor,
+                                        ),
+                                        onTap: () => Get.to(
+                                          () =>
+                                              SupplierOrderDetailPage(order: o),
+                                        ),
+                                      );
+                                    }(),
+                                  ],
+                                ],
                               ),
                             ),
-                          ),
-                      ],
-                    ),
+                            if (_controller.hasMore)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Obx(
+                                    () => _controller.loadingMore.value
+                                        ? const CircularProgressIndicator(
+                                            color: kSecondaryColor,
+                                          )
+                                        : SizedBox(
+                                            width: 140,
+                                            child: MyButton(
+                                              buttonText: 'Load More',
+                                              height: 38,
+                                              backgroundColor: kPrimaryColor,
+                                              outlineColor: kSecondaryColor,
+                                              fontColor: kSecondaryColor,
+                                              onTap: _controller.loadMore,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                 };
               }),
               const SizedBox(height: 40),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String tabName, int tabIdx) {
+    final (icon, description) = switch (tabIdx) {
+      1 => (
+          Icons.task_alt_outlined,
+          'Delivered orders will be archived here once completed.',
+        ),
+      2 => (
+          Icons.cancel_outlined,
+          'Cancelled orders will appear here.',
+        ),
+      _ => (
+          Icons.inventory_2_outlined,
+          'Orders requiring fulfillment will appear here once accepted.',
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 60),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: kSecondaryColor.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 40,
+                color: kSecondaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            MyText(
+              text: 'No $tabName orders yet',
+              size: 16,
+              weight: FontWeight.w600,
+              color: kBlackColor,
+              paddingBottom: 6,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: MyText(
+                text: description,
+                size: 13,
+                weight: FontWeight.w400,
+                color: kGreyTextColor,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
         ),
       ),
     );

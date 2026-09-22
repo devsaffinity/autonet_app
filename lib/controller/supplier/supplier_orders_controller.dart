@@ -2,6 +2,7 @@ import 'package:autonect/controller/base/paged_controller.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/order.dart';
 import 'package:autonect/data/models/order_enums.dart';
+import 'package:autonect/data/models/page_meta.dart';
 import 'package:autonect/data/models/paged.dart';
 import 'package:autonect/data/repositories/orders_repository.dart';
 import 'package:get/get.dart';
@@ -43,7 +44,18 @@ class SupplierOrdersController extends PagedController<Order> {
               o.status == OrderStatus.preparing ||
               o.status == OrderStatus.outForDelivery)
           .toList(growable: false);
-      return Ok(Paged<Order>(active, res.value.meta));
+      final meta = PageMeta(
+        page: res.value.meta.page,
+        limit: res.value.meta.limit,
+        pageSize: res.value.meta.pageSize,
+        total: active.length,
+        totalPages: active.isEmpty
+            ? 0
+            : (active.length / res.value.meta.pageSize).ceil(),
+        hasNextPage: res.value.meta.hasNextPage,
+        hasPreviousPage: res.value.meta.hasPreviousPage,
+      );
+      return Ok(Paged<Order>(active, meta));
     }
 
     return res;
