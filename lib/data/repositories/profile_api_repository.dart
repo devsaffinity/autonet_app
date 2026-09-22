@@ -96,7 +96,10 @@ class ProfileApiRepository implements ProfileRepository {
     body: {
       if (name case final v? when v.trim().isNotEmpty) 'name': v.trim(),
       if (location case final v? when v.trim().isNotEmpty) 'location': v.trim(),
-      if (contact case final v? when v.trim().isNotEmpty) 'contact': v.trim(),
+      if (contact case final v? when v.trim().isNotEmpty) ...{
+        'contact': v.trim(),
+        'phone': v.trim(),
+      },
       if (avatarKey case final v? when v.trim().isNotEmpty) 'avatarKey': v.trim(),
     },
     decode: _one,

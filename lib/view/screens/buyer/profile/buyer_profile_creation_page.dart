@@ -80,6 +80,9 @@ class _BuyerProfileCreationPageState extends State<BuyerProfileCreationPage> {
       if (user?.name != null && user!.name!.isNotEmpty) {
         _nameCtrl.text = user.name!;
       }
+      if (user?.phone != null && user!.phone!.isNotEmpty) {
+        _contactCtrl.text = user.phone!;
+      }
     }
 
     await _profile.load();
@@ -93,8 +96,9 @@ class _BuyerProfileCreationPageState extends State<BuyerProfileCreationPage> {
       if (me.location != null && me.location!.isNotEmpty) {
         _locationCtrl.text = me.location!;
       }
-      if (me.phone != null && me.phone!.isNotEmpty) {
-        _contactCtrl.text = me.phone!;
+      final phone = me.effectivePhone;
+      if (phone != null && phone.isNotEmpty) {
+        _contactCtrl.text = phone;
       }
       _seeded = true;
     }
@@ -137,6 +141,11 @@ class _BuyerProfileCreationPageState extends State<BuyerProfileCreationPage> {
     );
 
     if (!mounted || !success) return;
+
+    final savedPhone = _profile.me?.effectivePhone ?? contact;
+    if (savedPhone.isNotEmpty) {
+      _contactCtrl.text = savedPhone;
+    }
 
     if (widget.onComplete != null) {
       widget.onComplete!();

@@ -86,7 +86,7 @@ class _EditSupplierProfilePageState extends State<EditSupplierProfilePage> {
 
     // Contact person info
     _contactNameCtrl.text = me.name ?? '';
-    _phoneCtrl.text = me.phone ?? '';
+    _phoneCtrl.text = me.effectivePhone ?? '';
     _locationCtrl.text = me.location ?? '';
 
     // Business details

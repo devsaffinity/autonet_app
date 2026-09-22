@@ -15,6 +15,7 @@ class AuthUser {
     required this.role,
     required this.status,
     this.name,
+    this.phone,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class AuthUser {
   /// PENDING_VERIFICATION|ACTIVE|SUSPENDED|BANNED|DELETED
   final String status;
   final String? name;
+  final String? phone;
 
   bool get isPendingVerification => status == 'PENDING_VERIFICATION';
 
@@ -39,6 +41,7 @@ class AuthUser {
     role: jsonString(j, 'role'),
     status: jsonString(j, 'status'),
     name: j['name'] as String?,
+    phone: (j['phone'] ?? j['contact']) as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -47,17 +50,20 @@ class AuthUser {
     'role': role,
     'status': status,
     'name': name,
+    'phone': phone,
   };
 
   AuthUser copyWith({
     String? name,
     String? status,
+    String? phone,
   }) => AuthUser(
     id: id,
     email: email,
     role: role,
     status: status ?? this.status,
     name: name ?? this.name,
+    phone: phone ?? this.phone,
   );
 }
 

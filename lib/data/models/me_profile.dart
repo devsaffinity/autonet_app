@@ -207,6 +207,7 @@ class MeProfile {
     required this.role,
     this.name,
     this.phone,
+    this.contact,
     this.location,
     this.avatarUrl,
     this.supplierProfile,
@@ -222,7 +223,13 @@ class MeProfile {
 
   final String? name;
   final String? phone;
+  final String? contact;
   final String? location;
+
+  /// Returns whichever contact number is available.
+  String? get effectivePhone => (contact != null && contact!.trim().isNotEmpty)
+      ? contact
+      : ((phone != null && phone!.trim().isNotEmpty) ? phone : null);
 
   /// A PRESIGNED url with a short TTL, not a stable address. Cache the decoded
   /// image against the user id; caching against this string re-downloads on
@@ -261,7 +268,8 @@ class MeProfile {
       email: jsonString(j, 'email'),
       role: jsonString(j, 'role'),
       name: j['name'] as String?,
-      phone: j['phone'] as String?,
+      phone: (j['phone'] ?? j['contact']) as String?,
+      contact: (j['contact'] ?? j['phone']) as String?,
       location: j['location'] as String?,
       avatarUrl: j['avatarUrl'] as String?,
       supplierProfile: supplier is Map

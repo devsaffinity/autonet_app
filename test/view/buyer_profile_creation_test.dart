@@ -164,4 +164,36 @@ void main() {
     expect(find.text('Name is required'), findsOneWidget);
     expect(repo.lastUpdatedProfile, isNull);
   });
+
+  testWidgets(
+      'pre-fills contact field from profile with contact key and allows updating contact',
+      (tester) async {
+    final repo = await _pump(
+      tester,
+      profile: MeProfile.fromJson({
+        'id': 'u_buyer_1',
+        'email': 'john@example.com',
+        'role': 'BUYER',
+        'name': 'Sarah Connor',
+        'location': 'London Bridge',
+        'contact': '+44 71 9998888',
+      }),
+    );
+
+    expect(find.text('+44 71 9998888'), findsOneWidget);
+
+    // Edit the contact field
+    final contactField = find.widgetWithText(TextFormField, '+44 71 9998888');
+    await tester.enterText(contactField, '+44 79 1122334');
+    await tester.pump();
+
+    // Tap Save button
+    await tester.ensureVisible(find.text('Save'));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repo.lastUpdatedProfile, isNotNull);
+    expect(repo.lastUpdatedProfile!['contact'], '+44 79 1122334');
+  });
 }
