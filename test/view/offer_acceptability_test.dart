@@ -150,6 +150,25 @@ void main() {
     expect(buttonNamed(t, 'Place Order').enabled, isTrue);
   });
 
+  testWidgets('an ACCEPTED offer allows viewing offer details but blocks re-accept',
+      (t) async {
+    final closed = _request(RequestStatus.closed);
+    await pumpComparison(t,
+        pushed: closed,
+        served: closed,
+        offers: [_offer('off_1', OfferStatus.accepted)]);
+
+    expect(find.text('Accepted'), findsOneWidget);
+    expect(find.text('You have already accepted this offer.'), findsOneWidget);
+    expect(buttonNamed(t, 'View offer').enabled, isTrue);
+
+    await t.tap(find.text('View offer'));
+    await t.pumpAndSettle();
+    expect(find.byType(OfferDetailPage), findsOneWidget);
+    expect(buttonNamed(t, 'Confirm Offer').enabled, isFalse);
+    expect(find.byType(OrderSummaryPage), findsNothing);
+  });
+
   testWidgets("the dead 'Select' button is gone from every card", (t) async {
     final open = _request(RequestStatus.open);
     await pumpComparison(t, pushed: open, served: open, offers: [

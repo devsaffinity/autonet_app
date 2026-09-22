@@ -4,6 +4,7 @@ import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/offer.dart';
+import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/offer_actionability.dart';
@@ -143,6 +144,8 @@ class _OfferCard extends StatelessWidget {
     final days = offer.deliveryTimeDays;
     final gone = unacceptableLabel(offer, request);
     final supplierName = supplierDisplayName(offer.supplier);
+    final isAccepted = offer.status == OfferStatus.accepted;
+    final canView = gone == null || isAccepted;
 
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSizes.s16),
@@ -216,7 +219,7 @@ class _OfferCard extends StatelessWidget {
             Expanded(
               child: MyButton(
                 buttonText: 'View offer',
-                enabled: gone == null,
+                enabled: canView,
                 height: AppSizes.s32,
                 radius: AppSizes.radiusSm,
                 fontSize: AppTextScale.label,

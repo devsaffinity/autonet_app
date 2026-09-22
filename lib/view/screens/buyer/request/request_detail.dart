@@ -3,6 +3,7 @@ import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/request_detail_controller.dart';
 import 'package:autonect/data/models/offer.dart';
+import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/domain/money_format.dart';
@@ -195,7 +196,9 @@ class _OfferRow extends StatelessWidget {
       // The whole row IS this screen's CTA, so 'disabled' is a tap that goes
       // nowhere over a card that says why — the rule the comparison card reads.
       onTap: () {
-        if (r != null && canAcceptOffer(offer, r)) {
+        if (r != null &&
+            (canAcceptOffer(offer, r) ||
+                offer.status == OfferStatus.accepted)) {
           Get.to(() => OfferDetailPage(offer: offer, request: r));
         }
       },

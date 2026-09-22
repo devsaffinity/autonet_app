@@ -5,6 +5,7 @@ import 'package:autonect/controller/buyer/accept_offer_controller.dart';
 import 'package:autonect/controller/buyer/request_detail_controller.dart';
 import 'package:autonect/data/models/conversation.dart';
 import 'package:autonect/data/models/offer.dart';
+import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/part_request.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/offer_actionability.dart';
@@ -474,71 +475,82 @@ class _OfferCard extends StatelessWidget {
     final days = offer.deliveryTimeDays;
     final gone = unacceptableLabel(offer, request);
     final supplierName = supplierDisplayName(offer.supplier);
+    final isAccepted = offer.status == OfferStatus.accepted;
+    final canView = gone == null || isAccepted;
 
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSizes.s12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: kLightOrangeColor,
-                child: MyText(
-                  text: InitialsAvatar.initialsOf(supplierName),
-                  size: AppTextScale.caption,
-                  weight: AppWeights.bold,
-                  color: kSecondaryColor,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: canView ? onView : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: kLightOrangeColor,
+                      child: MyText(
+                        text: InitialsAvatar.initialsOf(supplierName),
+                        size: AppTextScale.caption,
+                        weight: AppWeights.bold,
+                        color: kSecondaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: AppSizes.s8),
+                    Expanded(
+                      child: MyText(
+                        text: supplierName,
+                        size: AppTextScale.body,
+                        weight: AppWeights.semibold,
+                        color: kSecondaryColor,
+                        maxLines: 1,
+                        textOverflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.star_rounded, size: 16, color: kWarningColor),
+                    const SizedBox(width: AppSizes.s4),
+                    const MyText(
+                      text: '4.8',
+                      size: AppTextScale.caption,
+                      weight: AppWeights.bold,
+                      color: kBlackColor,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: AppSizes.s8),
-              Expanded(
-                child: MyText(
-                  text: supplierName,
-                  size: AppTextScale.body,
-                  weight: AppWeights.semibold,
-                  color: kSecondaryColor,
-                  maxLines: 1,
-                  textOverflow: TextOverflow.ellipsis,
+                const SizedBox(height: AppSizes.s8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: MyText(
+                        text: formatPence(offer.pricePence),
+                        size: AppTextScale.title,
+                        weight: AppWeights.bold,
+                        color: kBlackColor,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      size: 16,
+                      color: kSecondaryColor,
+                    ),
+                    const SizedBox(width: AppSizes.s4),
+                    MyText(
+                      text: days == null
+                          ? 'Delivery upto 24h'
+                          : 'Delivery in $days days',
+                      size: AppTextScale.caption,
+                      color: kBlackColor,
+                      weight: AppWeights.medium,
+                    ),
+                  ],
                 ),
-              ),
-              const Icon(Icons.star_rounded, size: 16, color: kWarningColor),
-              const SizedBox(width: AppSizes.s4),
-              const MyText(
-                text: '4.8',
-                size: AppTextScale.caption,
-                weight: AppWeights.bold,
-                color: kBlackColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSizes.s8),
-          Row(
-            children: [
-              Expanded(
-                child: MyText(
-                  text: formatPence(offer.pricePence),
-                  size: AppTextScale.title,
-                  weight: AppWeights.bold,
-                  color: kBlackColor,
-                ),
-              ),
-              const Icon(
-                Icons.local_shipping_outlined,
-                size: 16,
-                color: kSecondaryColor,
-              ),
-              const SizedBox(width: AppSizes.s4),
-              MyText(
-                text: days == null
-                    ? 'Delivery upto 24h'
-                    : 'Delivery in $days days',
-                size: AppTextScale.caption,
-                color: kBlackColor,
-                weight: AppWeights.medium,
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: AppSizes.s8),
           GestureDetector(
@@ -595,7 +607,7 @@ class _OfferCard extends StatelessWidget {
                 width: canCompare ? 105 : 120,
                 child: MyButton(
                   buttonText: 'View offer',
-                  enabled: gone == null,
+                  enabled: canView,
                   height: AppSizes.s32,
                   radius: AppSizes.radiusSm,
                   fontSize: AppTextScale.caption,
