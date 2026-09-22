@@ -5,6 +5,7 @@ import 'package:autonect/view/screens/supplier/home/home_cards.dart';
 import 'package:autonect/view/screens/supplier/home/home_incoming_requests.dart';
 import 'package:autonect/view/screens/supplier/home/home_quick_management.dart';
 import 'package:autonect/view/screens/supplier/home/home_top_bar.dart';
+import 'package:autonect/view/screens/supplier/home/home_upcoming_orders.dart';
 import 'package:flutter/material.dart';
 
 class SupplierHomePage extends StatefulWidget {
@@ -33,26 +34,28 @@ class _SupplierHomePageState extends State<SupplierHomePage> {
           onRefresh: _controller.load,
           color: kSecondaryColor,
           child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                SupplierHomeTopBar(),
-                SizedBox(height: 18),
-                SupplierQuickManagement(),
-                SizedBox(height: 18),
-                SupplierHighlightsCard(),
-                SizedBox(height: 24),
-                SupplierIncomingRequestsSection(),
-                SizedBox(height: 20),
-                SupplierActiveNegotiationsSection(),
-                SizedBox(height: 30),
-              ],
-            ),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              SupplierHomeTopBar(),
+              SizedBox(height: 18),
+              SupplierQuickManagement(),
+              SizedBox(height: 18),
+              SupplierHighlightsCard(),
+              SizedBox(height: 24),
+              SupplierIncomingRequestsSection(),
+              SizedBox(height: 20),
+              SupplierActiveNegotiationsSection(),
+              SizedBox(height: 20),
+              SupplierUpcomingOrdersSection(),
+              SizedBox(height: 30),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

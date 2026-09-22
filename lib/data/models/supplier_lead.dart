@@ -4,6 +4,33 @@ import 'package:autonect/data/models/part_category.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/vehicle.dart';
 
+class SupplierLeadMyOffer {
+  const SupplierLeadMyOffer({
+    required this.id,
+    required this.requestId,
+    required this.pricePence,
+    this.status,
+    this.createdAt,
+  });
+
+  final String id;
+  final String requestId;
+  final int pricePence;
+  final OfferStatus? status;
+  final DateTime? createdAt;
+
+  factory SupplierLeadMyOffer.fromJson(Map<String, dynamic> j) =>
+      SupplierLeadMyOffer(
+        id: jsonString(j, 'id'),
+        requestId: jsonString(j, 'requestId'),
+        pricePence: (j['pricePence'] as num?)?.toInt() ?? 0,
+        status: OfferStatus.fromWire(j['status'] as String?),
+        createdAt: j['createdAt'] != null
+            ? DateTime.tryParse(j['createdAt'] as String)
+            : null,
+      );
+}
+
 /// The teaser projection returned by `GET /v1/supplier/requests`.
 ///
 /// Notice the paid details (`buyer`, `regNumber`, `images`) are deliberately
@@ -21,6 +48,7 @@ class SupplierLead {
     this.vehicleMake,
     this.vehicleYear,
     this.isUnlocked = false,
+    this.myOffer,
   });
 
   final String id;
@@ -34,8 +62,11 @@ class SupplierLead {
   final String? vehicleMake;
   final int? vehicleYear;
   final bool isUnlocked;
+  final SupplierLeadMyOffer? myOffer;
 
-  SupplierLead copyWith({bool? isUnlocked}) => SupplierLead(
+  bool get hasOffer => myOffer != null;
+
+  SupplierLead copyWith({bool? isUnlocked, SupplierLeadMyOffer? myOffer}) => SupplierLead(
     id: id,
     partName: partName,
     offerCount: offerCount,
@@ -47,11 +78,13 @@ class SupplierLead {
     vehicleMake: vehicleMake,
     vehicleYear: vehicleYear,
     isUnlocked: isUnlocked ?? this.isUnlocked,
+    myOffer: myOffer ?? this.myOffer,
   );
 
   factory SupplierLead.fromJson(Map<String, dynamic> j) {
     final cat = j['category'];
     final veh = j['vehicle'];
+    final myOff = j['myOffer'];
     return SupplierLead(
       id: jsonString(j, 'id'),
       partName: jsonString(j, 'partName'),
@@ -65,6 +98,9 @@ class SupplierLead {
           : null,
       vehicleMake: veh is Map ? veh['make'] as String? : null,
       vehicleYear: veh is Map ? (veh['year'] as num?)?.toInt() : null,
+      myOffer: myOff is Map
+          ? SupplierLeadMyOffer.fromJson(myOff.cast<String, dynamic>())
+          : null,
     );
   }
 }
@@ -110,6 +146,7 @@ class SupplierLeadDetail {
     this.description,
     this.region,
     this.vehicle,
+    this.myOffer,
   });
 
   final String id;
@@ -128,12 +165,16 @@ class SupplierLeadDetail {
   final Vehicle? vehicle;
   final List<String> images;
   final SupplierLeadBuyer buyer;
+  final SupplierOffer? myOffer;
+
+  bool get hasOffer => myOffer != null;
 
   factory SupplierLeadDetail.fromJson(Map<String, dynamic> j) {
     final cat = j['category'];
     final veh = j['vehicle'];
     final b = j['buyer'];
     final imgs = j['images'];
+    final myOff = j['myOffer'];
     return SupplierLeadDetail(
       id: jsonString(j, 'id'),
       buyerId: jsonString(j, 'buyerId'),
@@ -159,6 +200,9 @@ class SupplierLeadDetail {
       buyer: SupplierLeadBuyer.fromJson(
         (b as Map).cast<String, dynamic>(),
       ),
+      myOffer: myOff is Map
+          ? SupplierOffer.fromJson((myOff as Map).cast<String, dynamic>())
+          : null,
     );
   }
 }
@@ -256,7 +300,7 @@ class SupplierOffer {
     return SupplierOffer(
       id: jsonString(j, 'id'),
       requestId: jsonString(j, 'requestId'),
-      supplierId: jsonString(j, 'supplierId'),
+      supplierId: (j['supplierId'] as String?) ?? '',
       pricePence: (j['pricePence'] as num?)?.toInt() ?? 0,
       quantity: (j['quantity'] as num?)?.toInt() ?? 1,
       condition: PartCondition.fromWire(j['condition'] as String?),
@@ -266,8 +310,12 @@ class SupplierOffer {
       stockStatus: StockStatus.fromWire(j['stockStatus'] as String?),
       notes: j['notes'] as String?,
       status: OfferStatus.fromWire(j['status'] as String?),
-      createdAt: DateTime.parse(jsonString(j, 'createdAt')),
-      updatedAt: DateTime.parse(jsonString(j, 'updatedAt')),
+      createdAt: j['createdAt'] != null
+          ? (DateTime.tryParse(j['createdAt'].toString()) ?? DateTime.now())
+          : DateTime.now(),
+      updatedAt: j['updatedAt'] != null
+          ? (DateTime.tryParse(j['updatedAt'].toString()) ?? DateTime.now())
+          : DateTime.now(),
       request: req is Map
           ? SupplierOfferRequestRef.fromJson(req.cast<String, dynamic>())
           : null,

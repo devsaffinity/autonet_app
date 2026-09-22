@@ -1,11 +1,16 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/app_sizes.dart';
+import 'package:autonect/controller/supplier/supplier_home_controller.dart';
 import 'package:autonect/controller/supplier/supplier_lead_detail_controller.dart';
+import 'package:autonect/data/models/conversation.dart';
+import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/supplier_lead.dart';
 import 'package:autonect/data/repositories/supplier_repository.dart';
 import 'package:autonect/domain/view_state.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_create_offer.dart';
+import 'package:autonect/view/screens/supplier/orders/supplier_orders.dart';
 import 'package:autonect/view/screens/supplier/requests/supplier_request_parts.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_blocks.dart';
 import 'package:autonect/view/screens/supplier/widgets/supplier_chips.dart';
@@ -142,12 +147,45 @@ class _SupplierRequestDetailPageState extends State<SupplierRequestDetailPage> {
           _ => const SizedBox.shrink(),
         },
         bottomNavigationBar: switch (viewState) {
-          Data<SupplierLeadDetail>(:final value) => NavButton(
-              buttonText: 'Send Offer',
-              onTap: () => Get.to(
-                () => SupplierCreateOfferPage(requestId: value.id),
-              ),
-            ),
+          Data<SupplierLeadDetail>(:final value) => () {
+              final homeController = Get.isRegistered<SupplierHomeController>()
+                  ? SupplierHomeController.ensure()
+                  : null;
+              final offer = value.myOffer ?? homeController?.offerForRequestId(value.id);
+
+              if (offer != null) {
+                if (offer.status == OfferStatus.accepted) {
+                  return NavButton(
+                    buttonText: 'View Customer Order',
+                    onTap: () => Get.to(() => const SupplierOrdersPage()),
+                  );
+                } else if (offer.status == OfferStatus.rejected) {
+                  return const SizedBox.shrink();
+                } else {
+                  return NavButton(
+                    buttonText: 'Edit Offer',
+                    onTap: () async {
+                      await Get.to(
+                        () => SupplierCreateOfferPage(existingOffer: offer),
+                      );
+                      _controller?.load();
+                      homeController?.load();
+                    },
+                  );
+                }
+              }
+
+              return NavButton(
+                buttonText: 'Send Offer',
+                onTap: () async {
+                  await Get.to(
+                    () => SupplierCreateOfferPage(requestId: value.id),
+                  );
+                  _controller?.load();
+                  homeController?.load();
+                },
+              );
+            }(),
           _ => null,
         },
       );
@@ -155,6 +193,10 @@ class _SupplierRequestDetailPageState extends State<SupplierRequestDetailPage> {
   }
 
   Widget _buildDetail(BuildContext context, SupplierLeadDetail detail) {
+    final homeController = Get.isRegistered<SupplierHomeController>()
+        ? SupplierHomeController.ensure()
+        : null;
+    final offer = detail.myOffer ?? homeController?.offerForRequestId(detail.id);
     final vehicleTitle = [
       if (detail.vehicle?.make != null) detail.vehicle!.make,
       if (detail.vehicle?.model != null) detail.vehicle!.model,
@@ -299,6 +341,75 @@ class _SupplierRequestDetailPageState extends State<SupplierRequestDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 14),
+                if (offer != null) ...[
+                  SupplierCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            MyText(
+                              text: 'Your Submitted Quote',
+                              size: 16,
+                              weight: FontWeight.w700,
+                              color: kBlackColor,
+                            ),
+                            SupplierStatusBadge(
+                              label: offer.status == OfferStatus.accepted
+                                  ? 'Accepted'
+                                  : offer.status == OfferStatus.rejected
+                                      ? 'Declined'
+                                      : 'Pending',
+                              color: offer.status == OfferStatus.accepted
+                                  ? const Color(0xff34C759)
+                                  : offer.status == OfferStatus.rejected
+                                      ? kRedColor
+                                      : kSecondaryColor,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SupplierDetailItem(
+                                label: 'Your Price',
+                                value: '£${(offer.pricePence / 100).toStringAsFixed(2)}',
+                              ),
+                            ),
+                            Expanded(
+                              child: SupplierDetailItem(
+                                label: 'Delivery',
+                                value: '${offer.deliveryOption?.label ?? 'Delivery'} (${offer.deliveryTimeDays ?? 2}d)',
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (offer.warrantyMonths != null || (offer.notes != null && offer.notes!.isNotEmpty)) ...[
+                          const SizedBox(height: 10),
+                          if (offer.warrantyMonths != null)
+                            MyText(
+                              text: 'Warranty: ${offer.warrantyMonths} months',
+                              size: 12,
+                              weight: FontWeight.w500,
+                              color: kGreyTextColor,
+                            ),
+                          if (offer.notes != null && offer.notes!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            MyText(
+                              text: 'Notes: ${offer.notes!}',
+                              size: 12,
+                              weight: FontWeight.w400,
+                              color: kGreyTextColor,
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 const SupplierNoteCard(
                   title: 'One offer per request',
                   body:

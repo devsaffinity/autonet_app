@@ -153,6 +153,8 @@ class _FakeSupplierRepo implements SupplierRepository {
 }
 
 class _FakeOrdersRepo implements OrdersRepository {
+  List<Order> orders = [];
+
   @override
   Future<ApiResult<Order>> acceptOffer({
     required String offerId,
@@ -177,15 +179,15 @@ class _FakeOrdersRepo implements OrdersRepository {
     int page = 1,
     int limit = 20,
   }) async =>
-      const Ok(
+      Ok(
         Paged(
-          [],
+          orders,
           PageMeta(
             page: 1,
             limit: 20,
-            pageSize: 0,
-            total: 0,
-            totalPages: 0,
+            pageSize: orders.length,
+            total: orders.length,
+            totalPages: 1,
             hasNextPage: false,
             hasPreviousPage: false,
           ),
@@ -265,10 +267,15 @@ void main() {
 
     // 4. Incoming Requests section
     expect(find.text('Incoming Requests'), findsOneWidget);
-    expect(find.text('Send Quote'), findsWidgets);
+    expect(find.text('QUOTE SENT'), findsOneWidget);
+    expect(find.text('View / Edit Quote'), findsOneWidget);
 
     // 5. Active Negotiations section
     expect(find.text('Active Negotiations'), findsOneWidget);
+
+    // 6. Upcoming Orders section
+    expect(find.text('Upcoming Orders'), findsOneWidget);
+    expect(find.text('No Upcoming Orders'), findsOneWidget);
   });
 
   testWidgets('SupplierHomePage shows clean empty states when leads and offers are empty',
@@ -292,5 +299,55 @@ void main() {
 
     // Clean empty state for active negotiations
     expect(find.text('No Active Negotiations'), findsOneWidget);
+
+    // Clean empty state for upcoming orders
+    expect(find.text('No Upcoming Orders'), findsOneWidget);
+  });
+
+  testWidgets(
+      'SupplierHomePage renders active upcoming orders when present',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final ordersRepo = Get.find<OrdersRepository>() as _FakeOrdersRepo;
+    ordersRepo.orders = [
+      Order(
+        id: 'ord_12345678',
+        offerId: 'off_1',
+        requestId: 'lead_1',
+        buyerId: 'buy_1',
+        supplierId: 'supp_1',
+        totalPence: 1245000,
+        status: OrderStatus.placed,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        offer: const OrderOfferRef(
+          id: 'off_1',
+          pricePence: 1245000,
+          quantity: 1,
+        ),
+        request: const OrderRequestRef(
+          id: 'lead_1',
+          partName: 'BMW Dual-Clutch Transmission',
+          regNumber: 'AB12 CDE',
+        ),
+        events: const [],
+      ),
+    ];
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: SupplierHomePage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Upcoming orders section renders the order
+    expect(find.text('Upcoming Orders'), findsOneWidget);
+    expect(find.text('Manage Order'), findsOneWidget);
+    expect(find.text('Order #345678'), findsOneWidget);
+    expect(find.text('BMW Dual-Clutch Transmission'), findsOneWidget);
   });
 }

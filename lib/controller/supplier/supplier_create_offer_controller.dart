@@ -4,6 +4,9 @@ import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/request_enums.dart';
 import 'package:autonect/data/models/supplier_lead.dart';
 import 'package:autonect/data/repositories/supplier_repository.dart';
+import 'package:autonect/controller/supplier/supplier_home_controller.dart';
+import 'package:autonect/controller/supplier/supplier_leads_controller.dart';
+import 'package:autonect/controller/supplier/supplier_offers_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -69,6 +72,18 @@ class SupplierCreateOfferController extends ApiController {
     return '£${pounds.toStringAsFixed(2)}';
   }
 
+  void _onOfferSubmitted() {
+    if (Get.isRegistered<SupplierHomeController>()) {
+      SupplierHomeController.ensure().load();
+    }
+    if (Get.isRegistered<SupplierOffersController>()) {
+      SupplierOffersController.ensure().refreshFirst();
+    }
+    if (Get.isRegistered<SupplierLeadsController>()) {
+      SupplierLeadsController.ensure().refreshFirst();
+    }
+  }
+
   Future<bool> submit() async {
     final pence = pricePence;
     if (pence <= 0) {
@@ -106,6 +121,7 @@ class SupplierCreateOfferController extends ApiController {
               toast(error.message);
               return false;
             case Ok():
+              _onOfferSubmitted();
               return true;
           }
         },
@@ -130,6 +146,7 @@ class SupplierCreateOfferController extends ApiController {
               toast(error.message);
               return false;
             case Ok():
+              _onOfferSubmitted();
               return true;
           }
         },

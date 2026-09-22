@@ -2,9 +2,13 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/constants/loading_animation.dart';
 import 'package:autonect/controller/supplier/supplier_home_controller.dart';
+import 'package:autonect/data/models/conversation.dart';
+import 'package:autonect/data/models/order_enums.dart';
 import 'package:autonect/data/models/supplier_lead.dart';
 import 'package:autonect/domain/view_state.dart';
+import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/screens/supplier/offers/supplier_create_offer.dart';
+import 'package:autonect/view/screens/supplier/orders/supplier_orders.dart';
 import 'package:autonect/view/screens/supplier/requests/supplier_leads.dart';
 import 'package:autonect/view/screens/supplier/requests/supplier_request_detail.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
@@ -191,6 +195,9 @@ class _IncomingLeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final homeController = SupplierHomeController.ensure();
+    final existingOffer = homeController.offerForLead(lead);
+
     final vehicleStr = lead.vehicleMake != null
         ? '${lead.vehicleYear ?? ''} ${lead.vehicleMake!}'.trim()
         : (lead.category?.name ?? 'Vehicle Part Request');
@@ -200,6 +207,10 @@ class _IncomingLeadCard extends StatelessWidget {
     final tagLabel = isUrgent ? 'URGENT' : 'STANDARD';
     final tagBg = isUrgent ? const Color(0xFFFFEBE8) : const Color(0xFFF5F5F5);
     final tagText = isUrgent ? const Color(0xFFD94D2F) : const Color(0xFF666666);
+
+    final isOfferAccepted = existingOffer?.status == OfferStatus.accepted;
+    final isOfferRejected = existingOffer?.status == OfferStatus.rejected;
+    final isOfferPending = existingOffer != null && !isOfferAccepted && !isOfferRejected;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -223,15 +234,18 @@ class _IncomingLeadCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => Get.to(
-            () => SupplierRequestDetailPage(requestId: lead.id),
-          ),
+          onTap: () async {
+            await Get.to(
+              () => SupplierRequestDetailPage(requestId: lead.id),
+            );
+            homeController.load();
+          },
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Row 1: Image thumbnail & Urgency Tag
+                // Row 1: Image thumbnail & Urgency/Status Tag
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -258,24 +272,62 @@ class _IncomingLeadCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tagBg,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        tagLabel,
-                        style: TextStyle(
-                          color: tagText,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
+                    Row(
+                      children: [
+                        if (existingOffer != null) ...[
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isOfferAccepted
+                                  ? const Color(0xFFE8F8EE)
+                                  : isOfferRejected
+                                      ? const Color(0xFFF5F5F5)
+                                      : const Color(0xFFFFF0EC),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isOfferAccepted
+                                  ? 'ACCEPTED'
+                                  : isOfferRejected
+                                      ? 'DECLINED'
+                                      : 'QUOTE SENT',
+                              style: TextStyle(
+                                color: isOfferAccepted
+                                    ? const Color(0xFF34C759)
+                                    : isOfferRejected
+                                        ? const Color(0xFF888888)
+                                        : kSecondaryColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: tagBg,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            tagLabel,
+                            style: TextStyle(
+                              color: tagText,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -297,12 +349,22 @@ class _IncomingLeadCard extends StatelessWidget {
                     MyRippleEffect(
                       radius: 14,
                       onTap: () {
-                        displayToast(
-                          msg: 'Send a quote to start direct chat with the buyer',
-                        );
-                        Get.to(
-                          () => SupplierRequestDetailPage(requestId: lead.id),
-                        );
+                        if (existingOffer != null) {
+                          Get.to(
+                            () => ChatRoomPage(
+                              contextId: existingOffer.id,
+                              type: ConversationType.offer,
+                              title: lead.partName,
+                            ),
+                          );
+                        } else {
+                          displayToast(
+                            msg: 'Send a quote to start direct chat with the buyer',
+                          );
+                          Get.to(
+                            () => SupplierRequestDetailPage(requestId: lead.id),
+                          );
+                        }
                       },
                       child: Container(
                         width: 26,
@@ -331,6 +393,50 @@ class _IncomingLeadCard extends StatelessWidget {
                   maxLines: 1,
                   textOverflow: TextOverflow.ellipsis,
                 ),
+                if (existingOffer != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isOfferAccepted
+                          ? const Color(0xFFE8F8EE)
+                          : const Color(0xFFFFF0EC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isOfferAccepted
+                            ? const Color(0xFFB7EBC9)
+                            : const Color(0xFFFFDDD4),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isOfferAccepted
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.schedule_rounded,
+                          size: 14,
+                          color: isOfferAccepted
+                              ? const Color(0xFF34C759)
+                              : kSecondaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: MyText(
+                            text: isOfferAccepted
+                                ? 'Your quote was accepted • £${(existingOffer.pricePence / 100).toStringAsFixed(2)}'
+                                : 'Your quote: £${(existingOffer.pricePence / 100).toStringAsFixed(2)} (Pending Decision)',
+                            size: 11.5,
+                            weight: FontWeight.w600,
+                            color: isOfferAccepted
+                                ? const Color(0xFF1B7A38)
+                                : const Color(0xFF8A341E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 // Row 4: Location & Offers count
                 Row(
@@ -363,30 +469,105 @@ class _IncomingLeadCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                // Row 5: Send Quote button
-                MyRippleEffect(
-                  radius: 10,
-                  onTap: () => Get.to(
-                    () => SupplierCreateOfferPage(requestId: lead.id),
-                  ),
-                  child: Container(
+                // Row 5: Action Button (Send Quote / View Edit Quote / View Order)
+                if (existingOffer == null)
+                  MyRippleEffect(
+                    radius: 10,
+                    onTap: () async {
+                      await Get.to(
+                        () => SupplierCreateOfferPage(requestId: lead.id),
+                      );
+                      homeController.load();
+                    },
+                    child: Container(
+                      height: 42,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kSecondaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Send Quote',
+                        style: TextStyle(
+                          color: kWhiteColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                else if (isOfferAccepted)
+                  MyRippleEffect(
+                    radius: 10,
+                    onTap: () => Get.to(() => SupplierOrdersPage()),
+                    child: Container(
+                      height: 42,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF34C759),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'View Customer Order',
+                        style: TextStyle(
+                          color: kWhiteColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                else if (isOfferRejected)
+                  Container(
                     height: 42,
                     width: double.infinity,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: kSecondaryColor,
+                      color: const Color(0xFFF0F0F0),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Text(
-                      'Send Quote',
+                      'Quote Declined',
                       style: TextStyle(
-                        color: kWhiteColor,
+                        color: Color(0xFF888888),
                         fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  MyRippleEffect(
+                    radius: 10,
+                    onTap: () async {
+                      await Get.to(
+                        () => SupplierCreateOfferPage(existingOffer: existingOffer),
+                      );
+                      homeController.load();
+                    },
+                    child: Container(
+                      height: 42,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kPrimaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: kSecondaryColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Text(
+                        'View / Edit Quote',
+                        style: TextStyle(
+                          color: kSecondaryColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
