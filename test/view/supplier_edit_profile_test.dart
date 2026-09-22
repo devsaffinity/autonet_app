@@ -84,6 +84,8 @@ class _FakeProfileRepo implements ProfileRepository {
     return Ok(mockMe);
   }
 
+  Map<String, dynamic>? lastUpdatedProfile;
+
   @override
   Future<ApiResult<MeProfile>> updateProfile({
     String? name,
@@ -91,12 +93,19 @@ class _FakeProfileRepo implements ProfileRepository {
     String? contact,
     String? avatarKey,
   }) async {
+    lastUpdatedProfile = {
+      'name': name,
+      'location': location,
+      'contact': contact,
+      'avatarKey': avatarKey,
+    };
     mockMe = MeProfile(
       id: mockMe.id,
       role: mockMe.role,
       email: mockMe.email,
       name: name ?? mockMe.name,
       phone: contact ?? mockMe.phone,
+      contact: contact ?? mockMe.contact,
       location: location ?? mockMe.location,
       avatarUrl: mockMe.avatarUrl,
       supplierProfile: mockMe.supplierProfile,
@@ -218,5 +227,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(EditSupplierProfilePage), findsOneWidget);
+  });
+
+  testWidgets('EditSupplierProfilePage saves contact phone number seamlessly',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: EditSupplierProfilePage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('+44 7911 123456'), findsOneWidget);
+
+    // Modify phone number
+    final phoneField = find.widgetWithText(TextFormField, '+44 7911 123456');
+    await tester.enterText(phoneField, '+44 7999 888777');
+    await tester.pumpAndSettle();
+
+    // Tap Save Changes
+    final saveButton = find.text('Save Profile Changes');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(profileRepo.lastUpdatedProfile, isNotNull);
+    expect(profileRepo.lastUpdatedProfile!['contact'], '+44 7999 888777');
+    expect(profileRepo.mockMe.effectivePhone, '+44 7999 888777');
   });
 }

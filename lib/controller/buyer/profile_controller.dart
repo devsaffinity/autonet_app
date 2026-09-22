@@ -84,6 +84,16 @@ class ProfileController extends ApiController {
         profile.value = Failed<MeProfile>(error);
       case Ok(:final value):
         profile.value = Data<MeProfile>(value);
+        if (Get.isRegistered<TokenStore>()) {
+          final store = Get.find<TokenStore>();
+          final u = store.user;
+          if (u != null) {
+            store.updateUser(u.copyWith(
+              name: value.name ?? u.name,
+              phone: value.effectivePhone ?? u.phone,
+            ));
+          }
+        }
     }
   });
 

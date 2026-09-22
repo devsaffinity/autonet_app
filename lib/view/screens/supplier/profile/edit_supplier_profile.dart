@@ -16,6 +16,8 @@ import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_button.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
+import 'package:autonect/data/core/token_store.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -68,43 +70,70 @@ class _EditSupplierProfilePageState extends State<EditSupplierProfilePage> {
   void initState() {
     super.initState();
     _catalog = CatalogController.ensure();
+    _catalog.load();
     _loadAndSeed();
   }
 
   Future<void> _loadAndSeed() async {
-    if (_profile.me == null) {
-      await _profile.load();
-    }
+    // 1. Initial pre-seed from existing cache / memory
     _seedFields();
+
+    // 2. Fetch fresh profile from server
+    await _profile.load();
+
+    // 3. Re-seed with fresh data if still mounted
+    if (mounted) {
+      _seedFields();
+    }
   }
 
   void _seedFields() {
     final me = _profile.me;
-    if (me == null || !mounted) return;
+    final tokenUser =
+        Get.isRegistered<TokenStore>() ? Get.find<TokenStore>().user : null;
 
-    final sp = me.supplierProfile;
+    final phone = (me?.effectivePhone != null && me!.effectivePhone!.isNotEmpty)
+        ? me!.effectivePhone!
+        : (tokenUser?.phone ?? '');
+    final name = (me?.name != null && me!.name!.isNotEmpty)
+        ? me!.name!
+        : (tokenUser?.name ?? '');
 
-    // Contact person info
-    _contactNameCtrl.text = me.name ?? '';
-    _phoneCtrl.text = me.effectivePhone ?? '';
-    _locationCtrl.text = me.location ?? '';
+    if (name.isNotEmpty) {
+      _contactNameCtrl.text = name;
+    }
+    if (phone.isNotEmpty) {
+      _phoneCtrl.text = phone;
+    }
+    if (me?.location != null && me!.location!.isNotEmpty) {
+      _locationCtrl.text = me!.location!;
+    }
 
-    // Business details
-    _businessNameCtrl.text = sp?.businessName ?? me.name ?? '';
-    _addressCtrl.text = sp?.address ?? '';
-    _specializationCtrl.text = sp?.specialization ?? '';
+    final sp = me?.supplierProfile;
+    if (sp?.businessName != null && sp!.businessName.isNotEmpty) {
+      _businessNameCtrl.text = sp.businessName;
+    } else if (_businessNameCtrl.text.isEmpty && name.isNotEmpty) {
+      _businessNameCtrl.text = name;
+    }
+
+    if (sp?.address != null && sp!.address.isNotEmpty) {
+      _addressCtrl.text = sp.address;
+    }
+    if (sp?.specialization != null && sp!.specialization!.isNotEmpty) {
+      _specializationCtrl.text = sp.specialization!;
+    }
 
     // Regions
-    _selectedRegions.clear();
     if (sp?.regionsServed != null && sp!.regionsServed.isNotEmpty) {
+      _selectedRegions.clear();
       _selectedRegions.addAll(sp.regionsServed);
-    } else {
+    } else if (_selectedRegions.isEmpty) {
       _selectedRegions.add(Region.london);
     }
 
     // Brands
-    _selectedBrands.clear();
     if (sp?.brands != null && sp!.brands.isNotEmpty) {
+      _selectedBrands.clear();
       _selectedBrands.addAll(sp.brands);
       for (final b in sp.brands) {
         if (!_availableBrands.contains(b)) {
@@ -114,12 +143,14 @@ class _EditSupplierProfilePageState extends State<EditSupplierProfilePage> {
     }
 
     // Categories
-    _selectedCategoryIds.clear();
     if (sp?.categories != null && sp!.categories.isNotEmpty) {
+      _selectedCategoryIds.clear();
       _selectedCategoryIds.addAll(sp.categories.map((c) => c.id));
     }
 
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -222,45 +253,94 @@ class _EditSupplierProfilePageState extends State<EditSupplierProfilePage> {
     setState(() => _isSaving = true);
     try {
       final repo = Get.find<ProfileRepository>();
-
-      // 1. Update personal / account profile fields
       final me = _profile.me;
-      final contactChanged = contactName.isNotEmpty && contactName != me?.name;
-      final locationChanged = location != (me?.location ?? '');
-      final phoneChanged = phone != (me?.phone ?? '');
+      final tokenUser =
+          Get.isRegistered<TokenStore>() ? Get.find<TokenStore>().user : null;
+      final currentPhone = me?.effectivePhone ?? (tokenUser?.phone ?? '');
+      final currentName = me?.name ?? (tokenUser?.name ?? '');
+      final currentLocation = me?.location ?? '';
 
+      final contactChanged = contactName.isNotEmpty && contactName != currentName;
+      final locationChanged = location != currentLocation;
+      final phoneChanged = phone != currentPhone;
+
+      bool contactUpdated = false;
       if (contactChanged || locationChanged || phoneChanged) {
-        await _profile.updateProfileDetails(
-          name: contactName.isNotEmpty ? contactName : (me?.name ?? businessName),
+        final ok = await _profile.updateProfileDetails(
+          name: contactName.isNotEmpty
+              ? contactName
+              : (currentName.isNotEmpty ? currentName : businessName),
           location: location.isNotEmpty ? location : null,
           contact: phone.isNotEmpty ? phone : null,
         );
+        if (!ok) {
+          displayToast(msg: 'Failed to update contact details');
+          return;
+        }
+        contactUpdated = true;
       }
 
-      // 2. Build supplier business draft
+      // Check if business profile needs update
+      final sp = me?.supplierProfile;
       final effectiveCategoryIds = _selectedCategoryIds.isNotEmpty
           ? _selectedCategoryIds.toList()
-          : (me?.supplierProfile?.categories.map((c) => c.id).toList() ?? []);
+          : (sp?.categories.map((c) => c.id).toList() ?? []);
 
-      final draft = SupplierBusinessDraft(
-        businessName: businessName,
-        address: address,
-        regionsServed: _selectedRegions.toList(),
-        categoryIds: effectiveCategoryIds,
-        brands: _selectedBrands.toList(),
-        specialization: specialization.isNotEmpty ? specialization : null,
-      );
+      final businessNameChanged = businessName != (sp?.businessName ?? '');
+      final addressChanged = address != (sp?.address ?? '');
+      final specChanged = specialization != (sp?.specialization ?? '');
+      final regionsChanged = sp == null ||
+          !setEquals(_selectedRegions, sp.regionsServed.toSet());
+      final brandsChanged = sp == null ||
+          !setEquals(_selectedBrands, sp.brands.toSet());
+      final categoriesChanged = sp == null ||
+          !setEquals(
+              _selectedCategoryIds, sp.categories.map((c) => c.id).toSet());
 
-      // 3. Send business profile update to backend
-      final res = await repo.registerSupplierBusiness(draft);
-      if (res case Ok()) {
+      final needsBusinessUpdate = sp == null ||
+          businessNameChanged ||
+          addressChanged ||
+          specChanged ||
+          regionsChanged ||
+          brandsChanged ||
+          categoriesChanged;
+
+      if (needsBusinessUpdate) {
+        if (effectiveCategoryIds.isEmpty) {
+          displayToast(msg: 'Please select at least one part category supplied');
+          return;
+        }
+
+        final draft = SupplierBusinessDraft(
+          businessName: businessName,
+          address: address,
+          regionsServed: _selectedRegions.toList(),
+          categoryIds: effectiveCategoryIds,
+          brands: _selectedBrands.toList(),
+          specialization: specialization.isNotEmpty ? specialization : null,
+        );
+
+        final res = await repo.registerSupplierBusiness(draft);
+        if (res case Ok()) {
+          await _profile.load();
+          displayToast(msg: 'Seller profile updated successfully');
+          if (mounted) {
+            Get.back(result: true);
+          }
+        } else if (res case Err(:final error)) {
+          displayToast(msg: error.message);
+        }
+      } else {
+        // Business profile wasn't modified, but personal/contact details were updated
         await _profile.load();
-        displayToast(msg: 'Seller profile updated successfully');
+        displayToast(
+          msg: contactUpdated
+              ? 'Profile updated successfully'
+              : 'No changes to save',
+        );
         if (mounted) {
           Get.back(result: true);
         }
-      } else if (res case Err(:final error)) {
-        displayToast(msg: error.message);
       }
     } catch (e) {
       displayToast(msg: 'Failed to update profile: $e');
