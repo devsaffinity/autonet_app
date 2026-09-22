@@ -267,6 +267,7 @@ class _CancelDialogState extends State<_CancelDialog> {
             // onChanged, not a controller listener: nothing sets this text
             // programmatically, and it is only the button that needs the rebuild.
             CountedTextField(controller: _note, maxLength: 500, maxLines: 3,
+                labelText: 'Reason', isRequired: true,
                 hintText: 'Why are you cancelling?',
                 onChanged: (_) => setState(() {})),
             // oneShot on BOTH: each pops, and the second pop of a double tap

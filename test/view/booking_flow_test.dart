@@ -349,6 +349,46 @@ void main() {
       expect(find.text('Cancel booking'), findsOneWidget);
     });
 
+    testWidgets(
+        'cancel dialog shows Reason with required asterisk and enforces non-empty reason',
+        (tester) async {
+      final repo = FakeBookingsRepository()
+        ..listResult = Ok(Paged<Booking>([_booking()], _meta(1)))
+        ..cancelResult = Ok(_booking(status: 'CANCELLED'));
+      Get.put<BookingsRepository>(repo);
+      Get.put(MyBookingsController(repo,
+          toast: (_) {}, showBusy: () {}, hideBusy: () {}));
+
+      await _pumpTall(tester, const MyBookingsPage());
+
+      // Tap Cancel booking on the card
+      await tester.tap(find.text('Cancel booking'));
+      await tester.pumpAndSettle();
+
+      // Dialog opens
+      expect(find.text('Cancel booking?'), findsOneWidget);
+      expect(find.text('Reason'), findsOneWidget);
+      // FieldLabel renders the red asterisk
+      expect(find.text(' *'), findsOneWidget);
+
+      // Confirm button in dialog is disabled initially
+      final cancelBtnFinder = find.widgetWithText(TextButton, 'Cancel booking');
+      expect(tester.widget<TextButton>(cancelBtnFinder).onPressed, isNull);
+
+      // Enter a reason
+      await tester.enterText(find.byType(TextField).first, 'Need to reschedule for next week');
+      await tester.pumpAndSettle();
+
+      // Now enabled
+      expect(tester.widget<TextButton>(cancelBtnFinder).onPressed, isNotNull);
+
+      // Submit cancellation
+      await tester.tap(cancelBtnFinder);
+      await tester.pumpAndSettle();
+
+      expect(repo.calls, contains('cancel:bk-1:Need to reschedule for next week'));
+    });
+
     testWidgets('a COMPLETED booking offers no cancel', (tester) async {
       final repo = FakeBookingsRepository()
         ..listResult = Ok(Paged<Booking>(

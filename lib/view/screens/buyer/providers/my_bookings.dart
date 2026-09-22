@@ -13,6 +13,7 @@ import 'package:autonect/view/screens/buyer/detail/review_page.dart';
 import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
 import 'package:autonect/view/screens/chat/chat_room.dart';
 import 'package:autonect/view/widget/app_card.dart';
+import 'package:autonect/view/widget/counted_text_field.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_ripple_effect.dart';
 import 'package:autonect/view/widget/my_button.dart';
@@ -167,44 +168,85 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   /// Cancelling demands a REASON — the server requires one, so asking for it
   /// here is not ceremony, it is the request body.
   Future<void> _confirmCancel(Booking booking) async {
-    final note = TextEditingController();
-    final confirmed = await Get.dialog<bool>(
-      AlertDialog(
-        title: MyText(text: 'Cancel booking?', size: AppTextScale.subtitle,
-            weight: AppWeights.bold, color: kBlackColor),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          MyText(
+    final reason = await Get.dialog<String>(const _CancelBookingDialog());
+    // An empty reason is a guaranteed 400, so it is caught here rather than
+    // spent on a round trip.
+    if (reason == null || reason.isEmpty || !mounted) return;
+    await c.cancel(booking, reason);
+  }
+}
+
+class _CancelBookingDialog extends StatefulWidget {
+  const _CancelBookingDialog();
+
+  @override
+  State<_CancelBookingDialog> createState() => _CancelBookingDialogState();
+}
+
+class _CancelBookingDialogState extends State<_CancelBookingDialog> {
+  final TextEditingController _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _note.text.trim().isNotEmpty;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      ),
+      title: const MyText(
+        text: 'Cancel booking?',
+        size: AppTextScale.subtitle,
+        weight: AppWeights.bold,
+        color: kBlackColor,
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MyText(
             text: 'Let the provider know why. This cannot be undone.',
-            size: AppTextScale.body, color: kGreyTextColor,
+            size: AppTextScale.body,
+            color: kGreyTextColor,
           ),
-          const SizedBox(height: AppSizes.s12),
-          TextField(
-            controller: note,
+          const SizedBox(height: AppSizes.s16),
+          CountedTextField(
+            controller: _note,
             maxLength: 300,
-            decoration: const InputDecoration(hintText: 'Reason'),
-          ),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: MyText(text: 'Keep it', size: AppTextScale.body,
-                color: kGreyTextColor),
-          ),
-          TextButton(
-            onPressed: () => Get.back(result: true),
-            child: MyText(text: 'Cancel booking', size: AppTextScale.body,
-                color: kRedColor, weight: AppWeights.semibold),
+            maxLines: 3,
+            labelText: 'Reason',
+            isRequired: true,
+            hintText: 'Enter reason for cancellation',
+            marginBottom: AppSizes.s4,
+            onChanged: (_) => setState(() {}),
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(result: null),
+          child: const MyText(
+            text: 'Keep it',
+            size: AppTextScale.body,
+            color: kGreyTextColor,
+          ),
+        ),
+        TextButton(
+          onPressed: canSubmit ? () => Get.back(result: _note.text.trim()) : null,
+          child: MyText(
+            text: 'Cancel booking',
+            size: AppTextScale.body,
+            color: canSubmit ? kRedColor : kGreyTextColor.withValues(alpha: 0.5),
+            weight: AppWeights.semibold,
+          ),
+        ),
+      ],
     );
-
-    final reason = note.text.trim();
-    note.dispose();
-    // An empty reason is a guaranteed 400, so it is caught here rather than
-    // spent on a round trip.
-    if (confirmed != true || reason.isEmpty || !mounted) return;
-    await c.cancel(booking, reason);
   }
 }
 
