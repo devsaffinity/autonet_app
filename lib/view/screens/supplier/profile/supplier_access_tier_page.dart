@@ -18,8 +18,8 @@ import 'package:get/get.dart';
 ///
 /// Driven entirely by `GET /v1/billing/status` through
 /// [ProviderBillingController]: the server prices each plan and decides what
-/// may be bought (upgrade-only). Payments open Stripe's payment sheet INSIDE
-/// the app; cancel keeps Pro to the date shown, and can be resumed until then.
+/// may be bought (upgrade-only). Buying opens the STORE's purchase sheet;
+/// cancelling and resuming happen in the store, so this screen links out.
 class SupplierAccessTierPage extends StatefulWidget {
   const SupplierAccessTierPage({super.key});
 
@@ -52,41 +52,42 @@ class _SupplierAccessTierPageState extends State<SupplierAccessTierPage> {
       context,
       title: 'Upgrade to Pro',
       headline: '${formatPriceTag(offer.pricePence)} / month',
-      message: 'Unlimited part request unlocks with no credits deducted, billed monthly until you cancel.',
-      confirmText: 'Continue to payment',
+      message: 'Unlimited part request unlocks with no credits deducted. Billed by the app store, '
+          'renewing monthly until you cancel there.',
+      confirmText: 'Continue',
     );
-    if (ok && mounted) await c.subscribe(offer.lookupKey);
+    if (ok && mounted) await c.buy(offer.lookupKey);
   }
 
-  Future<void> _cancel(BillingStatus s) async {
+  /// Cancel, resume and card changes: all of it belongs to the store.
+  Future<void> _manage(BillingStatus s) async {
+    final cancelling = s.displayState == BillingDisplayState.activeCancelling;
+    final pastDue = s.displayState == BillingDisplayState.pastDue;
     final ok = await confirmBillingDialog(
       context,
-      title: 'Cancel Pro Subscription',
-      message: cancelWarning(s, BillingAudience.supplier),
-      confirmText: 'Confirm Cancellation',
-      destructive: true,
+      title: pastDue
+          ? 'Update Payment'
+          : cancelling
+              ? 'Resume Subscription'
+              : 'Manage Subscription',
+      message: pastDue
+          ? 'Your last payment failed. Update your payment method in the store to keep your subscription.'
+          : cancelling
+              ? resumeWarning(s)
+              : cancelWarning(s, BillingAudience.supplier),
+      confirmText: 'Open Store',
     );
-    if (ok && mounted) await c.cancelSubscription();
-  }
-
-  Future<void> _resume(BillingStatus s) async {
-    final ok = await confirmBillingDialog(
-      context,
-      title: 'Resume Pro',
-      message: resumeWarning(s),
-      confirmText: 'Resume',
-    );
-    if (ok && mounted) await c.resumeSubscription();
+    if (ok && mounted) await c.openStoreManagement();
   }
 
   void _buyCredits(BillingStatus s) {
     final packs = s.creditPacks.where((p) => p.allowed).toList();
     if (packs.length == 1) {
-      c.buyCredits(packs.single.lookupKey);
+      c.buy(packs.single.lookupKey);
       return;
     }
     Get.bottomSheet(
-      CreditPacksSheet(audience: BillingAudience.supplier, onSelect: c.buyCredits),
+      CreditPacksSheet(audience: BillingAudience.supplier, onSelect: c.buy),
       isScrollControlled: true,
     );
   }
@@ -127,17 +128,23 @@ class _SupplierAccessTierPageState extends State<SupplierAccessTierPage> {
                         lineHeight: 1.4,
                       ),
                       const SizedBox(height: 18),
-                      SupplierProCard(
-                        status: s,
-                        busy: busy,
-                        onUpgrade: _upgrade,
-                        onCancel: () => _cancel(s),
-                        onResume: () => _resume(s),
-                        onFixPayment: c.retryPayment,
-                      ),
+                      SupplierProCard(status: s, busy: busy, onUpgrade: _upgrade, onManage: () => _manage(s)),
                       const SizedBox(height: 20),
                       SupplierCreditsCard(status: s, busy: busy, onBuy: () => _buyCredits(s)),
-                      const SizedBox(height: 36),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: busy ? null : c.restorePurchases,
+                          icon: const Icon(Icons.restore_rounded, size: 18, color: kSecondaryColor),
+                          label: const MyText(
+                            text: 'Restore purchases',
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: kSecondaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),

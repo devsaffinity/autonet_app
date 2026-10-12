@@ -37,8 +37,8 @@ void main() {
       final c = electricianTierCards(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'), busy: false);
 
       expect(c.pro.isCurrent, isTrue);
-      expect(c.pro.buttonText, 'Manage / Cancel');
-      expect(c.pro.action, TierAction.manage);
+      expect(c.pro.buttonText, 'Manage in Store');
+      expect(c.pro.action, TierAction.manageInStore);
       expect(c.payPerLead.buttonText, 'Included in Pro');
       expect(c.payPerLead.enabled, isFalse);
       expect(c.free.enabled, isFalse);
@@ -46,14 +46,14 @@ void main() {
 
     test('pro cancelling: resume', () {
       final c = electricianTierCards(billingStatus(rank: 2, display: 'ACTIVE_CANCELLING'), busy: false);
-      expect(c.pro.buttonText, 'Resume Pro');
-      expect(c.pro.action, TierAction.resume);
+      expect(c.pro.buttonText, 'Resume in Store');
+      expect(c.pro.action, TierAction.manageInStore);
     });
 
     test('pro past due: fix payment', () {
       final c = electricianTierCards(billingStatus(rank: 2, display: 'PAST_DUE'), busy: false);
-      expect(c.pro.buttonText, 'Update Payment');
-      expect(c.pro.action, TierAction.fixPayment);
+      expect(c.pro.buttonText, 'Fix Payment in Store');
+      expect(c.pro.action, TierAction.manageInStore);
     });
 
     test('busy: every purchase is inert and says so', () {
@@ -65,7 +65,7 @@ void main() {
 
     test('a refused upgrade is disabled', () {
       final c = electricianTierCards(
-        billingStatus(plans: [planJson(kElectricianPro, name: 'Pro', pricePence: 14900, subscription: true, allowed: false, reason: 'No')]),
+        billingStatus(plans: [planJson(kElectricianPro, name: 'Pro', pricePence: 14900, productId: kProProduct, subscription: true, allowed: false, reason: 'No')]),
         busy: false,
       );
       expect(c.pro.enabled, isFalse);
@@ -84,8 +84,8 @@ void main() {
       final c = electricianTierCards(
         billingStatus(
           plans: [
-            planJson(kLeads5, name: '5', pricePence: 5500, credits: 5),
-            planJson('electrician-leads-10', name: '10', pricePence: 10000, credits: 10),
+            planJson(kLeads5, name: '5', pricePence: 5500, productId: kLeads5Product, credits: 5),
+            planJson('electrician-leads-10', name: '10', pricePence: 10000, productId: 'autonect_leads_10', credits: 10),
           ],
         ),
         busy: false,

@@ -40,7 +40,7 @@ void main() {
       final b = describeBilling(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'), e);
       expect(b.pill, 'ACTIVE');
       expect(b.title, 'Pro (Monthly)');
-      expect(b.detail, 'Renews on 18 October 2026 · £149/mo');
+      expect(b.detail, 'Renews on 18 November 2026 · £149/mo');
       expect(describeBilling(billingStatus(supplier: true, rank: 2, display: 'ACTIVE_RENEWING'), s).pill, 'ACTIVE PRO');
     });
 
@@ -48,20 +48,23 @@ void main() {
       final b = describeBilling(billingStatus(rank: 2, display: 'ACTIVE_CANCELLING'), e);
       expect(b.pill, 'CANCELLING');
       expect(b.tone, BannerTone.warning);
-      expect(b.detail, 'Ends on 18 October 2026 — you can resume until then.');
+      expect(b.detail, 'Ends on 18 November 2026 — you can resume until then.');
     });
 
     test('past due: critical, with the grace deadline', () {
       final b = describeBilling(billingStatus(rank: 2, display: 'PAST_DUE'), e);
       expect(b.pill, 'PAYMENT FAILED');
       expect(b.tone, BannerTone.critical);
-      expect(b.detail, 'Your last payment failed. Update your card by 18 October 2026 to keep Pro.');
+      expect(
+        b.detail,
+        'Your last payment failed. Update your payment method in the store by 18 November 2026 to keep Pro.',
+      );
     });
 
     test('admin trial', () {
       final b = describeBilling(billingStatus(rank: 2, display: 'TRIALING'), e);
       expect(b.pill, 'TRIAL');
-      expect(b.detail, 'Free trial until 18 October 2026');
+      expect(b.detail, 'Free trial until 18 November 2026');
     });
 
     test('processing on the server, or awaiting confirmation locally', () {
@@ -89,19 +92,20 @@ void main() {
     test('cancel names the end date and what the plan falls back to', () {
       expect(
         cancelWarning(billingStatus(rank: 2, baseRank: 1, display: 'ACTIVE_RENEWING'), e),
-        'You keep unlimited leads and your PRO badge until 18 October 2026. '
-        'After that your plan becomes Pay-Per-Lead. You can resume any time before then.',
+        'Cancelling happens in the store that charges you. You keep unlimited leads and your PRO badge '
+        'until 18 November 2026, and after that your plan becomes Pay-Per-Lead.',
       );
       expect(
         cancelWarning(billingStatus(supplier: true, rank: 2, display: 'ACTIVE_RENEWING'), s),
-        contains('After that your plan becomes Standard.'),
+        contains('after that your plan becomes Standard.'),
       );
     });
 
     test('resume names the next charge', () {
       expect(
         resumeWarning(billingStatus(rank: 2, display: 'ACTIVE_CANCELLING')),
-        'Your plan will renew on 18 October 2026 with the usual payment of £149.',
+        'Resubscribe in the store before 18 November 2026 and your plan continues uninterrupted, '
+        'renewing with the usual payment of £149.',
       );
     });
   });

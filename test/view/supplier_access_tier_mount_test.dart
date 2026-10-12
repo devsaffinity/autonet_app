@@ -3,7 +3,7 @@ import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/data/repositories/billing_repository.dart';
-import 'package:autonect/services/payment_sheet_gateway.dart';
+import 'package:autonect/services/purchase_gateway.dart';
 import 'package:autonect/view/screens/supplier/profile/supplier_access_tier_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -11,22 +11,37 @@ import 'package:get/get.dart';
 import '../fakes/fake_billing.dart';
 
 /// The supplier's Plans & Billing renders what `GET /v1/billing/status` says
-/// — level, dates, what may be bought — and every button reaches the server
-/// through the controller, the payment sheet included.
+/// — level, dates, what may be bought — and every button reaches the store
+/// through the controller.
 void main() {
   late FakeBillingRepository repo;
-  late FakePaymentSheetGateway sheet;
+  late FakePurchaseGateway store;
   late List<String> toasts;
+  late List<Uri> opened;
 
   setUp(() {
     Get.reset();
     repo = FakeBillingRepository();
-    sheet = FakePaymentSheetGateway();
+    store = FakePurchaseGateway();
     toasts = [];
+    opened = [];
     Get.put<BillingRepository>(repo);
-    Get.put<PaymentSheetGateway>(sheet);
+    Get.put<PurchaseGateway>(store);
     // Pre-registered so ensure() finds it: toasts recorded, no poll timers.
-    Get.put(ProviderBillingController(repo, sheet, toast: toasts.add, confirmSchedule: const []));
+    Get.put(
+      ProviderBillingController(
+        repo,
+        store,
+        FakeTokenStore(),
+        toast: toasts.add,
+        confirmSchedule: const [],
+        isIos: () => false,
+        launch: (uri) async {
+          opened.add(uri);
+          return true;
+        },
+      ),
+    );
   });
 
   tearDown(Get.reset);
@@ -56,6 +71,7 @@ void main() {
     expect(find.text('Upgrade to Pro (£299/mo)'), findsOneWidget);
     expect(find.text('10 Credits Pack'), findsOneWidget);
     expect(find.text('Buy 10 Credits Pack (£10)'), findsOneWidget);
+    expect(find.text('Restore purchases'), findsOneWidget);
     expect(find.text('YOUR CURRENT PLAN'), findsNothing);
   });
 
@@ -68,77 +84,65 @@ void main() {
     expect(find.text('Upgrade to Pro (£299/mo)'), findsOneWidget);
   });
 
-  testWidgets('subscribed: renewal date, cancel offered, packs included', (tester) async {
+  testWidgets('subscribed: renewal date, manage in store, packs included', (tester) async {
     await mount(tester, billingStatus(supplier: true, rank: 2, display: 'ACTIVE_RENEWING'));
 
     expect(find.text('Pro Unlimited'), findsOneWidget);
     expect(find.text('ACTIVE PRO'), findsOneWidget);
     expect(find.text('YOUR CURRENT PLAN'), findsOneWidget);
-    expect(find.textContaining('Renews on 18 October 2026'), findsNWidgets(2));
-    expect(find.text('Cancel Subscription'), findsOneWidget);
+    expect(find.textContaining('Renews on 18 November 2026'), findsNWidgets(2));
+    expect(find.text('Manage in Store'), findsOneWidget);
     expect(find.text('Included in Pro'), findsOneWidget);
     expect(find.textContaining('Upgrade to Pro'), findsNothing);
   });
 
-  testWidgets('cancel: confirm dialog names the end date, then shows Cancelling + Resume', (tester) async {
+  testWidgets('manage: the dialog is honest about who cancels, then opens the store', (tester) async {
     await mount(tester, billingStatus(supplier: true, rank: 2, display: 'ACTIVE_RENEWING'));
-    repo.cancelResult = Ok(billingStatus(supplier: true, rank: 2, display: 'ACTIVE_CANCELLING'));
 
-    await tap(tester, 'Cancel Subscription');
-    expect(find.text('Cancel Pro Subscription'), findsOneWidget);
-    expect(find.textContaining('until 18 October 2026'), findsOneWidget);
+    await tap(tester, 'Manage in Store');
+    expect(find.text('Manage Subscription'), findsOneWidget);
+    expect(find.textContaining('until 18 November 2026'), findsOneWidget);
     expect(find.textContaining('your plan becomes Standard'), findsOneWidget);
 
-    await tap(tester, 'Confirm Cancellation');
-    expect(repo.countOf('cancel'), 1);
-    expect(find.text('CANCELLING'), findsOneWidget);
-    expect(find.text('Resume Subscription'), findsOneWidget);
-    expect(toasts.last, contains('you keep your plan until 18 October 2026'));
+    await tap(tester, 'Open Store');
+    expect(opened.single.toString(), kManageUrl);
   });
 
-  testWidgets('cancel dismissed: nothing is sent', (tester) async {
+  testWidgets('dismissing the manage dialog opens nothing', (tester) async {
     await mount(tester, billingStatus(supplier: true, rank: 2, display: 'ACTIVE_RENEWING'));
 
-    await tap(tester, 'Cancel Subscription');
+    await tap(tester, 'Manage in Store');
     await tap(tester, 'Not now');
-    expect(repo.countOf('cancel'), 0);
+    expect(opened, isEmpty);
     expect(find.text('ACTIVE PRO'), findsOneWidget);
   });
 
-  testWidgets('cancelling: resume returns to renewing', (tester) async {
+  testWidgets('cancelling: the card offers to resume in the store', (tester) async {
     await mount(tester, billingStatus(supplier: true, rank: 2, display: 'ACTIVE_CANCELLING'));
-    repo.resumeResult = Ok(billingStatus(supplier: true, rank: 2, display: 'ACTIVE_RENEWING'));
 
-    expect(find.textContaining('Ends on 18 October 2026'), findsNWidgets(2));
-    await tap(tester, 'Resume Subscription');
-    expect(find.textContaining('renew on 18 October 2026'), findsOneWidget);
-    await tap(tester, 'Resume');
-
-    expect(repo.countOf('resume'), 1);
-    expect(find.text('ACTIVE PRO'), findsOneWidget);
-    expect(find.text('Cancel Subscription'), findsOneWidget);
+    expect(find.text('CANCELLING'), findsOneWidget);
+    expect(find.textContaining('Ends on 18 November 2026'), findsNWidgets(2));
+    await tap(tester, 'Resume in Store');
+    expect(find.textContaining('Resubscribe in the store'), findsOneWidget);
   });
 
-  testWidgets('past due: payment failed banner and Update Payment Method', (tester) async {
+  testWidgets('past due: payment failed banner and a route to fix it', (tester) async {
     await mount(tester, billingStatus(supplier: true, rank: 2, display: 'PAST_DUE'));
 
     expect(find.text('PAYMENT FAILED'), findsOneWidget);
-    expect(find.text('Update Payment Method'), findsOneWidget);
+    expect(find.text('Fix Payment in Store'), findsOneWidget);
     expect(find.text('Your last payment failed.'), findsOneWidget);
   });
 
-  testWidgets('upgrade: confirm, pay in the sheet, confirmed by the server', (tester) async {
+  testWidgets('upgrade: confirm, buy in the store, confirmed by the server', (tester) async {
     await mount(tester, billingStatus(supplier: true, credits: 3));
-    repo.subscriptionResult = Ok(sheetSession(subscription: true, lookupKey: kSupplierPro, planName: 'Supplier Unlimited (Monthly)'));
     repo.syncResult = Ok(billingStatus(supplier: true, rank: 2, credits: 3, display: 'ACTIVE_RENEWING'));
 
     await tap(tester, 'Upgrade to Pro (£299/mo)');
     expect(find.text('£299 / month'), findsOneWidget);
-    await tap(tester, 'Continue to payment');
+    await tap(tester, 'Continue');
 
-    expect(repo.lastLookupKey, kSupplierPro);
-    expect(sheet.presented, hasLength(1));
-    expect(repo.lastSync?.subscriptionId, 'sub_1');
+    expect(store.bought, [kSupplierProProduct]);
     expect(find.text('ACTIVE PRO'), findsOneWidget);
     expect(toasts.last, 'Supplier Unlimited (Monthly) is active. Thank you!');
   });

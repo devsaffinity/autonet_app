@@ -106,6 +106,8 @@ class BillingSubscriptionInfo {
 class BillingOffer {
   const BillingOffer({
     required this.lookupKey,
+    this.androidProductId,
+    this.iosProductId,
     required this.name,
     required this.pricePence,
     required this.rank,
@@ -119,6 +121,10 @@ class BillingOffer {
   });
 
   final String lookupKey;
+
+  /// What the store sells this as. Null where that store does not stock it.
+  final String? androidProductId;
+  final String? iosProductId;
   final String name;
   final int pricePence;
   final PlanInterval? interval;
@@ -134,10 +140,15 @@ class BillingOffer {
 
   bool get isCreditPack => !isSubscription && (credits ?? 0) > 0;
 
+  /// The product id for the store this build is running against.
+  String? storeProductId({required bool ios}) => ios ? iosProductId : androidProductId;
+
   static BillingOffer? tryFromJson(Object? j) {
     if (j is! Map || j['lookupKey'] is! String || j['pricePence'] is! num) return null;
     return BillingOffer(
       lookupKey: j['lookupKey'] as String,
+      androidProductId: j['androidProductId'] as String?,
+      iosProductId: j['iosProductId'] as String?,
       name: j['name'] as String? ?? '',
       pricePence: (j['pricePence'] as num).toInt(),
       interval: PlanInterval.fromWire(j['interval'] as String?),
@@ -169,7 +180,7 @@ class BillingStatus {
     this.pendingLookupKey,
     this.canCancel = false,
     this.canResume = false,
-    this.canRetryPayment = false,
+    this.manageUrl,
   });
 
   final BillingLevel level;
@@ -179,12 +190,16 @@ class BillingStatus {
   final BillingDisplayState displayState;
   final DateTime? displayDate;
 
-  /// A payment Stripe is still processing — 'CREDITS' or 'SUBSCRIPTION'.
+  /// A purchase the store has taken but not finished settling — 'CREDITS'
+  /// or 'SUBSCRIPTION'.
   final String? pendingKind;
   final String? pendingLookupKey;
   final bool canCancel;
   final bool canResume;
-  final bool canRetryPayment;
+
+  /// The store page where the customer cancels, resumes or fixes payment.
+  /// We cannot do any of it for them — Google and Apple own the subscription.
+  final String? manageUrl;
   final List<BillingOffer> offers;
 
   bool get isSubscribed => level.rank >= 2;
@@ -218,7 +233,7 @@ class BillingStatus {
       pendingLookupKey: pending?['lookupKey'] as String?,
       canCancel: actions['canCancel'] == true,
       canResume: actions['canResume'] == true,
-      canRetryPayment: actions['canRetryPayment'] == true,
+      manageUrl: actions['manageUrl'] as String?,
       // A malformed plan row is dropped, not allowed to fail the whole screen.
       offers: [
         for (final o in (j['plans'] is List ? j['plans'] as List : const []))

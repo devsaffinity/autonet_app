@@ -125,17 +125,15 @@ class SupplierProCard extends StatelessWidget {
     required this.status,
     required this.busy,
     required this.onUpgrade,
-    required this.onCancel,
-    required this.onResume,
-    required this.onFixPayment,
+    required this.onManage,
   });
 
   final BillingStatus status;
   final bool busy;
   final ValueChanged<BillingOffer> onUpgrade;
-  final VoidCallback onCancel;
-  final VoidCallback onResume;
-  final VoidCallback onFixPayment;
+
+  /// Cancel, resume and card changes all live in the store.
+  final VoidCallback onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -199,15 +197,11 @@ class SupplierProCard extends StatelessWidget {
     final List<Widget> buttons;
     switch (status.displayState) {
       case BillingDisplayState.pastDue:
-        buttons = [
-          MyButton(buttonText: 'Update Payment Method', onTap: busy ? null : onFixPayment, enabled: !busy),
-          const SizedBox(height: 10),
-          _outline('Cancel Subscription', busy || !status.canCancel ? null : onCancel),
-        ];
+        buttons = [MyButton(buttonText: 'Fix Payment in Store', onTap: busy ? null : onManage, enabled: !busy)];
       case BillingDisplayState.activeCancelling:
-        buttons = [MyButton(buttonText: 'Resume Subscription', onTap: busy ? null : onResume, enabled: !busy)];
+        buttons = [MyButton(buttonText: 'Resume in Store', onTap: busy ? null : onManage, enabled: !busy)];
       case _ when status.isSubscribed:
-        buttons = [_outline('Cancel Subscription', busy || !status.canCancel ? null : onCancel)];
+        buttons = [_outline('Manage in Store', busy ? null : onManage, color: kSecondaryColor)];
       case _:
         final allowed = offer != null && offer.allowed && !busy;
         buttons = [

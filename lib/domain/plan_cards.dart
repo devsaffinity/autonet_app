@@ -3,7 +3,10 @@ import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/domain/money_format.dart';
 
 /// What tapping a plan card's button does.
-enum TierAction { none, subscribe, manage, resume, fixPayment, buyCredits, chooseFree, choosePayPerLead }
+/// What tapping a plan card's button does. Cancelling, resuming and fixing a
+/// card are all [manageInStore]: the store owns the subscription, so the app
+/// can only send the customer there.
+enum TierAction { none, subscribe, manageInStore, buyCredits, chooseFree, choosePayPerLead }
 
 /// One card's dynamic half — price, button, state. The static half (tag,
 /// title, feature bullets) is design copy and stays in the widget.
@@ -69,10 +72,10 @@ TierCards electricianTierCards(BillingStatus s, {required bool busy}) {
   final proPrice = sub == null ? _unavailable : formatPriceTag(sub.pricePence);
   if (rank >= 2) {
     final (text, action) = pastDue
-        ? ('Update Payment', TierAction.fixPayment)
+        ? ('Fix Payment in Store', TierAction.manageInStore)
         : cancelling
-            ? ('Resume Pro', TierAction.resume)
-            : ('Manage / Cancel', TierAction.manage);
+            ? ('Resume in Store', TierAction.manageInStore)
+            : ('Manage in Store', TierAction.manageInStore);
     pro = TierCardModel(
       price: proPrice,
       period: '/Month',

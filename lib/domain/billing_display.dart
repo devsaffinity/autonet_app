@@ -73,7 +73,8 @@ BillingBanner describeBilling(
         pill: 'PAYMENT FAILED',
         tone: BannerTone.critical,
         title: title,
-        detail: 'Your last payment failed. Update your card by ${_date(s.displayDate)} to keep $pro.',
+        // The card lives in the store, so that is where they fix it.
+        detail: 'Your last payment failed. Update your payment method in the store by ${_date(s.displayDate)} to keep $pro.',
       );
     case BillingDisplayState.activeCancelling:
       return BillingBanner(
@@ -113,17 +114,23 @@ BillingBanner describeBilling(
   );
 }
 
-/// The confirm-cancel dialog's promise, with the real date.
+/// What we tell someone heading to the store to cancel.
+///
+/// It is the STORE that cancels — we cannot, and saying "cancelled" here
+/// would be a lie the next renewal exposes. So the copy explains where to go
+/// and what happens after.
 String cancelWarning(BillingStatus s, BillingAudience a) {
   final end = _date(s.subscription?.cancelAt ?? s.subscription?.currentPeriodEnd);
   final fallback = levelLabel(s.baseLevel.rank, a);
   final keep = a == BillingAudience.electrician ? 'unlimited leads and your PRO badge' : 'unlimited request access';
-  return 'You keep $keep until $end. After that your plan becomes $fallback. You can resume any time before then.';
+  return 'Cancelling happens in the store that charges you. You keep $keep until $end, '
+      'and after that your plan becomes $fallback.';
 }
 
-/// The confirm-resume dialog's promise — the next charge, dated and priced.
+/// What we tell someone whose cancelled plan can still be turned back on.
 String resumeWarning(BillingStatus s) {
   final sub = s.subscription;
   final price = sub == null || sub.pricePence <= 0 ? '' : ' of ${formatPriceTag(sub.pricePence)}';
-  return 'Your plan will renew on ${_date(sub?.currentPeriodEnd)} with the usual payment$price.';
+  return 'Resubscribe in the store before ${_date(sub?.currentPeriodEnd)} and your plan continues '
+      'uninterrupted, renewing with the usual payment$price.';
 }

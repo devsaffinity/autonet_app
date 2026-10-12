@@ -16,8 +16,8 @@ import 'package:get/get.dart';
 /// The supplier PICKS one and it is sent with the registration, landing on
 /// `SupplierProfile.monetizationModel`. It is a stated preference rather than a
 /// purchase: nothing charges during registration. Paying happens after
-/// approval, on Plans & Billing, in Stripe's in-app payment sheet — the note at
-/// the bottom says so — and the reviewer gets an answer instead of having to ask.
+/// approval, on Plans & Billing, through the app store — the note at the
+/// bottom says so — and the reviewer gets an answer instead of having to ask.
 class SupplierPlanStep extends StatefulWidget {
   final VoidCallback onFinish;
 
@@ -330,8 +330,8 @@ class _RecommendationCard extends StatelessWidget {
             runSpacing: AppSizes.s8,
             children: [
               // "TAX INCLUSIVE PRICING" from the design is deliberately absent:
-              // it is a tax-treatment claim on a B2B subscription, Stripe Tax
-              // is not configured and Plan carries no tax flag. Encryption is a
+              // it is a tax-treatment claim on a B2B subscription, and the
+              // store decides the tax it charges, not us. Encryption is a
               // fact about the transport and can stay.
               _chip(Icons.lock_outline, 'ENCRYPTED TRANSACTIONS'),
             ],

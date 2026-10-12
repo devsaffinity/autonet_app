@@ -4,7 +4,7 @@ import 'package:autonect/data/models/billing_plan.dart';
 import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/data/repositories/billing_repository.dart';
 import 'package:autonect/domain/plan_cards.dart';
-import 'package:autonect/services/payment_sheet_gateway.dart';
+import 'package:autonect/services/purchase_gateway.dart';
 import 'package:autonect/view/screens/electrician/profile/electrician_access_tier_page.dart';
 import 'package:autonect/view/screens/supplier/widgets/access_tier.dart';
 import 'package:flutter/material.dart';
@@ -15,20 +15,35 @@ import '../fakes/fake_billing.dart';
 
 /// The electrician's Access Tier screen, the credit packs sheet, and the
 /// registration wizard's plan cards — each rendered from server data, each
-/// button reaching the server (or, at registration, only the form).
+/// button reaching the store (or, at registration, only the form).
 void main() {
   late FakeBillingRepository repo;
-  late FakePaymentSheetGateway sheet;
+  late FakePurchaseGateway store;
   late List<String> toasts;
+  late List<Uri> opened;
 
   setUp(() {
     Get.reset();
     repo = FakeBillingRepository();
-    sheet = FakePaymentSheetGateway();
+    store = FakePurchaseGateway();
     toasts = [];
+    opened = [];
     Get.put<BillingRepository>(repo);
-    Get.put<PaymentSheetGateway>(sheet);
-    Get.put(ProviderBillingController(repo, sheet, toast: toasts.add, confirmSchedule: const []));
+    Get.put<PurchaseGateway>(store);
+    Get.put(
+      ProviderBillingController(
+        repo,
+        store,
+        FakeTokenStore(),
+        toast: toasts.add,
+        confirmSchedule: const [],
+        isIos: () => false,
+        launch: (uri) async {
+          opened.add(uri);
+          return true;
+        },
+      ),
+    );
   });
 
   tearDown(Get.reset);
@@ -60,6 +75,7 @@ void main() {
       expect(find.text('£12'), findsOneWidget);
       expect(find.text('Upgrade to Pro'), findsOneWidget);
       expect(find.text('Choose Credits'), findsOneWidget);
+      expect(find.text('Restore purchases'), findsOneWidget);
       expect(find.textContaining(r'$'), findsNothing, reason: 'GBP only');
     });
 
@@ -73,9 +89,8 @@ void main() {
       expect(find.text('Included'), findsOneWidget);
     });
 
-    testWidgets('choose credits → packs sheet → pay in the sheet → balance confirmed', (tester) async {
+    testWidgets('choose credits → packs sheet → store → balance confirmed', (tester) async {
       await mount(tester, billingStatus());
-      repo.creditsIntentResult = Ok(sheetSession());
       repo.syncResult = Ok(billingStatus(rank: 1, baseRank: 1, credits: 5));
 
       await tap(tester, 'Choose Credits');
@@ -86,25 +101,22 @@ void main() {
 
       await tap(tester, '5 Lead Credits');
       expect(find.text('Purchase Lead Credits'), findsNothing);
-      expect(repo.lastLookupKey, kLeads5);
-      expect(sheet.presented, hasLength(1));
+      expect(store.bought, [kLeads5Product]);
       expect(find.text('5 credits'), findsOneWidget);
-      expect(toasts.last, 'Payment received — 5 credits available.');
+      expect(toasts.last, 'Purchase received — 5 credits available.');
     });
 
-    testWidgets('upgrade: confirm, pay, then Pro is shown active', (tester) async {
+    testWidgets('upgrade: confirm, buy in the store, then Pro is shown active', (tester) async {
       await mount(tester, billingStatus(rank: 1, baseRank: 1, credits: 2));
-      repo.subscriptionResult = Ok(
-        sheetSession(subscription: true, lookupKey: kElectricianPro, planName: 'Electrician Pro (Monthly)'),
-      );
       repo.syncResult = Ok(billingStatus(rank: 2, baseRank: 1, credits: 2, display: 'ACTIVE_RENEWING'));
 
       await tap(tester, 'Upgrade to Pro');
       expect(find.text('£149 / month'), findsOneWidget);
-      await tapOn(tester, inDialog('Continue to payment'));
+      expect(find.textContaining('Billed by the app store'), findsOneWidget);
+      await tapOn(tester, inDialog('Continue'));
 
-      expect(repo.lastLookupKey, kElectricianPro);
-      expect(find.text('Manage / Cancel'), findsOneWidget);
+      expect(store.bought, [kProProduct]);
+      expect(find.text('Manage in Store'), findsOneWidget);
       expect(find.text('PRO'), findsOneWidget);
     });
 
@@ -112,71 +124,64 @@ void main() {
       await mount(tester, billingStatus());
       await tap(tester, 'Upgrade to Pro');
       await tap(tester, 'Not now');
-      expect(repo.countOf('createSubscription'), 0);
-      expect(sheet.presented, isEmpty);
+      expect(store.bought, isEmpty);
     });
 
-    testWidgets('pro: manage → cancel keeps Pro to the date, then offers Resume', (tester) async {
+    testWidgets('pro: manage explains the store owns it, then opens the store', (tester) async {
       await mount(tester, billingStatus(rank: 2, baseRank: 1, display: 'ACTIVE_RENEWING'));
-      repo.cancelResult = Ok(billingStatus(rank: 2, baseRank: 1, display: 'ACTIVE_CANCELLING'));
 
-      expect(find.textContaining('Renews on 18 October 2026'), findsOneWidget);
+      expect(find.textContaining('Renews on 18 November 2026'), findsOneWidget);
       expect(find.text('Included in Pro'), findsOneWidget);
 
-      await tap(tester, 'Manage / Cancel');
-      expect(find.text('Active Pro Subscription'), findsOneWidget);
-      await tap(tester, 'Cancel Pro');
-      expect(find.textContaining('After that your plan becomes Pay-Per-Lead.'), findsOneWidget);
-      await tap(tester, 'Confirm Cancellation');
+      await tap(tester, 'Manage in Store');
+      expect(find.textContaining('Cancelling happens in the store that charges you'), findsOneWidget);
+      expect(find.textContaining('your plan becomes Pay-Per-Lead'), findsOneWidget);
+      await tapOn(tester, inDialog('Open Store'));
 
-      expect(repo.countOf('cancel'), 1);
-      expect(find.text('CANCELLING'), findsOneWidget);
-      expect(find.text('Resume Pro'), findsOneWidget);
-      expect(find.textContaining('Ends on 18 October 2026'), findsOneWidget);
+      expect(opened.single.toString(), kManageUrl);
     });
 
-    testWidgets('keeping the subscription sends nothing', (tester) async {
-      await mount(tester, billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      await tap(tester, 'Manage / Cancel');
-      await tap(tester, 'Keep Subscription');
-      expect(repo.countOf('cancel'), 0);
-    });
-
-    testWidgets('cancelling: resume', (tester) async {
+    testWidgets('cancelling: resume points at the store too', (tester) async {
       await mount(tester, billingStatus(rank: 2, display: 'ACTIVE_CANCELLING'));
-      repo.resumeResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
 
-      await tap(tester, 'Resume Pro');
-      await tapOn(tester, inDialog('Resume'));
-
-      expect(repo.countOf('resume'), 1);
-      expect(find.text('Manage / Cancel'), findsOneWidget);
+      expect(find.textContaining('Ends on 18 November 2026'), findsOneWidget);
+      await tap(tester, 'Resume in Store');
+      expect(find.textContaining('Resubscribe in the store'), findsOneWidget);
+      await tapOn(tester, inDialog('Open Store'));
+      expect(opened, hasLength(1));
     });
 
-    testWidgets('past due: Update Payment opens the sheet for the failed renewal', (tester) async {
+    testWidgets('past due: fixing the card happens in the store', (tester) async {
       await mount(tester, billingStatus(rank: 2, display: 'PAST_DUE'));
-      repo.retryResult = Ok(sheetSession(subscription: true, lookupKey: kElectricianPro));
-      repo.syncResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
 
       expect(find.text('PAYMENT FAILED'), findsOneWidget);
-      await tapOn(tester, find.text('Update Payment').first);
-
-      expect(repo.countOf('retryPayment'), 1);
-      expect(sheet.presented, hasLength(1));
-      expect(find.text('Manage / Cancel'), findsOneWidget);
+      await tapOn(tester, find.text('Fix Payment in Store').first);
+      expect(find.textContaining('Update your payment method in the store'), findsWidgets);
+      await tapOn(tester, inDialog('Open Store'));
+      expect(opened, hasLength(1));
     });
 
-    testWidgets('a cancelled sheet leaves the plan as it was', (tester) async {
+    testWidgets('a cancelled store sheet leaves the plan as it was', (tester) async {
       await mount(tester, billingStatus());
-      repo.subscriptionResult = Ok(sheetSession(subscription: true, lookupKey: kElectricianPro));
-      sheet.outcome = const PaymentCancelled();
+      store.outcome = const PurchaseCancelled();
 
       await tap(tester, 'Upgrade to Pro');
-      await tapOn(tester, inDialog('Continue to payment'));
+      await tapOn(tester, inDialog('Continue'));
 
       expect(repo.countOf('sync'), 0);
       expect(find.text('Upgrade to Pro'), findsOneWidget);
-      expect(toasts.last, 'Payment cancelled — you have not been charged.');
+      expect(toasts.last, 'Purchase cancelled — you have not been charged.');
+    });
+
+    testWidgets('restore purchases brings back a subscription', (tester) async {
+      await mount(tester, billingStatus());
+      repo.syncResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
+
+      await tap(tester, 'Restore purchases');
+
+      expect(store.restores, 1);
+      expect(find.text('Manage in Store'), findsOneWidget);
+      expect(toasts.last, 'Your purchases have been restored.');
     });
   });
 

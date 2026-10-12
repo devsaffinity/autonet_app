@@ -5,29 +5,43 @@ import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/domain/view_state.dart';
-import 'package:autonect/services/payment_sheet_gateway.dart';
+import 'package:autonect/services/purchase_gateway.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
 import '../fakes/fake_billing.dart';
 
-/// PURCHASE = server verdict → payment sheet → read back from the server.
-/// These pin the parts that cost money when wrong: one PaymentIntent per tap,
-/// nothing synced after a cancelled sheet, and "done" only on the server's word.
+/// PURCHASE = server verdict -> store sheet -> read back from the server.
+/// These pin the parts that cost money when wrong: one sheet per tap, nothing
+/// synced after a cancelled purchase, and "done" only on the server's word.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late FakeBillingRepository repo;
-  late FakePaymentSheetGateway sheet;
+  late FakePurchaseGateway store;
+  late FakeTokenStore tokens;
   late List<String> toasts;
+  late List<Uri> opened;
   late ProviderBillingController c;
   late DateTime now;
 
   const tick = Duration(milliseconds: 1);
 
-  ProviderBillingController build({List<Duration> schedule = const [tick, tick]}) => Get.put(
-    ProviderBillingController(repo, sheet, toast: toasts.add, confirmSchedule: schedule, clock: () => now),
+  ProviderBillingController build({List<Duration> schedule = const [tick, tick], bool ios = false}) => Get.put(
+    ProviderBillingController(
+      repo,
+      store,
+      tokens,
+      toast: toasts.add,
+      confirmSchedule: schedule,
+      clock: () => now,
+      isIos: () => ios,
+      launch: (uri) async {
+        opened.add(uri);
+        return true;
+      },
+    ),
   );
 
   /// Let the fake's async answers and the 1ms poll timers run out.
@@ -36,9 +50,11 @@ void main() {
   setUp(() {
     Get.reset();
     repo = FakeBillingRepository();
-    sheet = FakePaymentSheetGateway();
+    store = FakePurchaseGateway();
+    tokens = FakeTokenStore();
     toasts = [];
-    now = DateTime(2026, 9, 18, 12);
+    opened = [];
+    now = DateTime(2026, 10, 12, 12);
     c = build();
   });
 
@@ -70,7 +86,7 @@ void main() {
       expect(c.current?.credits, 2);
     });
 
-    test('a status already processing starts polling until it settles', () async {
+    test('a status already processing polls until it settles', () async {
       repo.statusQueue.add(Ok(billingStatus(display: 'PROCESSING', pending: {'kind': 'CREDITS'})));
       repo.statusResult = Ok(billingStatus(rank: 1, baseRank: 1, credits: 5));
       await c.load();
@@ -82,146 +98,169 @@ void main() {
     });
   });
 
-  group('buy credits', () {
+  group('buying a credit pack', () {
     setUp(() {
-      repo.creditsIntentResult = Ok(sheetSession());
       repo.syncResult = Ok(billingStatus(rank: 1, baseRank: 1, credits: 5));
     });
 
-    test('config → intent → sheet → sync; confirmed by the balance going up', () async {
+    test('config -> store sheet -> sync; confirmed by the balance going up', () async {
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
-      expect(repo.calls, ['status', 'config', 'createCreditsIntent', 'sync']);
-      expect(repo.lastLookupKey, kLeads5);
-      expect(sheet.presented.single.planLookupKey, kLeads5);
-      expect(repo.lastSync?.paymentIntentId, 'pi_1');
-      expect(repo.lastSync?.subscriptionId, isNull);
+      expect(repo.calls, ['status', 'config', 'sync']);
+      expect(store.bought, [kLeads5Product]);
+      expect(store.appUserId, 'user-1', reason: 'entitlements must follow the account, not the device');
       expect(c.awaiting.value, isNull);
       expect(c.working.value, isNull);
       expect(c.changedThisVisit, isTrue);
-      expect(toasts.single, 'Payment received — 5 credits available.');
+      expect(toasts.single, 'Purchase received — 5 credits available.');
     });
 
-    test('a double tap creates ONE PaymentIntent', () async {
+    test('on iOS it asks the store for the iOS product id', () async {
+      Get.delete<ProviderBillingController>(force: true);
+      c = build(ios: true);
       await loaded(billingStatus());
-      final first = c.buyCredits(kLeads5);
-      final second = c.buyCredits(kLeads5);
-      await Future.wait([first, second]);
-      expect(repo.countOf('createCreditsIntent'), 1);
-      expect(sheet.presented, hasLength(1));
+      await c.buy(kLeads5);
+      expect(store.bought, [kLeads5Product]);
     });
 
-    test('config is fetched once per visit', () async {
+    test('a double tap opens ONE store sheet', () async {
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await Future.wait([c.buy(kLeads5), c.buy(kLeads5)]);
+      expect(store.bought, hasLength(1));
+      expect(repo.countOf('sync'), 1);
+    });
+
+    test('config is fetched once per visit, the store configured each time', () async {
+      await loaded(billingStatus());
+      await c.buy(kLeads5);
       repo.syncResult = Ok(billingStatus(rank: 1, baseRank: 1, credits: 10));
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
       expect(repo.countOf('config'), 1);
-      expect(sheet.configured, 2);
+      expect(store.configured, 2);
     });
 
-    test('sheet cancelled: nothing synced, not charged, controls released', () async {
-      sheet.outcome = const PaymentCancelled();
+    test('cancelled in the store: nothing synced, not charged, controls released', () async {
+      store.outcome = const PurchaseCancelled();
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
       expect(repo.countOf('sync'), 0);
       expect(c.awaiting.value, isNull);
       expect(c.working.value, isNull);
       expect(c.changedThisVisit, isFalse);
-      expect(toasts.single, 'Payment cancelled — you have not been charged.');
+      expect(toasts.single, 'Purchase cancelled — you have not been charged.');
     });
 
-    test("sheet failed: Stripe's own message, nothing synced", () async {
-      sheet.outcome = const PaymentFailed('Your card was declined.');
+    test("the store's own failure message is shown, and nothing synced", () async {
+      store.outcome = const PurchaseFailed('Your payment method was declined.');
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
       expect(repo.countOf('sync'), 0);
-      expect(toasts.single, 'Your card was declined.');
+      expect(toasts.single, 'Your payment method was declined.');
+    });
+
+    test('a product missing from the store listing says so', () async {
+      store.outcome = const PurchaseUnavailable();
+      await loaded(billingStatus());
+      await c.buy(kLeads5);
+
+      expect(repo.countOf('sync'), 0);
+      expect(toasts.single, "That plan isn't available in your store account yet.");
+    });
+
+    test('a plan with no store product is refused before the store is opened', () async {
+      await loaded(
+        billingStatus(
+          plans: [
+            {...planJson(kLeads5, name: '5 Lead Credits', pricePence: 5500, productId: '', credits: 5), 'androidProductId': null, 'iosProductId': null},
+          ],
+        ),
+      );
+      await c.buy(kLeads5);
+
+      expect(store.bought, isEmpty);
+      expect(toasts.single, "That plan isn't on sale in your store yet.");
     });
 
     test('unsupported platform: refused with an explanation, no network', () async {
-      sheet.isSupported = false;
+      store.isSupported = false;
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
       expect(repo.calls, ['status']);
-      expect(toasts.single, kPaymentsUnsupportedCopy);
+      expect(toasts.single, kPurchasesUnsupportedCopy);
     });
 
-    test("an offer the server refused is not bought; its reason is shown", () async {
+    test('an offer the server refused is not bought; its reason is shown', () async {
       await loaded(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
-      expect(repo.countOf('createCreditsIntent'), 0);
+      expect(store.bought, isEmpty);
       expect(toasts.single, 'Your plan already includes unlimited leads.');
     });
 
     test('an unknown plan is refused', () async {
       await loaded(billingStatus());
-      await c.buyCredits('not-a-plan');
+      await c.buy('not-a-plan');
       expect(repo.countOf('config'), 0);
       expect(toasts.single, "That plan isn't available right now.");
     });
 
-    test('503 on config: surfaced, nothing created', () async {
+    test('503 on config: surfaced, the store is never opened', () async {
       repo.configResult = const Err(
-        ApiError(code: ApiErrorCode.internal, message: 'Payments are not available right now.', statusCode: 503),
+        ApiError(code: ApiErrorCode.internal, message: 'Purchases are not available right now.', statusCode: 503),
       );
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
-      expect(repo.countOf('createCreditsIntent'), 0);
-      expect(toasts.single, 'Payments are not available right now.');
+      expect(store.bought, isEmpty);
+      expect(toasts.single, 'Purchases are not available right now.');
       expect(c.working.value, isNull);
     });
 
-    test('the sheet could not be configured: surfaced, nothing created', () async {
-      sheet.configureOk = false;
+    test('the store SDK could not be configured: surfaced, nothing bought', () async {
+      store.configureOk = false;
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
-      expect(repo.countOf('createCreditsIntent'), 0);
-      expect(toasts.single, 'Payments could not start on this device. Please try again.');
+      expect(store.bought, isEmpty);
+      expect(toasts.single, 'Purchases could not start on this device. Please try again.');
     });
 
-    test('409 on create: the screen was stale, so it re-reads', () async {
-      repo.creditsIntentResult = const Err(
-        ApiError(code: ApiErrorCode.conflict, message: 'You already have unlimited leads.', statusCode: 409),
-      );
+    test('signed out mid-flow: asks them to sign in rather than buying anonymously', () async {
+      tokens.userId = null;
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
-      expect(sheet.presented, isEmpty);
-      expect(repo.countOf('status'), 2);
-      expect(toasts.single, 'You already have unlimited leads.');
+      expect(store.bought, isEmpty);
+      expect(toasts.single, 'Please sign in again to make a purchase.');
     });
 
     test('slow confirmation: keeps polling, then says so; confirms when it lands', () async {
       repo.syncResult = Ok(billingStatus()); // webhook not in yet
       repo.statusResult = Ok(billingStatus());
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
       expect(c.awaiting.value, isNotNull);
 
       await settle();
       expect(repo.countOf('status'), 3); // load + two polls
       expect(toasts.last, kProcessingSlowCopy);
-      expect(c.awaiting.value, isNotNull, reason: 'still Processing — not declared failed');
+      expect(c.awaiting.value, isNotNull, reason: 'still processing — not declared failed');
 
       repo.statusResult = Ok(billingStatus(rank: 1, baseRank: 1, credits: 5));
       await c.reload();
       expect(c.awaiting.value, isNull);
-      expect(toasts.last, 'Payment received — 5 credits available.');
+      expect(toasts.last, 'Purchase received — 5 credits available.');
     });
 
-    test('an unconfirmed payment stops waiting after its max age', () async {
+    test('an unconfirmed purchase stops waiting after its max age', () async {
       repo.syncResult = Ok(billingStatus());
       repo.statusResult = Ok(billingStatus());
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
       await settle();
 
       now = now.add(const Duration(minutes: 11));
@@ -230,18 +269,14 @@ void main() {
     });
   });
 
-  group('subscribe', () {
+  group('subscribing', () {
     test('confirmed only when the server shows THAT plan active', () async {
-      repo.subscriptionResult = Ok(
-        sheetSession(subscription: true, lookupKey: kElectricianPro, planName: 'Electrician Pro (Monthly)'),
-      );
       repo.syncResult = Ok(billingStatus(display: 'PROCESSING', pending: {'kind': 'SUBSCRIPTION'}));
       await loaded(billingStatus());
       repo.statusResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING')); // the webhook lands
 
-      await c.subscribe(kElectricianPro);
-      expect(repo.lastSync?.subscriptionId, 'sub_1');
-      expect(repo.lastSync?.paymentIntentId, isNull);
+      await c.buy(kElectricianPro);
+      expect(store.bought, [kProProduct]);
       expect(c.awaiting.value, isNotNull);
 
       await settle();
@@ -249,93 +284,91 @@ void main() {
       expect(c.current?.isSubscribed, isTrue);
       expect(toasts.last, 'Electrician Pro (Monthly) is active. Thank you!');
     });
+  });
 
-    test('nothing owed now (upgrade on the card on file): no sheet, still synced', () async {
-      repo.subscriptionResult = Ok(sheetSession(subscription: true, requiresPayment: false, lookupKey: kElectricianPro));
+  group('restore purchases', () {
+    test('restores, syncs, and reports what came back', () async {
       repo.syncResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      await loaded(billingStatus(rank: 1, baseRank: 1, credits: 3));
+      await loaded(billingStatus());
 
-      await c.subscribe(kElectricianPro);
-      expect(sheet.presented, isEmpty);
+      await c.restorePurchases();
+
+      expect(store.restores, 1);
       expect(repo.countOf('sync'), 1);
       expect(c.current?.isSubscribed, isTrue);
+      expect(toasts.last, 'Your purchases have been restored.');
+    });
+
+    test('nothing to restore says so instead of spinning', () async {
+      repo.syncResult = Ok(billingStatus());
+      repo.statusResult = Ok(billingStatus());
+      await loaded(billingStatus());
+
+      await c.restorePurchases();
+
+      expect(c.awaiting.value, isNull);
+      expect(toasts.last, 'Nothing to restore on this store account.');
+    });
+
+    test('a store failure is surfaced', () async {
+      store.restoreOutcome = const PurchaseFailed('Store unavailable.');
+      await loaded(billingStatus());
+      await c.restorePurchases();
+      expect(repo.countOf('sync'), 0);
+      expect(toasts.single, 'Store unavailable.');
     });
   });
 
-  group('retry payment', () {
-    test('past due → paid in the sheet → back in good standing', () async {
-      repo.retryResult = Ok(sheetSession(subscription: true, lookupKey: kElectricianPro));
-      repo.syncResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      await loaded(billingStatus(rank: 2, display: 'PAST_DUE'));
-
-      await c.retryPayment();
-      expect(repo.countOf('retryPayment'), 1);
-      expect(sheet.presented, hasLength(1));
-      expect(toasts.last, 'Payment received — your plan is back in good standing.');
-    });
-  });
-
-  group('cancel / resume', () {
-    test('cancel publishes the server answer and names the end date', () async {
+  group('managing the subscription', () {
+    test('opens the store page the server gave us', () async {
       await loaded(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      repo.cancelResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_CANCELLING'));
+      await c.openStoreManagement();
 
-      await c.cancelSubscription();
-      expect(c.current?.displayState, BillingDisplayState.activeCancelling);
-      expect(c.current?.isSubscribed, isTrue, reason: 'access continues to the period end');
-      expect(c.changedThisVisit, isTrue);
-      expect(toasts.single, 'Cancelled — you keep your plan until 18 October 2026.');
+      expect(opened.single.toString(), kManageUrl);
+      expect(toasts, isEmpty);
     });
 
-    test('a failed cancel changes nothing on screen', () async {
+    test('with no subscription, explains rather than opening nothing', () async {
+      await loaded(billingStatus());
+      await c.openStoreManagement();
+
+      expect(opened, isEmpty);
+      expect(toasts.single, kStoreManagedCopy);
+    });
+
+    test('a store that will not open is reported', () async {
+      Get.delete<ProviderBillingController>(force: true);
+      c = Get.put(
+        ProviderBillingController(repo, store, tokens,
+            toast: toasts.add, confirmSchedule: const [], clock: () => now, isIos: () => false, launch: (_) async => false),
+      );
       await loaded(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      repo.cancelResult = const Err(ApiError.network());
+      await c.openStoreManagement();
 
-      await c.cancelSubscription();
-      expect(c.current?.displayState, BillingDisplayState.activeRenewing);
-      expect(c.changedThisVisit, isFalse);
-      expect(c.working.value, isNull);
-      expect(toasts.single, contains('No internet connection'));
-    });
-
-    test('resume returns to renewing', () async {
-      await loaded(billingStatus(rank: 2, display: 'ACTIVE_CANCELLING'));
-      repo.resumeResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-
-      await c.resumeSubscription();
-      expect(c.current?.displayState, BillingDisplayState.activeRenewing);
-      expect(toasts.single, 'Your plan is active again and renews on 18 October 2026.');
-    });
-
-    test('a second tap while one is in flight is dropped', () async {
-      await loaded(billingStatus(rank: 2, display: 'ACTIVE_RENEWING'));
-      repo.cancelResult = Ok(billingStatus(rank: 2, display: 'ACTIVE_CANCELLING'));
-      await Future.wait([c.cancelSubscription(), c.cancelSubscription()]);
-      expect(repo.countOf('cancel'), 1);
+      expect(toasts.single, 'Could not open the store. Open it and look under Subscriptions.');
     });
   });
 
   group('app lifecycle', () {
-    test('returning while the sheet is open does not re-read', () async {
-      repo.creditsIntentResult = Ok(sheetSession());
+    test('returning while the store sheet is open does not re-read', () async {
       repo.syncResult = Ok(billingStatus(rank: 1, baseRank: 1, credits: 5));
       await loaded(billingStatus());
       now = now.add(const Duration(minutes: 1));
-      sheet.hold = Completer<PaymentSheetOutcome>();
+      store.hold = Completer<PurchaseOutcome>();
 
-      final buying = c.buyCredits(kLeads5);
+      final buying = c.buy(kLeads5);
       await settle(5);
-      expect(sheet.presented, hasLength(1));
+      expect(store.bought, hasLength(1));
 
       c.didChangeAppLifecycleState(AppLifecycleState.resumed);
       await settle(5);
       expect(repo.countOf('status'), 1);
 
-      sheet.hold!.complete(const PaymentCancelled());
+      store.hold!.complete(const PurchaseCancelled());
       await buying;
     });
 
-    test('returning to the app re-reads, but not twice in five seconds', () async {
+    test('coming back from the store re-reads, but not twice in five seconds', () async {
       await loaded(billingStatus());
       c.didChangeAppLifecycleState(AppLifecycleState.resumed);
       await settle(5);
@@ -350,11 +383,10 @@ void main() {
     test('closing the screen stops polling', () async {
       repo.syncResult = Ok(billingStatus());
       repo.statusResult = Ok(billingStatus());
-      repo.creditsIntentResult = Ok(sheetSession());
       Get.delete<ProviderBillingController>(force: true);
       c = build(schedule: const [Duration(milliseconds: 20)]);
       await loaded(billingStatus());
-      await c.buyCredits(kLeads5);
+      await c.buy(kLeads5);
 
       Get.delete<ProviderBillingController>(force: true);
       await settle(50);

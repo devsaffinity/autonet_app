@@ -36,10 +36,26 @@ void main() {
     );
   });
 
-  test('recovery: confirmed once no longer past due', () {
-    final p = pending(PurchaseKind.recovery, key: 'retry');
-    expect(p.isSatisfiedBy(billingStatus(rank: 2, display: 'PAST_DUE')), isFalse);
+  test('restore: confirmed by anything this store account brings back', () {
+    final p = pending(PurchaseKind.restore, key: '', baseline: 0);
+    // Nothing recovered yet.
+    expect(p.isSatisfiedBy(billingStatus()), isFalse);
+    // A subscription came back.
     expect(p.isSatisfiedBy(billingStatus(rank: 2, display: 'ACTIVE_RENEWING')), isTrue);
+    // Or credits did.
+    expect(p.isSatisfiedBy(billingStatus(rank: 1, credits: 3)), isTrue);
+  });
+
+  test('restore by someone already subscribed is not "restored" by that alone', () {
+    final p = PendingConfirmation(
+      kind: PurchaseKind.restore,
+      lookupKey: '',
+      planName: '',
+      baselineCredits: 0,
+      baselineSubscribed: true,
+      startedAt: started,
+    );
+    expect(p.isSatisfiedBy(billingStatus(rank: 2, display: 'ACTIVE_RENEWING')), isFalse);
   });
 
   test('expires after its max age', () {

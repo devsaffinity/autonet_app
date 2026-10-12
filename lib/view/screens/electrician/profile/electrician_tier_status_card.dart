@@ -18,9 +18,7 @@ class ElectricianTierStatusCard extends StatelessWidget {
     required this.status,
     required this.banner,
     required this.enabled,
-    required this.onCancel,
-    required this.onResume,
-    required this.onFixPayment,
+    required this.onManage,
     required this.onBuyCredits,
   });
 
@@ -29,9 +27,9 @@ class ElectricianTierStatusCard extends StatelessWidget {
 
   /// False while a payment or change is in progress — every action is inert.
   final bool enabled;
-  final VoidCallback onCancel;
-  final VoidCallback onResume;
-  final VoidCallback onFixPayment;
+
+  /// Cancel, resume and card changes all happen in the store.
+  final VoidCallback onManage;
   final VoidCallback onBuyCredits;
 
   Color get _pillColor => switch (banner.tone) {
@@ -126,10 +124,10 @@ class ElectricianTierStatusCard extends StatelessWidget {
     }
     final sub = status.subscription;
     final Widget? action = switch (status.displayState) {
-      BillingDisplayState.pastDue => _button('Update Payment', onFixPayment, filled: true),
-      BillingDisplayState.activeCancelling => _button('Resume', onResume, filled: true),
+      BillingDisplayState.pastDue => _button('Fix Payment', onManage, filled: true),
+      BillingDisplayState.activeCancelling => _button('Resume', onManage, filled: true),
       BillingDisplayState.activeRenewing || BillingDisplayState.trialing when status.canCancel =>
-        _button('Cancel Plan', onCancel, danger: true),
+        _button('Manage', onManage),
       _ when status.level.rank == 1 => _button('Buy Credits', onBuyCredits, filled: true, icon: Icons.add_shopping_cart_rounded),
       _ => null,
     };

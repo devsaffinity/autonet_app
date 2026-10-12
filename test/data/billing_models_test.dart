@@ -19,7 +19,7 @@ void main() {
       expect(s.credits, 3);
       expect(s.isSubscribed, isTrue);
       expect(s.displayState, BillingDisplayState.activeRenewing);
-      expect(s.displayDate, DateTime.utc(2026, 10, 18, 12).toLocal());
+      expect(s.displayDate, DateTime.utc(2026, 11, 18, 12).toLocal());
       expect(s.canCancel, isTrue);
       expect(s.canResume, isFalse);
 
@@ -35,9 +35,9 @@ void main() {
       final s = BillingStatus.fromJson(
         statusJson(
           plans: [
-            planJson(kLeads5, name: '5 Lead Credits', pricePence: 5500, credits: 5),
-            planJson(kElectricianPro, name: 'Pro', pricePence: 14900, subscription: true),
-            planJson(kLead1, name: '1 Lead Credit', pricePence: 1200, credits: 1, allowed: false, reason: 'No.'),
+            planJson(kLeads5, name: '5 Lead Credits', pricePence: 5500, productId: 'autonect_test_product', credits: 5),
+            planJson(kElectricianPro, name: 'Pro', pricePence: 14900, productId: 'autonect_test_product', subscription: true),
+            planJson(kLead1, name: '1 Lead Credit', pricePence: 1200, productId: 'autonect_test_product', credits: 1, allowed: false, reason: 'No.'),
           ],
         ),
       );
@@ -56,8 +56,8 @@ void main() {
       final s = BillingStatus.fromJson(
         statusJson(
           plans: [
-            planJson('basic', name: 'Basic', pricePence: 900, subscription: true),
-            {...planJson('plus', name: 'Plus', pricePence: 1900, subscription: true, current: true), 'rank': 20},
+            planJson('basic', name: 'Basic', pricePence: 900, productId: 'autonect_basic', subscription: true),
+            {...planJson('plus', name: 'Plus', pricePence: 1900, productId: 'autonect_plus', subscription: true, current: true), 'rank': 20},
           ],
         ),
       );
@@ -70,7 +70,7 @@ void main() {
         ..['plans'] = [
           {'lookupKey': 'no-price'},
           'garbage',
-          planJson(kLead1, name: '1 Lead Credit', pricePence: 1200, credits: 1),
+          planJson(kLead1, name: '1 Lead Credit', pricePence: 1200, productId: 'autonect_test_product', credits: 1),
         ];
       final s = BillingStatus.fromJson(j);
       expect(s.displayState, BillingDisplayState.none);
@@ -99,64 +99,46 @@ void main() {
   });
 
   group('BillingConfig', () {
-    test('decodes and knows test mode from the key', () {
+    test('decodes the store keys and the entitlement to look for', () {
       final c = BillingConfig.fromJson({
-        'publishableKey': 'pk_test_abc',
-        'merchantDisplayName': 'Autonect',
-        'merchantCountryCode': 'GB',
-        'currency': 'gbp',
-        'livemode': false,
+        'provider': 'revenuecat',
+        'androidApiKey': 'goog_abc',
+        'iosApiKey': 'appl_abc',
+        'entitlement': 'pro',
+        'offering': 'default',
       });
-      expect(c.isTestMode, isTrue);
-      expect(BillingConfig.fromJson({'publishableKey': 'pk_live_abc'}).isTestMode, isFalse);
+      expect(c.androidApiKey, 'goog_abc');
+      expect(c.iosApiKey, 'appl_abc');
+      expect(c.entitlement, 'pro');
+      expect(c.hasAnyKey, isTrue);
     });
 
-    test('refuses a config without a key', () {
-      expect(() => BillingConfig.fromJson({'publishableKey': ''}), throwsFormatException);
+    test('one store configured is enough to sell on that store', () {
+      final c = BillingConfig.fromJson({'androidApiKey': 'goog_abc', 'iosApiKey': null});
+      expect(c.iosApiKey, isNull);
+      expect(c.hasAnyKey, isTrue);
+    });
+
+    test('refuses a config with no store key at all', () {
+      expect(() => BillingConfig.fromJson({'androidApiKey': '', 'iosApiKey': null}), throwsFormatException);
       expect(() => BillingConfig.fromJson(const {}), throwsFormatException);
     });
   });
 
-  group('PaymentSheetSession', () {
-    Map<String, dynamic> body({bool requiresPayment = true, String? clientSecret = 'pi_1_secret'}) => {
-      'mode': 'payment',
-      'requiresPayment': requiresPayment,
-      'clientSecret': clientSecret,
-      'paymentIntentId': 'pi_1',
-      'subscriptionId': null,
-      'customerId': 'cus_1',
-      'customerSessionClientSecret': 'cuss_1',
-      'ephemeralKeySecret': null,
-      'publishableKey': 'pk_test_abc',
-      'amountPence': 5500,
-      'plan': {'lookupKey': kLeads5, 'name': '5 Lead Credits'},
-    };
-
-    test('decodes a credits sheet', () {
-      final s = PaymentSheetSession.fromJson(body());
-      expect(s.isSubscription, isFalse);
-      expect(s.requiresPayment, isTrue);
-      expect(s.paymentIntentId, 'pi_1');
-      expect(s.customerSessionClientSecret, 'cuss_1');
-      expect(s.planLookupKey, kLeads5);
-      expect(s.amountPence, 5500);
+  group('store product ids', () {
+    test('an offer knows what each store sells it as', () {
+      final s = BillingStatus.fromJson(
+        statusJson(plans: [planJson(kLeads5, name: '5', pricePence: 5500, productId: 'autonect_leads_5', credits: 5)]),
+      );
+      final offer = s.offer(kLeads5)!;
+      expect(offer.storeProductId(ios: false), 'autonect_leads_5');
+      expect(offer.storeProductId(ios: true), 'autonect_leads_5');
     });
 
-    test('a subscription sheet', () {
-      final s = PaymentSheetSession.fromJson({...body(), 'mode': 'subscription', 'subscriptionId': 'sub_1'});
-      expect(s.isSubscription, isTrue);
-      expect(s.subscriptionId, 'sub_1');
-    });
-
-    test('a payment owed with no client secret is refused', () {
-      expect(() => PaymentSheetSession.fromJson(body(clientSecret: null)), throwsFormatException);
-      expect(() => PaymentSheetSession.fromJson(body(clientSecret: '')), throwsFormatException);
-    });
-
-    test('nothing owed needs no client secret', () {
-      final s = PaymentSheetSession.fromJson(body(requiresPayment: false, clientSecret: null));
-      expect(s.requiresPayment, isFalse);
-      expect(s.clientSecret, isNull);
+    test('the manage URL comes from the server, not built in the app', () {
+      final s = BillingStatus.fromJson(statusJson(rank: 2, display: 'ACTIVE_RENEWING'));
+      expect(s.manageUrl, kManageUrl);
+      expect(BillingStatus.fromJson(statusJson()).manageUrl, isNull);
     });
   });
 }

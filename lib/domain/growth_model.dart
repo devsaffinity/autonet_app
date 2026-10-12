@@ -10,9 +10,9 @@ import 'package:autonect/domain/money_format.dart';
 ///
 /// The supplier PICKS one, and the choice is sent with the registration and
 /// stored on their profile. It is a stated preference, not a purchase: nothing
-/// charges during registration. Paying happens after approval, in Stripe's
-/// in-app payment sheet on Plans & Billing, and the reviewer gets an answer
-/// instead of having to ask.
+/// charges during registration. Paying happens after approval, through the
+/// app store on Plans & Billing, and the reviewer gets an answer instead of
+/// having to ask.
 enum GrowthModel {
   subscription(
     wire: 'SUBSCRIPTION',
@@ -63,7 +63,7 @@ enum GrowthModel {
   /// plan is the subscription, a plan granting credits is the credit pack.
   ///
   /// COMMISSION returns null on purpose. There is no commission machinery
-  /// anywhere — no Plan row, no Stripe Connect, no payout flow, and no money
+  /// anywhere — no Plan row, no marketplace payouts, no payout flow, and no money
   /// movement on orders to take a percentage of. The backend's own standards
   /// record the decision as locked. It is drawn because the design draws it,
   /// and it is safe to draw only because nothing on this screen is selectable.

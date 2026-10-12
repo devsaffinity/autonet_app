@@ -3,68 +3,88 @@ import 'dart:async';
 import 'package:autonect/controller/base/api_controller.dart';
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/billing_checkout.dart';
 import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/data/repositories/billing_repository.dart';
 import 'package:autonect/domain/billing_confirmation.dart';
-import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/failure_copy.dart';
 import 'package:autonect/domain/view_state.dart';
-import 'package:autonect/services/payment_sheet_gateway.dart';
+import 'package:autonect/services/purchase_gateway.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-const String kPaymentsUnsupportedCopy = 'Payments are only available in the Autonect mobile app.';
+const String kPurchasesUnsupportedCopy = 'Purchases are only available in the Autonect mobile app.';
 const String kProcessingSlowCopy =
-    "Your payment is still being confirmed. We'll update your plan as soon as it lands.";
+    "Your purchase is still being confirmed. We'll update your plan as soon as it lands.";
+const String kStoreManagedCopy = 'Your subscription is managed by the store that charges you.';
 
 /// The plans screen's brain, for BOTH provider roles.
 ///
-/// PURCHASE = server verdict → payment sheet → read back from the server.
-/// The sheet saying "done" only means the card was accepted; the purchase is
+/// PURCHASE = server verdict → store sheet → read back from the server. The
+/// store saying "done" only means it took the money; the purchase is
 /// confirmed when `/sync` or `/status` says so, polled on a short backoff.
 /// Nothing here decides what may be bought — each offer carries the server's
-/// verdict, so an upgrade-only rule change needs no app release.
+/// verdict, so a rule change needs no app release.
+///
+/// Cancelling and resuming are NOT here: Google and Apple own the
+/// subscription, so the screen deep-links to the store instead of pretending.
 ///
 /// Scoped to the plans route (not permanent), so it is disposed on leaving —
 /// polling stops, and one account's billing never survives into the next.
 class ProviderBillingController extends ApiController with WidgetsBindingObserver {
   ProviderBillingController(
     this._repo,
-    this._sheet, {
+    this._store,
+    this._tokens, {
     super.toast,
     super.showBusy,
     super.hideBusy,
     List<Duration> confirmSchedule = kConfirmSchedule,
     DateTime Function() clock = DateTime.now,
+    bool Function()? isIos,
+    Future<bool> Function(Uri)? launch,
   }) : _schedule = confirmSchedule,
-       _clock = clock;
+       _clock = clock,
+       _isIos = isIos ?? (() => defaultTargetPlatform == TargetPlatform.iOS),
+       _launch = launch ?? ((uri) => launchUrl(uri, mode: LaunchMode.externalApplication));
 
   static ProviderBillingController ensure() => Get.isRegistered<ProviderBillingController>()
       ? Get.find<ProviderBillingController>()
-      : Get.put(ProviderBillingController(Get.find<BillingRepository>(), Get.find<PaymentSheetGateway>()));
+      : Get.put(
+          ProviderBillingController(
+            Get.find<BillingRepository>(),
+            Get.find<PurchaseGateway>(),
+            Get.find<TokenStore>(),
+          ),
+        );
 
   final BillingRepository _repo;
-  final PaymentSheetGateway _sheet;
+  final PurchaseGateway _store;
+  final TokenStore _tokens;
   final List<Duration> _schedule;
   final DateTime Function() _clock;
+  final bool Function() _isIos;
+  final Future<bool> Function(Uri) _launch;
 
   static const StateSlot _statusSlot = StateSlot('billingStatus');
 
   final Rx<ViewState<BillingStatus>> status = Rx<ViewState<BillingStatus>>(const Loading());
 
-  /// The offer (lookup key) or action ('cancel', 'resume', 'retry') in
-  /// progress; null when idle. While set, every billing button is inert.
+  /// The offer (lookup key) or action ('restore') in progress; null when
+  /// idle. While set, every billing button is inert.
   final RxnString working = RxnString();
 
-  /// Paid in the sheet, not yet confirmed by the server.
+  /// Bought in the store, not yet confirmed by the server.
   final Rxn<PendingConfirmation> awaiting = Rxn<PendingConfirmation>();
 
   /// Something changed on this visit — the caller refreshes profile/dashboard on leaving.
   bool changedThisVisit = false;
 
   BillingConfig? _config;
-  bool _inSheet = false;
+  bool _inStore = false;
   int _pollGen = 0;
   Timer? _timer;
   DateTime? _lastRefresh;
@@ -89,12 +109,12 @@ class ProviderBillingController extends ApiController with WidgetsBindingObserve
     super.onClose();
   }
 
-  /// Back from Google Pay, a bank app, or the background: re-read. Ignored
-  /// while the sheet is open — on Android it is its own activity, and its
+  /// Back from the store, or from managing a subscription in it: re-read.
+  /// Ignored while the store sheet is up — it is its own activity, and its
   /// comings and goings are not the user returning.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || _inSheet || isWorking) return;
+    if (state != AppLifecycleState.resumed || _inStore || isWorking) return;
     final last = _lastRefresh;
     if (awaiting.value != null || last == null || _clock().difference(last) > const Duration(seconds: 5)) {
       unawaited(reload());
@@ -137,128 +157,148 @@ class ProviderBillingController extends ApiController with WidgetsBindingObserve
     }
   }
 
-  Future<void> buyCredits(String lookupKey) =>
-      _purchase(PurchaseKind.credits, lookupKey, () => _repo.createCreditsIntent(lookupKey));
-
-  /// New subscription or an upgrade — the server decides which.
-  Future<void> subscribe(String lookupKey) =>
-      _purchase(PurchaseKind.subscription, lookupKey, () => _repo.createSubscription(lookupKey));
-
-  /// Past due: pay the failed renewal (and save a new card) in the sheet.
-  Future<void> retryPayment() => _purchase(PurchaseKind.recovery, 'retry', _repo.retryPayment);
-
-  Future<void> _purchase(
-    PurchaseKind kind,
-    String key,
-    Future<ApiResult<PaymentSheetSession>> Function() create,
-  ) async {
+  /// Buy a plan — a credit pack or a subscription; the store sheet decides which.
+  Future<void> buy(String lookupKey) async {
     // One at a time, decided synchronously: a double tap is a no-op.
     if (isWorking || awaiting.value != null) return;
-    if (!_sheet.isSupported) return toast(kPaymentsUnsupportedCopy);
+    if (!_store.isSupported) return toast(kPurchasesUnsupportedCopy);
     final before = current;
-    if (kind != PurchaseKind.recovery) {
-      final offer = before?.offer(key);
-      if (offer == null || !offer.allowed) return toast(offer?.reason ?? "That plan isn't available right now.");
+    final offer = before?.offer(lookupKey);
+    if (offer == null || !offer.allowed) {
+      return toast(offer?.reason ?? "That plan isn't available right now.");
     }
-    working.value = key;
+    final productId = offer.storeProductId(ios: _isIos());
+    if (productId == null || productId.isEmpty) {
+      return toast("That plan isn't on sale in your store yet.");
+    }
+    working.value = lookupKey;
     try {
-      final config = await _ensureConfig();
-      if (config == null) return;
-      final created = await create();
-      final PaymentSheetSession session;
-      switch (created) {
-        case Err(:final error):
-          _surface(error);
-          if (error.code == ApiErrorCode.conflict) await reload(); // the screen was stale
-          return;
-        case Ok(:final value):
-          session = value;
+      if (!await _ensureConfigured()) return;
+      _inStore = true;
+      final outcome = await _store.buy(productId);
+      _inStore = false;
+      switch (outcome) {
+        case PurchaseCancelled():
+          return toast('Purchase cancelled — you have not been charged.');
+        case PurchaseFailed(:final message):
+          return toast(message ?? 'The purchase did not go through. Please try again.');
+        case PurchaseUnavailable(:final message):
+          return toast(message ?? "That plan isn't available in your store account yet.");
+        case PurchaseCompleted():
+          break;
       }
-      if (session.requiresPayment) {
-        _inSheet = true;
-        final outcome = await _sheet.present(session, config);
-        _inSheet = false;
-        switch (outcome) {
-          case PaymentCancelled():
-            return toast('Payment cancelled — you have not been charged.');
-          case PaymentFailed(:final message):
-            return toast(message ?? 'The payment did not go through. Please try again or use another card.');
-          case PaymentCompleted():
-            break;
-        }
-      }
-      changedThisVisit = true;
-      awaiting.value = PendingConfirmation(
-        kind: kind,
-        lookupKey: session.planLookupKey.isNotEmpty ? session.planLookupKey : key,
-        planName: session.planName,
-        baselineCredits: before?.credits ?? 0,
-        startedAt: _clock(),
-      );
-      await runRead(
-        _statusSlot,
-        () => _repo.sync(
-          paymentIntentId: session.isSubscription ? null : session.paymentIntentId,
-          subscriptionId: session.subscriptionId,
+      await _confirm(
+        PendingConfirmation(
+          kind: offer.isSubscription ? PurchaseKind.subscription : PurchaseKind.credits,
+          lookupKey: lookupKey,
+          planName: offer.name,
+          baselineCredits: before?.credits ?? 0,
+          baselineSubscribed: before?.isSubscribed ?? false,
+          startedAt: _clock(),
         ),
-        _onStatus,
       );
-      if (awaiting.value != null) _startPolling();
     } finally {
-      _inSheet = false;
+      _inStore = false;
       working.value = null;
     }
   }
 
-  Future<void> cancelSubscription() => _lifecycle('cancel', _repo.cancelSubscription, (s) {
-    final end = s.subscription?.cancelAt ?? s.subscription?.currentPeriodEnd;
-    return end == null ? 'Your plan has been cancelled.' : 'Cancelled — you keep your plan until ${formatLongDate(end)}.';
-  });
-
-  Future<void> resumeSubscription() => _lifecycle('resume', _repo.resumeSubscription, (s) {
-    final next = s.subscription?.currentPeriodEnd;
-    return next == null ? 'Your plan is active again.' : 'Your plan is active again and renews on ${formatLongDate(next)}.';
-  });
-
-  Future<void> _lifecycle(
-    String key,
-    Future<ApiResult<BillingStatus>> Function() call,
-    String Function(BillingStatus) done,
-  ) async {
-    if (isWorking) return;
-    working.value = key;
+  /// Bring back what this store account already owns: a reinstall, a new
+  /// phone, or a purchase the webhook never delivered. Apple requires it.
+  Future<void> restorePurchases() async {
+    if (isWorking || awaiting.value != null) return;
+    if (!_store.isSupported) return toast(kPurchasesUnsupportedCopy);
+    final before = current;
+    working.value = 'restore';
     try {
-      await runWrite<BillingStatus, void>(_statusSlot, call, (r, claim) {
-        switch (r) {
-          case Ok(:final value):
-            claim.publish(() => _publish(value));
-            changedThisVisit = true;
-            toast(done(value));
-          case Err(:final error):
-            _surface(error);
-        }
-      }, silent: true);
+      if (!await _ensureConfigured()) return;
+      _inStore = true;
+      final outcome = await _store.restore();
+      _inStore = false;
+      switch (outcome) {
+        case PurchaseCompleted():
+          break;
+        case PurchaseCancelled():
+          return;
+        case PurchaseFailed(:final message):
+          return toast(message ?? 'Could not reach the store. Please try again.');
+        case PurchaseUnavailable(:final message):
+          return toast(message ?? kPurchasesUnsupportedCopy);
+      }
+      await _confirm(
+        PendingConfirmation(
+          kind: PurchaseKind.restore,
+          lookupKey: '',
+          planName: '',
+          baselineCredits: before?.credits ?? 0,
+          baselineSubscribed: before?.isSubscribed ?? false,
+          startedAt: _clock(),
+        ),
+        quietCopy: 'Nothing to restore on this store account.',
+      );
     } finally {
+      _inStore = false;
       working.value = null;
     }
   }
 
-  Future<BillingConfig?> _ensureConfig() async {
+  /// Send the customer to the store page that owns their subscription.
+  ///
+  /// This is the whole of "cancel", "resume" and "update card" now: Google
+  /// and Apple do not let a server do any of it, so the honest thing is to
+  /// open their page. The lifecycle hook re-reads status when they come back.
+  Future<void> openStoreManagement() async {
+    final url = current?.manageUrl;
+    final uri = url == null ? null : Uri.tryParse(url);
+    if (uri == null) return toast(kStoreManagedCopy);
+    _inStore = true;
+    try {
+      if (!await _launch(uri)) {
+        toast('Could not open the store. Open it and look under Subscriptions.');
+      }
+    } finally {
+      _inStore = false;
+    }
+  }
+
+  /// Tell the server to re-read the store, then wait for it to agree.
+  Future<void> _confirm(PendingConfirmation pending, {String? quietCopy}) async {
+    changedThisVisit = true;
+    awaiting.value = pending;
+    await runRead(_statusSlot, _repo.sync, _onStatus);
+    if (awaiting.value == null) return;
+    if (quietCopy != null && !(current?.isProcessing ?? false)) {
+      // Restore found nothing: say so instead of spinning for 30 seconds.
+      awaiting.value = null;
+      return toast(quietCopy);
+    }
+    _startPolling();
+  }
+
+  Future<bool> _ensureConfigured() async {
     var config = _config;
     if (config == null) {
       switch (await _repo.config()) {
         case Err(:final error):
           _surface(error);
-          return null;
+          return false;
         case Ok(:final value):
           config = value;
       }
     }
-    if (!await _sheet.configure(config)) {
-      toast('Payments could not start on this device. Please try again.');
-      return null;
+    final userId = _tokens.user?.id;
+    if (userId == null) {
+      toast('Please sign in again to make a purchase.');
+      return false;
     }
-    return _config = config;
+    // The App User ID is our user id, so entitlements follow the ACCOUNT, not
+    // the phone — a reinstall or a new device finds the same subscription.
+    if (!await _store.configure(config, appUserId: userId)) {
+      toast('Purchases could not start on this device. Please try again.');
+      return false;
+    }
+    _config = config;
+    return true;
   }
 
   void _surface(ApiError error) {
@@ -267,9 +307,9 @@ class ProviderBillingController extends ApiController with WidgetsBindingObserve
   }
 
   String _confirmedCopy(PendingConfirmation p, BillingStatus s) => switch (p.kind) {
-    PurchaseKind.credits => 'Payment received — ${s.credits} credit${s.credits == 1 ? '' : 's'} available.',
+    PurchaseKind.credits => 'Purchase received — ${s.credits} credit${s.credits == 1 ? '' : 's'} available.',
     PurchaseKind.subscription => '${p.planName.isEmpty ? 'Your plan' : p.planName} is active. Thank you!',
-    PurchaseKind.recovery => 'Payment received — your plan is back in good standing.',
+    PurchaseKind.restore => 'Your purchases have been restored.',
   };
 
   void _startPolling() {

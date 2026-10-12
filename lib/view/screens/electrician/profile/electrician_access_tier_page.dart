@@ -4,7 +4,6 @@ import 'package:autonect/controller/billing/provider_billing_controller.dart';
 import 'package:autonect/controller/buyer/profile_controller.dart';
 import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/domain/billing_display.dart';
-import 'package:autonect/domain/date_format.dart';
 import 'package:autonect/domain/money_format.dart';
 import 'package:autonect/domain/plan_cards.dart';
 import 'package:autonect/view/screens/electrician/profile/electrician_tier_status_card.dart';
@@ -21,8 +20,9 @@ import 'package:get/get.dart';
 ///
 /// Everything it shows and offers comes from `GET /v1/billing/status` through
 /// [ProviderBillingController] — the server decides each plan's price and
-/// whether it may be bought (upgrade-only), and payments happen in Stripe's
-/// payment sheet INSIDE the app.
+/// whether it may be bought (upgrade-only), and buying happens in the Play
+/// Store or App Store. Cancelling happens there too, so this screen links out
+/// rather than pretending to do it.
 class ElectricianAccessTierPage extends StatefulWidget {
   const ElectricianAccessTierPage({super.key});
 
@@ -61,16 +61,13 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
           headline: '${formatPriceTag(offer.pricePence)} / month',
           message:
               '• Unlimited high-intent booking leads\n• Gold PRO Specialist badge in search directory\n'
-              '• Advanced analytics & performance dashboard\n• 24/7 Priority concierge support',
-          confirmText: 'Continue to payment',
+              '• Advanced analytics & performance dashboard\n• 24/7 Priority concierge support\n\n'
+              'Billed by the app store, renewing monthly until you cancel there.',
+          confirmText: 'Continue',
         );
-        if (ok && mounted) await c.subscribe(offer.lookupKey);
-      case TierAction.manage:
+        if (ok && mounted) await c.buy(offer.lookupKey);
+      case TierAction.manageInStore:
         await _manage(s);
-      case TierAction.resume:
-        await _resume(s);
-      case TierAction.fixPayment:
-        await c.retryPayment();
       case TierAction.buyCredits:
         _openPacks();
       case TierAction.none:
@@ -80,45 +77,29 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
     }
   }
 
+  /// Everything the store owns: cancel, resume, change card.
   Future<void> _manage(BillingStatus s) async {
-    final renews = s.subscription?.currentPeriodEnd;
-    final choice = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => billingChoiceDialog(
-        ctx,
-        title: 'Active Pro Subscription',
-        message:
-            'Unlimited leads and PRO directory status.${renews == null ? '' : ' Renews on ${formatLongDate(renews)}.'}',
-        keepText: 'Keep Subscription',
-        leaveText: 'Cancel Pro',
-      ),
-    );
-    if (choice == true && mounted) await _cancel(s);
-  }
-
-  Future<void> _cancel(BillingStatus s) async {
+    final cancelling = s.displayState == BillingDisplayState.activeCancelling;
+    final pastDue = s.displayState == BillingDisplayState.pastDue;
     final ok = await confirmBillingDialog(
       context,
-      title: 'Cancel Pro Subscription',
-      message: cancelWarning(s, BillingAudience.electrician),
-      confirmText: 'Confirm Cancellation',
-      destructive: true,
+      title: pastDue
+          ? 'Update Payment'
+          : cancelling
+              ? 'Resume Pro'
+              : 'Manage Subscription',
+      message: pastDue
+          ? 'Your last payment failed. Update your payment method in the store to keep Pro.'
+          : cancelling
+              ? resumeWarning(s)
+              : cancelWarning(s, BillingAudience.electrician),
+      confirmText: 'Open Store',
     );
-    if (ok && mounted) await c.cancelSubscription();
-  }
-
-  Future<void> _resume(BillingStatus s) async {
-    final ok = await confirmBillingDialog(
-      context,
-      title: 'Resume Pro',
-      message: resumeWarning(s),
-      confirmText: 'Resume',
-    );
-    if (ok && mounted) await c.resumeSubscription();
+    if (ok && mounted) await c.openStoreManagement();
   }
 
   void _openPacks() => Get.bottomSheet(
-    CreditPacksSheet(audience: BillingAudience.electrician, onSelect: c.buyCredits),
+    CreditPacksSheet(audience: BillingAudience.electrician, onSelect: c.buy),
     isScrollControlled: true,
   );
 
@@ -151,9 +132,7 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
                         status: s,
                         banner: describeBilling(s, BillingAudience.electrician, awaiting: awaiting),
                         enabled: !busy,
-                        onCancel: () => _cancel(s),
-                        onResume: () => _resume(s),
-                        onFixPayment: c.retryPayment,
+                        onManage: () => _manage(s),
                         onBuyCredits: _openPacks,
                       ),
                       const MyText(text: 'Select Your Plan', size: 18, weight: FontWeight.w800, color: kBlackColor),
@@ -168,12 +147,13 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
                         paddingBottom: 20,
                       ),
                       AccessTier(cards: electricianTierCards(s, busy: busy), onAction: _onAction),
+                      _RestoreRow(enabled: !busy, onTap: c.restorePurchases),
                     ],
                   ),
                 ),
               ),
             ),
-            // Creating the payment on the server, before the sheet opens.
+            // Talking to the store, before its sheet appears.
             if (working != null && awaiting == null)
               Positioned.fill(
                 child: Container(
@@ -186,4 +166,25 @@ class _ElectricianAccessTierPageState extends State<ElectricianAccessTierPage> {
       }),
     );
   }
+}
+
+/// Apple requires a way to recover purchases already made; Android users hit
+/// it after a reinstall or a new phone.
+class _RestoreRow extends StatelessWidget {
+  const _RestoreRow({required this.enabled, required this.onTap});
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: TextButton.icon(
+        onPressed: enabled ? onTap : null,
+        icon: const Icon(Icons.restore_rounded, size: 18, color: kSecondaryColor),
+        label: const MyText(text: 'Restore purchases', size: 13, weight: FontWeight.w600, color: kSecondaryColor),
+      ),
+    ),
+  );
 }

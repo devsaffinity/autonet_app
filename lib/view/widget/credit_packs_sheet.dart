@@ -10,7 +10,7 @@ import 'package:get/get.dart';
 
 /// The credit packs on offer, straight from the server's status — prices,
 /// packs and whether each may be bought right now. Tapping one closes the
-/// sheet and opens Stripe's payment sheet.
+/// sheet and opens the store's purchase sheet.
 ///
 /// Its OWN Obx: a bottom sheet is a separate route, so the page's Obx would
 /// never rebuild it.

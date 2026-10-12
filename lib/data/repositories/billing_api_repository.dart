@@ -13,7 +13,6 @@ class BillingApiRepository implements BillingRepository {
 
   static Map<String, dynamic> _map(Object? d) => (d as Map).cast<String, dynamic>();
   static BillingStatus _status(Object? d) => BillingStatus.fromJson(_map(d));
-  static PaymentSheetSession _session(Object? d) => PaymentSheetSession.fromJson(_map(d));
 
   @override
   Future<ApiResult<List<BillingPlan>>> plans() => _c.send(
@@ -33,45 +32,11 @@ class BillingApiRepository implements BillingRepository {
   Future<ApiResult<BillingStatus>> status() =>
       _c.send(method: 'GET', path: '/v1/billing/status', decode: _status);
 
+  /// No body: what the app thinks it bought does not matter, the server asks
+  /// RevenueCat. Answers with the status that results.
   @override
-  Future<ApiResult<BillingStatus>> sync({String? paymentIntentId, String? subscriptionId}) => _c.send(
-    method: 'POST',
-    path: '/v1/billing/sync',
-    body: {'paymentIntentId': ?paymentIntentId, 'subscriptionId': ?subscriptionId},
-    decode: _status,
-  );
-
-  @override
-  Future<ApiResult<PaymentSheetSession>> createCreditsIntent(String lookupKey) => _c.send(
-    method: 'POST',
-    path: '/v1/billing/credits/intent',
-    body: {'lookupKey': lookupKey},
-    decode: _session,
-  );
-
-  @override
-  Future<ApiResult<PaymentSheetSession>> createSubscription(String lookupKey) => _c.send(
-    method: 'POST',
-    path: '/v1/billing/subscriptions',
-    body: {'lookupKey': lookupKey},
-    decode: _session,
-  );
-
-  @override
-  Future<ApiResult<PaymentSheetSession>> retryPayment() => _c.send(
-    method: 'POST',
-    path: '/v1/billing/subscriptions/retry-payment',
-    body: const <String, dynamic>{},
-    decode: _session,
-  );
-
-  @override
-  Future<ApiResult<BillingStatus>> cancelSubscription() =>
-      _c.send(method: 'POST', path: '/v1/billing/subscriptions/cancel', decode: _status);
-
-  @override
-  Future<ApiResult<BillingStatus>> resumeSubscription() =>
-      _c.send(method: 'POST', path: '/v1/billing/subscriptions/resume', decode: _status);
+  Future<ApiResult<BillingStatus>> sync() =>
+      _c.send(method: 'POST', path: '/v1/billing/sync', body: const <String, dynamic>{}, decode: _status);
 
   @override
   Future<ApiResult<Map<String, dynamic>>> wallet() =>

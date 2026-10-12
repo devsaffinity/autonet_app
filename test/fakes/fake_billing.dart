@@ -2,16 +2,18 @@ import 'dart:async';
 
 import 'package:autonect/data/core/api_error.dart';
 import 'package:autonect/data/core/api_result.dart';
+import 'package:autonect/data/core/token_store.dart';
+import 'package:autonect/data/models/auth_user.dart';
 import 'package:autonect/data/models/billing_checkout.dart';
 import 'package:autonect/data/models/billing_plan.dart';
 import 'package:autonect/data/models/billing_status.dart';
 import 'package:autonect/data/repositories/billing_repository.dart';
-import 'package:autonect/services/payment_sheet_gateway.dart';
+import 'package:autonect/services/purchase_gateway.dart';
 
-/// In-memory billing for controller and screen tests: no ApiClient, no
-/// platform channel. Records `calls`, because what these tests mostly assert
-/// is WHETHER the server was asked — a double tap must not create two
-/// PaymentIntents, a cancelled sheet must not sync.
+/// In-memory billing for controller and screen tests: no ApiClient, no store,
+/// no platform channel. Records `calls`, because what these tests mostly
+/// assert is WHETHER the server was asked — a double tap must not open two
+/// store sheets, and a cancelled purchase must not sync.
 ApiResult<T> _none<T>(String what) => Err<T>(ApiError.malformed('no $what scripted'));
 
 class FakeBillingRepository implements BillingRepository {
@@ -26,14 +28,6 @@ class FakeBillingRepository implements BillingRepository {
 
   /// `/sync` — left null, it answers like the next `/status`.
   ApiResult<BillingStatus>? syncResult;
-  ({String? paymentIntentId, String? subscriptionId})? lastSync;
-
-  ApiResult<PaymentSheetSession>? creditsIntentResult;
-  ApiResult<PaymentSheetSession>? subscriptionResult;
-  ApiResult<PaymentSheetSession>? retryResult;
-  ApiResult<BillingStatus>? cancelResult;
-  ApiResult<BillingStatus>? resumeResult;
-  String? lastLookupKey;
 
   List<Map<String, dynamic>> ledger = [];
   int walletCredits = 0;
@@ -62,42 +56,9 @@ class FakeBillingRepository implements BillingRepository {
   }
 
   @override
-  Future<ApiResult<BillingStatus>> sync({String? paymentIntentId, String? subscriptionId}) async {
+  Future<ApiResult<BillingStatus>> sync() async {
     calls.add('sync');
-    lastSync = (paymentIntentId: paymentIntentId, subscriptionId: subscriptionId);
     return syncResult ?? _nextStatus();
-  }
-
-  @override
-  Future<ApiResult<PaymentSheetSession>> createCreditsIntent(String lookupKey) async {
-    calls.add('createCreditsIntent');
-    lastLookupKey = lookupKey;
-    return creditsIntentResult ?? _none('credits intent');
-  }
-
-  @override
-  Future<ApiResult<PaymentSheetSession>> createSubscription(String lookupKey) async {
-    calls.add('createSubscription');
-    lastLookupKey = lookupKey;
-    return subscriptionResult ?? _none('subscription');
-  }
-
-  @override
-  Future<ApiResult<PaymentSheetSession>> retryPayment() async {
-    calls.add('retryPayment');
-    return retryResult ?? _none('retry');
-  }
-
-  @override
-  Future<ApiResult<BillingStatus>> cancelSubscription() async {
-    calls.add('cancel');
-    return cancelResult ?? _none('cancel');
-  }
-
-  @override
-  Future<ApiResult<BillingStatus>> resumeSubscription() async {
-    calls.add('resume');
-    return resumeResult ?? _none('resume');
   }
 
   @override
@@ -107,36 +68,65 @@ class FakeBillingRepository implements BillingRepository {
   }
 }
 
-/// The payment sheet, scripted. [hold] keeps it "open" until the test
+/// The store, scripted. [hold] keeps the sheet "open" until the test
 /// completes it — how a test observes the app while the customer is paying.
-class FakePaymentSheetGateway implements PaymentSheetGateway {
-  FakePaymentSheetGateway({this.isSupported = true});
+class FakePurchaseGateway implements PurchaseGateway {
+  FakePurchaseGateway({this.isSupported = true});
 
   @override
   bool isSupported;
 
   bool configureOk = true;
-  PaymentSheetOutcome outcome = const PaymentCompleted();
-  Completer<PaymentSheetOutcome>? hold;
+  PurchaseOutcome outcome = const PurchaseCompleted();
+  PurchaseOutcome? restoreOutcome;
+  Completer<PurchaseOutcome>? hold;
 
-  final List<PaymentSheetSession> presented = [];
+  final List<String> bought = [];
   int configured = 0;
+  int restores = 0;
+  String? appUserId;
 
   @override
-  Future<bool> configure(BillingConfig config) async {
+  Future<bool> configure(BillingConfig config, {required String appUserId}) async {
     configured++;
+    this.appUserId = appUserId;
     return configureOk;
   }
 
   @override
-  Future<PaymentSheetOutcome> present(PaymentSheetSession session, BillingConfig config) async {
-    presented.add(session);
+  Future<PurchaseOutcome> buy(String storeProductId) async {
+    bought.add(storeProductId);
     final h = hold;
     return h == null ? outcome : h.future;
   }
+
+  @override
+  Future<PurchaseOutcome> restore() async {
+    restores++;
+    return restoreOutcome ?? outcome;
+  }
 }
 
-const BillingConfig testBillingConfig = BillingConfig(publishableKey: 'pk_test_fake');
+/// A TokenStore that only knows who is signed in — the App User ID RevenueCat
+/// is configured with.
+class FakeTokenStore implements TokenStore {
+  FakeTokenStore({this.userId = 'user-1'});
+
+  String? userId;
+
+  @override
+  AuthUser? get user => userId == null
+      ? null
+      : AuthUser(id: userId!, email: 'provider@test.local', role: 'ELECTRICIAN', status: 'ACTIVE', name: 'Jack');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+const BillingConfig testBillingConfig = BillingConfig(
+  androidApiKey: 'goog_test_key',
+  iosApiKey: 'appl_test_key',
+);
 
 // ── Wire fixtures, shaped exactly like `GET /v1/billing/status` ──────────────
 
@@ -146,10 +136,19 @@ const String kLeads5 = 'electrician-leads-5';
 const String kSupplierPro = 'supplier-monthly';
 const String kSupplierPack = 'credits-10';
 
+const String kProProduct = 'autonect_electrician_pro_monthly';
+const String kLead1Product = 'autonect_electrician_leads_1';
+const String kLeads5Product = 'autonect_electrician_leads_5';
+const String kSupplierProProduct = 'autonect_supplier_unlimited_monthly';
+const String kSupplierPackProduct = 'autonect_supplier_credits_10';
+
+const String kManageUrl = 'https://play.google.com/store/account/subscriptions?sku=x&package=y';
+
 Map<String, dynamic> planJson(
   String lookupKey, {
   required String name,
   required int pricePence,
+  required String productId,
   int? credits,
   bool subscription = false,
   bool current = false,
@@ -164,6 +163,8 @@ Map<String, dynamic> planJson(
   'credits': credits,
   'level': subscription ? 'SUBSCRIPTION' : 'CREDITS',
   'rank': subscription ? 10 : 0,
+  'androidProductId': productId,
+  'iosProductId': productId,
   'current': current,
   'action': allowed ? (action ?? (subscription ? 'SUBSCRIBE' : 'BUY_CREDITS')) : null,
   'allowed': allowed,
@@ -183,24 +184,24 @@ Map<String, dynamic> _level(bool supplier, int rank) => {
 };
 
 /// The plans a user at [rank] is offered: packs are refused while subscribed
-/// (Pro → pack is a downgrade), Pro is refused once subscribed.
+/// (Pro already includes them), Pro is refused once subscribed.
 List<Map<String, dynamic>> defaultPlans({required bool supplier, required int rank}) {
   final subscribed = rank >= 2;
   const packReason = 'Your plan already includes unlimited leads.';
   if (supplier) {
     return [
-      planJson(kSupplierPro, name: 'Supplier Unlimited (Monthly)', pricePence: 29900, subscription: true, current: subscribed, allowed: !subscribed, reason: 'You already have this plan.'),
-      planJson(kSupplierPack, name: '10 Credit Pack', pricePence: 1000, credits: 10, allowed: !subscribed, reason: packReason),
+      planJson(kSupplierPro, name: 'Supplier Unlimited (Monthly)', pricePence: 29900, productId: kSupplierProProduct, subscription: true, current: subscribed, allowed: !subscribed, reason: 'You already have this plan.'),
+      planJson(kSupplierPack, name: '10 Credit Pack', pricePence: 1000, productId: kSupplierPackProduct, credits: 10, allowed: !subscribed, reason: packReason),
     ];
   }
   return [
-    planJson(kElectricianPro, name: 'Electrician Pro (Monthly)', pricePence: 14900, subscription: true, current: subscribed, allowed: !subscribed, reason: 'You already have this plan.'),
-    planJson(kLead1, name: '1 Lead Credit', pricePence: 1200, credits: 1, allowed: !subscribed, reason: packReason),
-    planJson(kLeads5, name: '5 Lead Credits', pricePence: 5500, credits: 5, allowed: !subscribed, reason: packReason),
+    planJson(kElectricianPro, name: 'Electrician Pro (Monthly)', pricePence: 14900, productId: kProProduct, subscription: true, current: subscribed, allowed: !subscribed, reason: 'You already have this plan.'),
+    planJson(kLead1, name: '1 Lead Credit', pricePence: 1200, productId: kLead1Product, credits: 1, allowed: !subscribed, reason: packReason),
+    planJson(kLeads5, name: '5 Lead Credits', pricePence: 5500, productId: kLeads5Product, credits: 5, allowed: !subscribed, reason: packReason),
   ];
 }
 
-/// `display.state` → the subscription row the server would send with it.
+/// `display.state` -> the subscription row the server would send with it.
 Map<String, dynamic>? _subscriptionFor(String display, {required bool supplier, required String periodEnd}) {
   final (status, cancelling) = switch (display) {
     'ACTIVE_RENEWING' => ('ACTIVE', false),
@@ -232,7 +233,7 @@ Map<String, dynamic> statusJson({
   int baseRank = 0,
   int credits = 0,
   String display = 'NONE',
-  String periodEnd = '2026-10-18T12:00:00.000Z',
+  String periodEnd = '2026-11-18T12:00:00.000Z',
   Map<String, dynamic>? pending,
   List<Map<String, dynamic>>? plans,
 }) {
@@ -249,7 +250,8 @@ Map<String, dynamic> statusJson({
     'actions': {
       'canCancel': display == 'ACTIVE_RENEWING' || display == 'PAST_DUE',
       'canResume': display == 'ACTIVE_CANCELLING',
-      'canRetryPayment': display == 'PAST_DUE',
+      'canRetryPayment': false,
+      'manageUrl': subscription == null ? null : kManageUrl,
       'baseLevelOptions': const <String>[],
     },
     'plans': plans ?? defaultPlans(supplier: supplier, rank: rank),
@@ -262,7 +264,7 @@ BillingStatus billingStatus({
   int baseRank = 0,
   int credits = 0,
   String display = 'NONE',
-  String periodEnd = '2026-10-18T12:00:00.000Z',
+  String periodEnd = '2026-11-18T12:00:00.000Z',
   Map<String, dynamic>? pending,
   List<Map<String, dynamic>>? plans,
 }) => BillingStatus.fromJson(
@@ -276,23 +278,4 @@ BillingStatus billingStatus({
     pending: pending,
     plans: plans,
   ),
-);
-
-PaymentSheetSession sheetSession({
-  bool subscription = false,
-  bool requiresPayment = true,
-  String lookupKey = kLeads5,
-  String planName = '5 Lead Credits',
-  int amountPence = 5500,
-}) => PaymentSheetSession(
-  isSubscription: subscription,
-  requiresPayment: requiresPayment,
-  clientSecret: requiresPayment ? 'pi_1_secret_x' : null,
-  paymentIntentId: subscription ? null : 'pi_1',
-  subscriptionId: subscription ? 'sub_1' : null,
-  customerId: 'cus_1',
-  customerSessionClientSecret: 'cuss_secret_1',
-  planLookupKey: lookupKey,
-  planName: planName,
-  amountPence: amountPence,
 );
