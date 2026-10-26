@@ -5,7 +5,13 @@ live-ready: it stores device tokens, decides who gets what, and sends through
 Firebase Cloud Messaging. What is left is the app: ask for permission, send us
 the token, show the notification, and open the right screen when it is tapped.
 
-Firebase project: **autonect1**. The server already holds the service account.
+Firebase project: **autonect1**. The server already holds the service account,
+so the sending half works today.
+
+- **API base URL:** `https://api.autonect.co.uk` — every path below is relative
+  to it, and all of them need the user's `Authorization: Bearer <access token>`.
+- `google-services.json` is tied to the app's package name, so it can only be
+  issued **after** the rename described in `APP-DEV-CHECKLIST.md`.
 
 ---
 

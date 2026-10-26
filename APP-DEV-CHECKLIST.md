@@ -8,6 +8,19 @@ signing key.
 
 Please work through the list and send back the items in section 0.
 
+**Before you start**
+
+- **API:** `https://api.autonect.co.uk` (already the app's default; no change needed).
+- **Two documents go together:** this one is *what to provide and set up*;
+  **`PUSH-NOTIFICATIONS.md`** is *how to build the push side*.
+- **Do not rewrite the billing screens or the purchase flow** — they are
+  finished and tested. If something looks wrong there, ask before changing it.
+- **Purchases cannot be tested on an emulator**, or on a build installed by
+  `flutter run`. You need a real device, signed into a Google account that is
+  on the licence-tester list, running a build installed **from Play**.
+- Anything unclear or missing, ask rather than guess — especially about the
+  package name, which cannot be changed after the first public release.
+
 ---
 
 ## 0. What to send back
