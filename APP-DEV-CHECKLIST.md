@@ -26,6 +26,48 @@ Store Connect in-app purchase key (`.p8` + Key ID + Issuer ID).
 
 ---
 
+## 0b. Every key and file, and who handles it
+
+Nothing in this table belongs in the repo. Anything secret is sent privately
+and installed once.
+
+### From YOU (the app developer)
+
+| Key / file | What it is for | Goes to |
+|---|---|---|
+| **Play service account JSON** | Lets RevenueCat verify Android purchases and receive Play's notifications | The client's RevenueCat dashboard (or send it to us and we upload it) |
+| **Upload keystore** (`upload-keystore.jks`) + passwords | Signing release builds; purchases only work on a Play-signed build | Stays with you — never send it; just confirm it is backed up |
+| **SHA-1 / SHA-256** of the upload and Play App Signing certificates | Registering the app in Firebase | The client, for the Firebase console |
+| **Final package name / bundle id** | Everything else keys off it | Us and the client |
+| *(iOS, later)* **APNs auth key `.p8`** | Apple push delivery | Firebase console |
+| *(iOS, later)* **App Store in-app purchase key** `.p8` + Key ID + Issuer ID | Lets RevenueCat verify Apple purchases | RevenueCat dashboard |
+
+### From the CLIENT (account owner)
+
+| Key / file | For | Goes to |
+|---|---|---|
+| **`google-services.json`** (tied to the package name) | Firebase / FCM in the Android app | **You** — place in `android/app/` |
+| RevenueCat **secret key** `sk_…` | The server verifying purchases | Us (server only) |
+| RevenueCat **Android public key** `goog_…` | The app's SDK | Us (server) — the app fetches it at runtime, so it is never hard-coded |
+| RevenueCat **webhook signing secret** | Proving a webhook really came from RevenueCat | Us (server) |
+| *(iOS, later)* **`GoogleService-Info.plist`** | Firebase on iOS | You |
+
+### Already handled on our server — nothing needed from you
+
+| Key | Status |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | **Installed and live.** The server can already send pushes (Firebase project `autonect1`) |
+| `REVENUECAT_SECRET_KEY`, `REVENUECAT_ANDROID_KEY`, `REVENUECAT_IOS_KEY` | Waiting on the client's keys; we install them |
+| `REVENUECAT_WEBHOOK_SECRET` / `REVENUECAT_WEBHOOK_AUTH` | Same — and the webhook rejects everything until they exist |
+| `REVENUECAT_ENTITLEMENT` = `pro`, `REVENUECAT_OFFERING` = `default` | Already set; the dashboard must use these exact names |
+| `ANDROID_PACKAGE_NAME` | We update it as soon as you confirm the final package name |
+
+**The app stores no keys.** It asks the server for the RevenueCat public key at
+runtime (`GET /v1/billing/config`), so test and live can be swapped without an
+app release.
+
+---
+
 ## 1. BLOCKER — rename the package
 
 Right now both platforms use `com.example.autonect`:
@@ -152,6 +194,30 @@ its own, so a mismatch means showing one price and billing another.
 
 Note: cancelling, resuming and changing a card all happen **in the store**.
 The app links out to it; that is deliberate, not a missing feature.
+
+### Completing RevenueCat — every step, in order
+
+| # | Step | Who |
+|---|---|---|
+| 1 | Final package name decided and renamed in the app | **You** |
+| 2 | Upload keystore created; signed AAB on an internal testing track | **You** |
+| 3 | The six products created in Play Console with the ids and prices above, and **activated** | Client |
+| 4 | Licence testers added, so test purchases cost nothing | Client |
+| 5 | **Play service account JSON** created and granted Play Console access | **You** |
+| 6 | RevenueCat project created, Android app added, that JSON uploaded | Client (using your JSON) |
+| 7 | Entitlement **`pro`** created, with both subscription products attached | Client |
+| 8 | Offering **`default`** created, one package per product (all six) | Client |
+| 9 | Webhook `https://api.autonect.co.uk/v1/webhooks/revenuecat` added, **HMAC signing enabled** | Client |
+| 10 | Secret key, Android public key and webhook signing secret sent to us | Client |
+| 11 | Keys installed on the server; `ANDROID_PACKAGE_NAME` updated | Us |
+| 12 | Test purchase on a real device with a licence tester account | **You** |
+
+Until step 11, `GET /v1/billing/config` answers **503** and every plan comes
+back as `allowed: false`. That is the server saying "purchases are not
+configured yet" — not a bug in the app.
+
+A product left out of the `default` offering cannot be bought at all: the SDK
+will not find it, and the app says "not on sale in your store yet".
 
 ## 6. iOS, when it starts
 
