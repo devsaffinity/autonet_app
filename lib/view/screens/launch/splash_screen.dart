@@ -4,6 +4,7 @@ import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
 import 'package:autonect/controller/conttroller.dart';
+import 'package:autonect/services/push_service.dart';
 import 'package:autonect/view/widget/common_image_view_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -46,6 +47,13 @@ class _SplashScreenState extends State<SplashScreen> {
       await c.syncProviderAccess();
       if (!mounted) return;
       Get.offAllNamed(c.landingRoute);
+    }
+    // A tap that launched the app is held until there is a screen to push
+    // onto; this is that moment, on every branch above.
+    if (Get.isRegistered<PushService>()) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => Get.find<PushService>().appReady(),
+      );
     }
   }
 

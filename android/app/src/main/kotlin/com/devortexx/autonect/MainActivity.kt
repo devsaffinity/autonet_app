@@ -1,4 +1,4 @@
-package com.example.autonect
+package com.devortexx.autonect
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

@@ -3,15 +3,15 @@
          not, so a release build has no network access at all — every cached_network_image
          (and every future API call) fails silently. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- The new-request wizard attaches part photos, from the gallery or straight
-         from the camera. READ_MEDIA_IMAGES is the API 33+ replacement for
-         READ_EXTERNAL_STORAGE, which is capped at 32 so it is not requested on
-         devices that would ignore it anyway. -->
+    <!-- Android 13+ runtime permission for showing any notification. Asked by
+         PushService after login; refusing it must not break the app. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- The new-request wizard attaches part photos from the camera or gallery.
+         The gallery goes through the system photo picker (image_picker) and
+         documents through the system file picker (file_picker), so no
+         READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE is declared: Google Play
+         makes apps justify those, and this app does not need them. -->
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"/>
     <!-- required="false" so declaring CAMERA does not make Play hide the app from
          every device without a camera; attaching a photo is optional. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
@@ -51,6 +51,21 @@
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <!-- Names the channel the FCM SDK posts notification-block pushes to when
+             the message carries none. The channel itself is created in code by
+             FirebasePushGateway; the server also sets this id on every push. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="autonect_default" />
+        <!-- Status-bar icon and accent for pushes the FCM SDK shows itself (app in
+             the background). Without these it falls back to the coloured launcher
+             icon, which Android draws as a plain white square. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_launcher_monochrome" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/ic_launcher_background" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
@@ -64,6 +79,18 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- url_launcher's canLaunchUrl() is package-visibility filtered on
+             Android 11+. Without these it returns false for every https and tel
+             link on a release build, so "Open in Maps" (service_location_card,
+             upcoming_booking_details) and "Call" silently do nothing. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
         </intent>
     </queries>
 </manifest>

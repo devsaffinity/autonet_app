@@ -69,7 +69,7 @@ class FakeAuthRepository implements AuthRepository {
     required String idToken,
     AppRole? role,
   }) async {
-    calls.add('social:$provider');
+    calls.add('social:$provider:$idToken:${role?.wire}');
     return _tokens;
   }
 

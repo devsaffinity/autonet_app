@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_number": "312913178071",
+    "project_id": "autonect1",
+    "storage_bucket": "autonect1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:312913178071:android:65c8c9acde6a4acbef6f92",
+        "android_client_info": {
+          "package_name": "com.devortexx.autonect"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "312913178071-4rgi5phqb5bvs3tjf6r83s5716e2ra6n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.devortexx.autonect",
+            "certificate_hash": "8ce64d5be68eef633b785a44ab81b99b570a2cb8"
+          }
+        },
+        {
+          "client_id": "312913178071-6tk8ri2am1buroqg6kpi2cenumuvlmho.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.devortexx.autonect",
+            "certificate_hash": "31460874729df9865311e28f40b2425c9dec0705"
+          }
+        },
+        {
+          "client_id": "312913178071-cfgc5n8766mgr18pb6cdg1vs76mkvouj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.devortexx.autonect",
+            "certificate_hash": "53ddbc660330f1d1052a572f7f14c77266b855de"
+          }
+        },
+        {
+          "client_id": "312913178071-fvlei2m0bprv3vm1ga45jlmi5okv7mqa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZBxFmdmC2oNJllM1yEPA5bnFhD4P95Ys"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "312913178071-fvlei2m0bprv3vm1ga45jlmi5okv7mqa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "312913178071-3o5jg8mlm18v9v9be49t3vsahbab1in8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.devortexx.autonect"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:312913178071:android:28f050c032dc7c0aef6f92",
+        "android_client_info": {
+          "package_name": "com.example.autonect"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "312913178071-fvlei2m0bprv3vm1ga45jlmi5okv7mqa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZBxFmdmC2oNJllM1yEPA5bnFhD4P95Ys"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "312913178071-fvlei2m0bprv3vm1ga45jlmi5okv7mqa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "312913178071-3o5jg8mlm18v9v9be49t3vsahbab1in8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.devortexx.autonect"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

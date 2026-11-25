@@ -3,10 +3,9 @@ import 'package:autonect/data/models/app_notification.dart';
 
 /// The in-app notification centre.
 ///
-/// Push is deliberately absent: the backend accepts device tokens, but the app
-/// has no firebase_core/firebase_messaging and adding them is a platform
-/// configuration job, not a wiring one. Polling this on mount and on
-/// pull-to-refresh is enough for a badge.
+/// Push is a separate delivery of the same events (see PushService and
+/// DevicesRepository). Do not create a row here when a push arrives: the server
+/// has already stored it, so refresh this list instead.
 abstract class NotificationsRepository {
   /// One page, newest first, WITH the server's unread count.
   Future<ApiResult<NotificationPage>> list({int page = 1, int limit = 20});

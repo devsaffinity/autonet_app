@@ -46,3 +46,14 @@ app.*.map.json
 
 # macOS zip-extraction artifacts
 __MACOSX/
+
+# Android release signing - never commit the upload key or its passwords
+/android/key.properties
+**/*.jks
+**/*.keystore
+
+# Old Firebase config registered to the pre-rename package
+/android/app/google-services.json.*.bak
+
+# Kotlin compiler session files
+/android/.kotlin/

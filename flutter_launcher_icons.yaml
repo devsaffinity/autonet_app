@@ -1,0 +1,13 @@
+# Regenerate every launcher icon with:  dart run flutter_launcher_icons
+# Sources live in assets/launcher/ (not bundled into the app; see pubspec assets).
+flutter_launcher_icons:
+  image_path: "assets/launcher/icon.png"          # flat #D94D2F + white AUTONECT wordmark (legacy Android, iOS)
+  android: "ic_launcher"
+  ios: true
+  remove_alpha_ios: true                           # App Store rejects icons with an alpha channel
+  adaptive_icon_background: "#D94D2F"
+  adaptive_icon_foreground: "assets/launcher/icon_foreground.png"   # transparent, inside the 66dp safe zone
+  # Wrench only: a wordmark is illegible at status-bar size, and this layer is also the
+  # notification small icon (@drawable/ic_launcher_monochrome) and the Android 13+ themed icon.
+  adaptive_icon_monochrome: "assets/launcher/icon_monochrome.png"
+  min_sdk_android: 21

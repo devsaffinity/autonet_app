@@ -94,7 +94,7 @@ class ReceiptPdf {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.RichText(
-              text: const pw.TextSpan(
+              text: pw.TextSpan(
                 children: [
                   pw.TextSpan(
                     text: 'Auto',
@@ -120,7 +120,7 @@ class ReceiptPdf {
           children: [
             pw.Text(
               r.receiptNumber,
-              style: const pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 3),
             pw.Text(
@@ -157,10 +157,10 @@ class ReceiptPdf {
         child: pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('Total', style: const pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Total', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
             pw.Text(
               formatPence(r.amountPence),
-              style: const pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
             ),
           ],
         ),
@@ -198,7 +198,7 @@ class ReceiptPdf {
       pw.Text(
         value,
         textDirection: _direction(value),
-        style: const pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
       ),
     ],
   );

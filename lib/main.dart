@@ -10,7 +10,10 @@ import 'package:autonect/data/repositories/auth_api_repository.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';
 import 'package:autonect/data/repositories/billing_api_repository.dart';
 import 'package:autonect/data/repositories/billing_repository.dart';
+import 'package:autonect/controller/buyer/notifications_controller.dart';
 import 'package:autonect/data/repositories/catalog_api_repository.dart';
+import 'package:autonect/data/repositories/devices_api_repository.dart';
+import 'package:autonect/data/repositories/devices_repository.dart';
 import 'package:autonect/data/repositories/catalog_repository.dart';
 import 'package:autonect/data/repositories/kyc_api_repository.dart';
 import 'package:autonect/data/repositories/kyc_repository.dart';
@@ -36,7 +39,12 @@ import 'package:autonect/data/repositories/supplier_repository.dart';
 import 'package:autonect/data/repositories/vehicles_api_repository.dart';
 import 'package:autonect/data/repositories/vehicles_repository.dart';
 import 'package:autonect/services/document_picker_service.dart';
+import 'package:autonect/services/firebase_push_gateway.dart';
+import 'package:autonect/services/firebase_social_sign_in_gateway.dart';
+import 'package:autonect/services/social_sign_in_gateway.dart';
 import 'package:autonect/services/image_picker_service.dart';
+import 'package:autonect/services/push_service.dart';
+import 'package:autonect/view/screens/buyer/notifications/notification_target.dart';
 import 'package:autonect/services/purchase_gateway.dart';
 import 'package:autonect/services/session_store.dart';
 import 'package:autonect/services/revenuecat_purchase_gateway.dart';
@@ -133,6 +141,13 @@ void main() async {
     NotificationsApiRepository(client, tokens),
     permanent: true,
   );
+  Get.put<DevicesRepository>(
+    DevicesApiRepository(client, tokens),
+    permanent: true,
+  );
+  // Google sign-in through Firebase. Starts nothing until the user taps the
+  // button, so a missing google-services.json costs nothing at launch.
+  Get.put<SocialSignInGateway>(FirebaseSocialSignInGateway(), permanent: true);
   Get.put<BlobUploader>(BlobUploader(transport), permanent: true);
   Get.put<ImagePickerService>(DeviceImagePickerService(), permanent: true);
   Get.put<DocumentPickerService>(
@@ -140,7 +155,26 @@ void main() async {
     permanent: true,
   );
   Get.put(RoleController(), permanent: true);
+  // After RoleController: registration follows its isLoggedIn flag. Started
+  // without await so a slow or absent Firebase never delays the first frame;
+  // it swallows its own failures (no google-services.json = no push, not a
+  // crash).
+  final push = PushService(
+    gateway: FirebasePushGateway(),
+    devices: Get.find<DevicesRepository>(),
+    loggedIn: RoleController.to.isLoggedIn,
+    openTarget: openPushTarget,
+    onForegroundPush: () {
+      // Only if the badge has been built; ensure() would create it just to
+      // refresh it.
+      if (Get.isRegistered<NotificationsController>()) {
+        NotificationsController.to.refreshUnread();
+      }
+    },
+  );
+  Get.put<PushService>(push, permanent: true);
   runApp(MyApp());
+  push.start();
 }
 
 //DO NOT REMOVE Unless you find their usage.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:autonect/data/core/chat_socket.dart';
 import 'package:autonect/config/routes/routes.dart';
 import 'package:autonect/constants/app_role.dart';
@@ -6,7 +8,9 @@ import 'package:autonect/data/models/auth_user.dart';
 import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/repositories/profile_repository.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';
+import 'package:autonect/services/push_service.dart';
 import 'package:autonect/services/session_store.dart';
+import 'package:autonect/services/social_sign_in_gateway.dart';
 import 'package:get/get.dart';
 
 class RoleController extends GetxController {
@@ -99,9 +103,25 @@ class RoleController extends GetxController {
   /// Lands on Login, not the role picker: choosing a role is a step of
   /// creating an account, and someone who just signed out already has one.
   Future<void> signOut() async {
+    // Before logout(), which clears the tokens: dropping this device from the
+    // server needs the access token. Skipped, the next account to sign in on
+    // this phone keeps getting this one's notifications.
+    if (Get.isRegistered<PushService>()) {
+      await Get.find<PushService>().unregisterDevice();
+    }
     await Get.find<AuthRepository>().logout();
+    await _forgetSocialSession();
     _localTeardown();
     Get.offAllNamed(AppLinks.login);
+  }
+
+  /// Drops the Google/Firebase session so the next "Continue with Google" shows
+  /// the account picker instead of silently reusing this user's account. The
+  /// gateway never throws; registered lazily so a test without it is unchanged.
+  Future<void> _forgetSocialSession() async {
+    if (Get.isRegistered<SocialSignInGateway>()) {
+      await Get.find<SocialSignInGateway>().signOut();
+    }
   }
 
   /// Wired to ApiClient.onSessionExpired. The session is ALREADY dead
@@ -113,6 +133,13 @@ class RoleController extends GetxController {
   void forceSignOut() {
     if (_forcedOut) return;
     _forcedOut = true;
+    // The server cannot be told — the session is already dead — but dropping
+    // the local token still gives the next login a fresh identity.
+    if (Get.isRegistered<PushService>()) {
+      Get.find<PushService>().forgetDevice();
+    }
+    // Not awaited: forceSignOut is synchronous and idempotent by design.
+    unawaited(_forgetSocialSession());
     _localTeardown();
     displayToast(msg: 'Your session expired. Please log in again.');
     if (Get.isDialogOpen == true) Get.close(1);

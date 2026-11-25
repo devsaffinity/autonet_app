@@ -243,39 +243,33 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
 
-                  Align(
-                    alignment: AlignmentGeometry.center,
-                    child: MyText(
-                      textAlign: TextAlign.center,
-                      paddingBottom: 20,
-                      paddingTop: 10,
-                      text: "OR",
-                      size: 14,
-                      weight: FontWeight.w500,
-                      color: kGreyTextColor,
+                  // Hidden where Google sign-in cannot run, rather than shown as
+                  // a button that does nothing.
+                  if (c.googleAvailable) ...[
+                    Align(
+                      alignment: AlignmentGeometry.center,
+                      child: MyText(
+                        textAlign: TextAlign.center,
+                        paddingBottom: 20,
+                        paddingTop: 10,
+                        text: "OR",
+                        size: 14,
+                        weight: FontWeight.w500,
+                        color: kGreyTextColor,
+                      ),
                     ),
-                  ),
-
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(2, (index) {
-                      List<String> icons = [
-                        Assets.imagesGoogleIcon,
-                        Assets.imagesAppleLogo,
-                      ];
-                      return Padding(
-                        padding: EdgeInsetsGeometry.only(bottom: 10),
-                        child: SocialBtn(
-                          icon: icons[index],
-                          color: kWhiteColor,
-                          title: (index == 0)
-                              ? "Continue With Google"
-                              : "Continue With Apple",
-                          onTap: () {},
-                        ),
-                      );
-                    }),
-                  ),
+                    Padding(
+                      padding: EdgeInsetsGeometry.only(bottom: 10),
+                      child: SocialBtn(
+                        icon: Assets.imagesGoogleIcon,
+                        color: kWhiteColor,
+                        title: "Continue With Google",
+                        // The role picked one screen back: a brand-new Google
+                        // account has no other way to get one.
+                        onTap: () => continueWithGoogle(role: widget.role),
+                      ),
+                    ),
+                  ],
                   SizedBox(height: 50),
                 ],
               ),

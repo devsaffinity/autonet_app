@@ -6,6 +6,7 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/message_ack.dart';
 import 'package:autonect/data/models/token_pair.dart';
 import 'package:autonect/data/repositories/auth_repository.dart';
+import 'package:autonect/services/social_sign_in_gateway.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -29,10 +30,14 @@ class AuthController extends GetxController {
     this.toast = _defaultToast,
     this.showBusy = showLoadingDialog,
     this.hideBusy = hideLoadingDialog,
-  });
+    SocialSignInGateway? social,
+  }) : _social = social;
 
   final AuthRepository _repo;
   final RoleController _role;
+
+  /// Null in a build or test without one; [google] then reports it unavailable.
+  final SocialSignInGateway? _social;
   final void Function(String) toast;
   final VoidCallback showBusy;
   final VoidCallback hideBusy;
@@ -46,7 +51,18 @@ class AuthController extends GetxController {
   /// /v1/auth/otp/verify. Not permanent — it dies with the last auth screen.
   static AuthController ensure() => Get.isRegistered<AuthController>()
       ? Get.find<AuthController>()
-      : Get.put(AuthController(Get.find<AuthRepository>(), RoleController.to));
+      : Get.put(
+          AuthController(
+            Get.find<AuthRepository>(),
+            RoleController.to,
+            social: Get.isRegistered<SocialSignInGateway>()
+                ? Get.find<SocialSignInGateway>()
+                : null,
+          ),
+        );
+
+  /// Whether the Google button should be shown at all.
+  bool get googleAvailable => _social?.isSupported ?? false;
 
   final RxBool busy = false.obs;
   final RxnString formError = RxnString();
@@ -82,6 +98,71 @@ class AuthController extends GetxController {
     }
     return _afterTokens(r, form);
   });
+
+  bool _googlePending = false;
+
+  /// Google sign-in through Firebase, for both Login and Sign Up.
+  ///
+  /// [role] is the account type picked on the sign-up screen. Login has none:
+  /// an existing account already has its role on the server, and for a Google
+  /// address with no account yet the server asks for one, which becomes a
+  /// message pointing the user at Sign Up (the role picker lives there).
+  ///
+  /// The OS account picker runs BEFORE the busy dialog and the busy latch: the
+  /// dialog would sit on top of it, and a cancelled picker must leave no trace.
+  /// Google has already verified the email, so there is no OTP step.
+  Future<AuthOutcome> google({AppRole? role}) async {
+    final social = _social;
+    if (_googlePending || busy.value) return AuthOutcome.failed;
+    clearErrors();
+    if (social == null || !social.isSupported) {
+      formError.value = 'Google sign-in is not available on this device.';
+      return AuthOutcome.failed;
+    }
+
+    _googlePending = true;
+    final SocialSignInResult picked;
+    try {
+      picked = await social.signInWithGoogle();
+    } finally {
+      _googlePending = false;
+    }
+
+    switch (picked) {
+      case SocialSignInCancelled():
+        return AuthOutcome.failed;
+      case SocialSignInFailed(:final message):
+        formError.value = message;
+        return AuthOutcome.failed;
+      case SocialSignInSuccess(:final idToken):
+        return _run(
+          null,
+          // The server's enum is exactly "GOOGLE" | "APPLE"; lower case is a
+          // 400 VALIDATION_ERROR on `provider`.
+          () => _repo.social(provider: 'GOOGLE', idToken: idToken, role: role),
+          (r) {
+            if (r case Err(:final error)
+                when error.code == ApiErrorCode.validationError &&
+                    error.fieldErrors.containsKey('role')) {
+              // No account for this Google address, and Login cannot choose a
+              // role. Do not guess one: a supplier would silently get a buyer
+              // account.
+              formError.value =
+                  'No Autonect account exists for this Google account yet. '
+                  'Tap Sign Up, choose your account type, then continue with '
+                  'Google.';
+              _social?.signOut();
+              return AuthOutcome.failed;
+            }
+            final outcome = _afterTokens(r, null);
+            // Not signed in to Autonect: drop the Google session too, so the
+            // next attempt shows the account picker.
+            if (outcome == AuthOutcome.failed) _social?.signOut();
+            return outcome;
+          },
+        );
+    }
+  }
 
   /// Returns NO tokens: the account stays PENDING_VERIFICATION until the OTP is
   /// verified, so the caller must push the OTP screen, not the app shell.

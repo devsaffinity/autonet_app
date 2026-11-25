@@ -1,5 +1,6 @@
 import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_images.dart';
+import 'package:autonect/constants/app_role.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_styling.dart';
 import 'package:autonect/constants/loading_animation.dart';
@@ -208,45 +209,47 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
 
-            MyText(
-              paddingBottom: 20,
-              paddingTop: 10,
-              text: "OR",
-              size: 14,
-              weight: FontWeight.w500,
-              color: kGreyTextColor,
-            ),
-
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(2, (index) {
-                List<String> icons = [
-                  Assets.imagesGoogleIcon,
-                  Assets.imagesAppleLogo,
-                ];
-                return Padding(
-                  padding: EdgeInsetsGeometry.only(bottom: 10),
-                  child: SocialBtn(
-                    icon: icons[index],
-                    color: kWhiteColor,
-                    // Was inverted against the icons: index 0 is the Google
-                    // asset and read "Continue With Apple".
-                    title: (index == 0)
-                        ? "Continue With Google"
-                        : "Continue With Apple",
-                    // POST /v1/auth/social needs a real idToken from the
-                    // Google/Apple SDKs, which are not wired this phase.
-                    onTap: () {},
-                  ),
-                );
-              }),
-            ),
+            // Hidden where Google sign-in cannot run (no Firebase config in the
+            // build), rather than shown as a button that does nothing.
+            if (c.googleAvailable) ...[
+              MyText(
+                paddingBottom: 20,
+                paddingTop: 10,
+                text: "OR",
+                size: 14,
+                weight: FontWeight.w500,
+                color: kGreyTextColor,
+              ),
+              Padding(
+                padding: EdgeInsetsGeometry.only(bottom: 10),
+                child: SocialBtn(
+                  icon: Assets.imagesGoogleIcon,
+                  color: kWhiteColor,
+                  title: "Continue With Google",
+                  // No role here: an existing account has one on the server.
+                  onTap: () => continueWithGoogle(),
+                ),
+              ),
+            ],
             SizedBox(height: 12),
           ],
         ),
       ),
     );
   }
+}
+
+/// "Continue with Google", shared by Login and Sign Up.
+///
+/// [role] is the account type picked on the sign-up screen, null on Login.
+/// Routing after success is identical to an email login: ask the server where a
+/// provider belongs, then take the one role -> destination mapping.
+Future<void> continueWithGoogle({AppRole? role}) async {
+  final outcome = await AuthController.ensure().google(role: role);
+  if (outcome != AuthOutcome.success) return;
+  final roles = RoleController.to;
+  await roles.syncProviderAccess();
+  Get.offAllNamed(roles.landingRoute);
 }
 
 /// The form-level error banner, shared by all four auth screens. Anything the

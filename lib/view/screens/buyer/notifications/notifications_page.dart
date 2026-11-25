@@ -2,21 +2,8 @@ import 'package:autonect/constants/app_colors.dart';
 import 'package:autonect/constants/app_sizes.dart';
 import 'package:autonect/constants/app_text_styles.dart';
 import 'package:autonect/controller/buyer/notifications_controller.dart';
-import 'package:autonect/data/core/api_result.dart';
-import 'package:autonect/data/core/token_store.dart';
 import 'package:autonect/data/models/app_notification.dart';
-import 'package:autonect/data/models/booking.dart';
-import 'package:autonect/data/models/conversation.dart';
-import 'package:autonect/data/repositories/bookings_repository.dart';
-import 'package:autonect/view/screens/buyer/detail/order_status.dart';
-import 'package:autonect/view/screens/buyer/providers/booking_detail.dart';
-import 'package:autonect/view/screens/buyer/providers/my_bookings.dart';
-import 'package:autonect/view/screens/buyer/request/request_detail.dart';
-import 'package:autonect/view/screens/chat/chat_room.dart';
-import 'package:autonect/view/screens/electrician/home/upcoming_booking_details.dart';
-import 'package:autonect/view/screens/supplier/offers/supplier_offers.dart';
-import 'package:autonect/view/screens/supplier/orders/supplier_order_detail.dart';
-import 'package:autonect/view/screens/supplier/requests/supplier_request_detail.dart';
+import 'package:autonect/view/screens/buyer/notifications/notification_target.dart';
 import 'package:autonect/view/widget/confirm_dialog.dart';
 import 'package:autonect/view/widget/general_appbar.dart';
 import 'package:autonect/view/widget/my_text_widget.dart';
@@ -187,63 +174,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     await _c.markRead(n);
     if (!mounted) return;
 
-    final role = Get.isRegistered<TokenStore>()
-        ? Get.find<TokenStore>().user?.role
-        : null;
-
-    if (n.orderId case final id?) {
-      if (role == 'SUPPLIER') {
-        Get.to(() => SupplierOrderDetailPage(orderId: id));
-      } else {
-        Get.to(() => OrderStatusPage(orderId: id));
-      }
-      return;
-    }
-    if (n.requestId case final id?) {
-      if (role == 'SUPPLIER') {
-        Get.to(() => SupplierRequestDetailPage(requestId: id));
-      } else {
-        Get.to(() => BuyerRequestDetailPage(requestId: id));
-      }
-      return;
-    }
-    if (n.offerId != null) {
-      if (role == 'SUPPLIER') {
-        Get.to(() => const SupplierOffersPage());
-        return;
-      }
-    }
-    if (n.bookingId case final id?) {
-      if (role == 'ELECTRICIAN') {
-        Get.to(() => ElectricianBookingDetailsPage(bookingId: id));
-        return;
-      }
-      if (Get.isRegistered<BookingsRepository>()) {
-        final res = await Get.find<BookingsRepository>().byId(id);
-        if (res is Ok<Booking> && mounted) {
-          Get.to(() => BookingDetailPage(booking: res.value));
-          return;
-        }
-      }
-      Get.to(() => const MyBookingsPage());
-      return;
-    }
-    if (n.conversationId case final id?) {
-      final senderTitle = n.title.startsWith('New message from ')
-          ? n.title.replaceFirst('New message from ', '').trim()
-          : null;
-      Get.to(() => ChatRoomPage(
-        conversationId: id,
-        contextId: n.bookingId ?? n.offerId,
-        type: n.offerId != null
-            ? ConversationType.offer
-            : ConversationType.booking,
-        title: senderTitle,
-      ));
-      return;
-    }
-    // No payload: the row itself carried the whole message, and there is
-    // nothing to open.
+    // Returns false when the payload names nothing to open: the row itself
+    // carried the whole message, so there is nowhere to go.
+    await openNotificationTarget(n);
   }
 }
 

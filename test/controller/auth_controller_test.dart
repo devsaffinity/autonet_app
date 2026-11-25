@@ -6,10 +6,12 @@ import 'package:autonect/data/core/api_result.dart';
 import 'package:autonect/data/models/auth_user.dart';
 import 'package:autonect/data/models/token_pair.dart';
 import 'package:autonect/services/session_store.dart';
+import 'package:autonect/services/social_sign_in_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../fakes/fake_auth_repository.dart';
+import '../fakes/fake_social_sign_in.dart';
 
 /// forceSignOut() navigates and toasts, neither of which exists in a unit test,
 /// so it is stubbed to a counter here.
@@ -125,6 +127,104 @@ void main() {
     test('sessionExpired delegates to RoleController.forceSignOut', () {
       c.absorb(err(ApiErrorCode.sessionExpired), null);
       expect(role.forced, 1);
+    });
+  });
+
+  group('google sign-in', () {
+    late FakeSocialSignInGateway social;
+    late AuthController g;
+
+    setUp(() {
+      social = FakeSocialSignInGateway();
+      g = AuthController(
+        repo,
+        role,
+        toast: toasts.add,
+        showBusy: () {},
+        hideBusy: () {},
+        social: social,
+      );
+    });
+
+    test('sends the Firebase token and the picked role, then signs in',
+        () async {
+      social.result = const SocialSignInSuccess('FB-TOKEN');
+      repo.tokenResult = Ok(pairFor('SUPPLIER'));
+      expect(await g.google(role: AppRole.supplier), AuthOutcome.success);
+      expect(repo.calls.single, 'social:GOOGLE:FB-TOKEN:SUPPLIER');
+      expect(role.role.value, AppRole.supplier);
+      expect(role.isLoggedIn.value, isTrue);
+      expect(role.latchResets, 1);
+      expect(g.busy.value, isFalse);
+    });
+
+    test('login sends no role', () async {
+      social.result = const SocialSignInSuccess('FB-TOKEN');
+      repo.tokenResult = Ok(pairFor('BUYER'));
+      await g.google();
+      expect(repo.calls.single, 'social:GOOGLE:FB-TOKEN:null');
+    });
+
+    test('a cancelled picker is silent and sends nothing', () async {
+      social.result = const SocialSignInCancelled();
+      expect(await g.google(), AuthOutcome.failed);
+      expect(repo.calls, isEmpty);
+      expect(g.formError.value, isNull);
+      expect(toasts, isEmpty);
+    });
+
+    test('a failed sign-in shows its message and sends nothing', () async {
+      social.result = const SocialSignInFailed('Google went wrong');
+      expect(await g.google(), AuthOutcome.failed);
+      expect(repo.calls, isEmpty);
+      expect(g.formError.value, 'Google went wrong');
+    });
+
+    test('an unknown Google address with no role points to Sign Up', () async {
+      social.result = const SocialSignInSuccess('FB-TOKEN');
+      repo.tokenResult = Err(
+        err(
+          ApiErrorCode.validationError,
+          status: 400,
+          f: const [FieldError('role', 'Required')],
+        ),
+      );
+      expect(await g.google(), AuthOutcome.failed);
+      expect(g.formError.value, contains('Sign Up'));
+      expect(g.fieldErrorFor('role'), isNull);
+      // Not left signed in to Google, so the next tap shows the picker.
+      expect(social.signOuts, 1);
+    });
+
+    test('a server rejection shows its message and drops the Google session',
+        () async {
+      social.result = const SocialSignInSuccess('FB-TOKEN');
+      repo.tokenResult = Err(err(ApiErrorCode.accountSuspended, status: 403));
+      expect(await g.google(), AuthOutcome.failed);
+      expect(g.formError.value, 'server copy');
+      expect(role.isLoggedIn.value, isFalse);
+      expect(social.signOuts, 1);
+    });
+
+    test('ADMIN cannot sign in with Google either', () async {
+      social.result = const SocialSignInSuccess('FB-TOKEN');
+      repo.tokenResult = Ok(pairFor('ADMIN'));
+      expect(await g.google(), AuthOutcome.failed);
+      expect(role.isLoggedIn.value, isFalse);
+      expect(g.formError.value, contains('web console'));
+    });
+
+    test('unavailable gateway reports it instead of doing nothing', () async {
+      social.supported = false;
+      expect(g.googleAvailable, isFalse);
+      expect(await g.google(), AuthOutcome.failed);
+      expect(social.picks, 0);
+      expect(g.formError.value, contains('not available'));
+    });
+
+    test('no gateway at all is also unavailable', () async {
+      expect(c.googleAvailable, isFalse);
+      expect(await c.google(), AuthOutcome.failed);
     });
   });
 
